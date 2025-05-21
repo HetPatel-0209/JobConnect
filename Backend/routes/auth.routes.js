@@ -1,18 +1,28 @@
 const express = require('express');
 const router = express.Router();
-const { login } = require('../controllers/auth.controller');
+const { 
+    register, 
+    login, 
+    adminLogin, 
+    getProfile,
+    updateProfile
+} = require('../controllers/auth.controller');
+const { authenticate, authorizeRoles } = require('../middlewares/auth.middleware');
+const {
+    registerValidation,
+    loginValidation,
+    jobseekerProfileValidation,
+    recruiterProfileValidation
+} = require('../middlewares/validation.middleware');
 
-// Handle preflight OPTIONS requests for CORS
-router.options('/login', (req, res) => {
-    // Set CORS headers for preflight requests
-    res.header('Access-Control-Allow-Origin', req.headers.origin);
-    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.status(204).end();
-});
+// Public routes
+router.post('/register', registerValidation, register);
+router.post('/login', loginValidation, login);
+router.post('/admin/login', loginValidation, adminLogin);
 
-// Login route
-router.post('/login', login);
+// Protected routes
+router.get('/profile', authenticate, getProfile);
+router.put('/profile/jobseeker', authenticate, authorizeRoles('jobseeker'), jobseekerProfileValidation, updateProfile);
+router.put('/profile/recruiter', authenticate, authorizeRoles('recruiter'), recruiterProfileValidation, updateProfile);
 
 module.exports = router;

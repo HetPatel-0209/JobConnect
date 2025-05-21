@@ -1,7 +1,7 @@
 const ROLES = {
     ADMIN: 'admin',
     RECRUITER: 'recruiter',
-    USER: 'user'
+    USER: 'jobseeker'
 }
 
 const PERMISSIONS = {
