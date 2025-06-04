@@ -9,59 +9,50 @@ const jobPostSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    requirements: [{
-        type: String,
-        required: true
-    }],
+    requirements: {
+        experience: { min: Number, max: Number }, // years
+        education: [String],
+        skills: {
+            required: [String],
+            preferred: [String]
+        }
+    },
     location: {
         type: String,
+        required: true
+    },
+    jobType: {
+        type: String,
+        enum: ['full-time', 'part-time', 'contract', 'internship'],
+        required: true
+    },
+    workMode: {
+        type: String,
+        enum: ['remote', 'on-site', 'hybrid'],
         required: true
     },
     salary: {
         min: Number,
         max: Number
     },
-    skills: [{
-        type: String,
-        required: true
-    }],
     recruiter: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    company: {
-        type: String,
+    organization: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Organization',
         required: true
     },
-    status: {
-        type: String,
-        enum: ['active', 'closed'],
-        default: 'active'
-    },
-    applications: [{
-        jobseeker: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-        },
-        status: {
-            type: String,
-            enum: ['pending', 'accepted', 'rejected'],
-            default: 'pending'
-        },
-        atsScore: {
-            type: Number,
-            default: 0
-        },
-        appliedAt: {
-            type: Date,
-            default: Date.now
-        }
-    }],
+    status: { type: String, enum: ['draft', 'active', 'closed'], default: 'draft' },
     createdAt: {
         type: Date,
         default: Date.now
     }
 });
-
+jobPostSchema.index({ status: 1, createdAt: -1 });
+jobPostSchema.index({ 'requirements.skills.required': 1 });
+jobPostSchema.index({ location: 1, jobType: 1, workMode: 1 });
+jobPostSchema.index({ organization: 1, status: 1 });
 module.exports = mongoose.model('JobPost', jobPostSchema);
