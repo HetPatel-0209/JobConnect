@@ -1,44 +1,46 @@
 const mongoose = require('mongoose');
 
-const messageSchema = new mongoose.Schema({
-    sender: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
-    content: {
-        type: String,
-        required: true
-    },
-    timestamp: {
-        type: Date,
-        default: Date.now
-    },
-    read: {
-        type: Boolean,
-        default: false
-    }
-});
-
 const chatSchema = new mongoose.Schema({
     participants: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        joinedAt: { type: Date, default: Date.now },
+        lastSeen: { type: Date, default: Date.now }
     }],
-    messages: [messageSchema],
     lastMessage: {
-        type: Date,
-        default: Date.now
-    }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Message'
+    },
+    isActive: { type: Boolean, default: true }
+}, { timestamps: true });
+
+const messageSchema = new mongoose.Schema({
+    chat: { type: mongoose.Schema.Types.ObjectId, ref: 'Chat', required: true },
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    content: { type: String, required: true },
+    messageType: {
+        type: String,
+        enum: ['text', 'file', 'interview_invite', 'status_update'],
+        default: 'text'
+    },
+    readBy: [{
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        readAt: { type: Date, default: Date.now }
+    }],
+    timestamp: { type: Date, default: Date.now }
 });
 
 // Ensure participants array always has exactly 2 users
-chatSchema.pre('save', function(next) {
+chatSchema.pre('save', function (next) {
     if (this.participants.length !== 2) {
         next(new Error('Chat must have exactly 2 participants'));
     }
     next();
 });
 
-module.exports = mongoose.model('Chat', chatSchema);
+chatSchema.index({ 'participants.user': 1, isActive: 1 });
+chatSchema.index({ application: 1 });
+messageSchema.index({ chat: 1, timestamp: -1 });
+
+const Chat = mongoose.model('Chat', chatSchema);
+const Message = mongoose.model('Message', messageSchema);
+module.exports = { Chat, Message };
