@@ -1,0 +1,143 @@
+.dashboard {
+  padding: 100px 20px 40px 20px; /* Top padding ensures it's below navbar */
+  background-color: #ffffff;
+  font-family: 'Poppins', sans-serif;
+  min-height: 100vh;
+}
+
+/* Add if not already present */
+.stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.card {
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 1rem;
+  flex: 1;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  min-width: 250px;
+}
+
+.section {
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 1.2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.job-card {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.job-details h4 {
+  margin-bottom: 0.2rem;
+}
+
+.job-details .light {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+.job-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.8rem;
+}
+
+.applicants {
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.2rem 0.6rem;
+  border-radius: 1rem;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  height: 30px;
+}
+
+.applicants.active {
+  background-color: #bbf7d0;
+  color: #064e3b;
+}
+
+.applicants.close {
+  background-color: #e5e7eb;
+  color: #4b5563;
+}
+button {
+  margin-top: 15px;
+  padding: 5px 10px;
+  font-size: 15px;
+  border: 1px solid transparent; /* Add this */
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease; /* optional smooth effect */
+  background: blue;
+  color: white;
+}
+
+
+button:hover{
+  background: #88888851;
+  color: black; 
+  /* transform: scale(1.05);*/
+  /* transition: all 0.3s ease; */
+  /* border: 1px solid black; */
+  font-weight: 500;
+
+}
+
+.new-today {
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: green;
+  font-weight: 500;
+}
+
+.clock-icon {
+  font-size: 25px;
+  color: green;
+}
+
+.post-job-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.plus-icon {
+  font-size: 18px;
+}
+
+.remove-btn {
+  background-color: black;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 10px;
+  font-size: 0.9rem;
+  transition: background-color 0.3s ease;
+}
+
+.remove-btn:hover {
+  background-color: #d63333;
+  color: #ffffff;
+}
+
