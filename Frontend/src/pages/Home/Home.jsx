@@ -1,11 +1,19 @@
 import React from 'react';
-import './Home.css';
 import { useNavigate } from 'react-router-dom';
-import { TbCircleNumber1Filled, TbCircleNumber2Filled, TbCircleNumber3Filled } from "react-icons/tb";
-import card1 from '../../assets/card1.png';
-import card2 from '../../assets/card2.png';
-import card3 from '../../assets/card3.png';
-import card4 from '../../assets/card4.png';
+import {
+  Search,
+  Briefcase,
+  Users,
+  MessageCircle,
+  UserPlus,
+  Building2,
+  Zap,
+  CheckCircle,
+  ArrowRight,
+  Sparkles,
+  Target,
+  Globe
+} from 'lucide-react';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -14,103 +22,242 @@ const Home = () => {
     navigate(`/auth?mode=register&type=${type}`);
   };
 
+  const features = [
+    {
+      icon: <Zap className="w-12 h-12 text-blue-600" />,
+      title: "AI-Based Matching",
+      description: "Our AI algorithm analyzes resumes and job descriptions to find the perfect matches."
+    },
+    {
+      icon: <Briefcase className="w-12 h-12 text-blue-600" />,
+      title: "Smart Job Listings",
+      description: "Create detailed job postings that attract qualified candidates with the right skills."
+    },
+    {
+      icon: <Users className="w-12 h-12 text-blue-600" />,
+      title: "Applicant Tracking",
+      description: "Manage candidates, track applications, and collaborate with your hiring team."
+    },
+    {
+      icon: <MessageCircle className="w-12 h-12 text-blue-600" />,
+      title: "Real-Time Chat",
+      description: "Connect directly with potential candidates or employers through our messaging system."
+    }
+  ];
+
+  const steps = [
+    {
+      number: "1",
+      title: "Create Your Profile",
+      description: "Sign up and create a detailed profile. For job seekers, upload your resume; for employers, set up your company profile."
+    },
+    {
+      number: "2",
+      title: "Connect with AI Matching",
+      description: "Our AI system analyzes profiles and job listings to suggest the best matches based on skills, experience, and requirements."
+    },
+    {
+      number: "3",
+      title: "Apply or Hire with Confidence",
+      description: "Job seekers can apply to recommended positions, while employers can review vetted candidates and make informed hiring decisions."
+    }
+  ];
+
   return (
-    <div>
-      {/* Section 1 */}
-      <div className="section1">
-        <div className="containerh">
-          <h1 className='t1'>Connect with the Right Talent Using AI</h1>
-          <h5 className='t2'>
-            JobConnect uses advanced AI matching to connect companies with qualified candidates based on skills, experience, and culture fit.
-          </h5>
+    <div className="min-h-screen mt-8">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 pt-24 pb-16 px-4 relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-blue-600 opacity-20">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-10 transform -skew-y-12"></div>
         </div>
 
-        <div className='button'>
-          <button className='b1' onClick={() => goToRegister('jobseeker')}>Find a job</button>
-          <button className='b2' onClick={() => goToRegister('employer')}>Post a job</button>
-        </div>
-      </div>
-
-      {/* Section 2 */}
-      <div className="section2">
-        <div className="containerg">
-          <h1>Why Choose JobConnect</h1>
-          <p>Our AI-powered platform makes hiring and job searching more efficient and effective.</p>
-        </div>
-
-        <div className='card-container'>
-          <div className='card'>
-            <img src={card1} className='pic' alt="AI-Based Matching" />
-            <h2>AI-Based Matching</h2>
-            <p>Our AI algorithm analyzes resumes and job descriptions to find the perfect matches.</p>
+        <div className="max-w-6xl mx-auto text-center relative z-10">
+          <div className="mb-8">            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
+            Connect with the Right Talent
+            <span className="flex items-center justify-center gap-3 mt-2 text-yellow-300">
+              <Sparkles className="w-12 h-12" />
+              Using AI
+              <Sparkles className="w-12 h-12" />
+            </span>
+          </h1>
+            <p className="text-xl md:text-2xl text-blue-100 max-w-4xl mx-auto leading-relaxed">
+              JobConnect uses advanced AI matching to connect companies with qualified candidates based on skills, experience, and culture fit.
+            </p>
           </div>
 
-          <div className='card'>
-            <img src={card2} className='pic' alt="Smart Job Listings" />
-            <h2>Smart Job Listings</h2>
-            <p>Create detailed job postings that attract qualified candidates with the right skills.</p>
-          </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <button
+              onClick={() => goToRegister('jobseeker')}
+              className="group flex items-center gap-3 px-8 py-4 bg-white text-blue-700 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            >
+              <Search className="w-6 h-6" />
+              Find a Job
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+            </button>
 
-          <div className='card'>
-            <img src={card3} className='pic' alt="Applicant Tracking" />
-            <h2>Applicant Tracking</h2>
-            <p>Manage candidates, track applications, and collaborate with your hiring team.</p>
-          </div>
-
-          <div className='card'>
-            <img src={card4} className='pic' alt="Real-Time Chat" />
-            <h2>Real-Time Chat</h2>
-            <p>Connect directly with potential candidates or employers through our messaging system.</p>
+            <button
+              onClick={() => goToRegister('employer')}
+              className="group flex items-center gap-3 px-8 py-4 bg-blue-800 text-white border-2 border-white rounded-lg hover:bg-black hover:border-gray-300 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            >
+              <Briefcase className="w-6 h-6" />
+              Post a Job
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+            </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Section 3 */}
-      <div className="section3">
-        <h1>How JobConnect Works</h1>
-        <p>Our platform makes the hiring process simple and efficient for both employers and job seekers.</p>
-        <div className='containerf'>
-          <div className='c1'>
-            <div className='size'><TbCircleNumber1Filled /></div>
-            <h3>Create Your Profile</h3>
-            <p>Sign up and create a detailed profile. For job seekers, upload your resume; for employers, set up your company profile.</p>
+      {/* Features Section */}
+      <section className="py-20 px-4 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">Why Choose JobConnect</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Our AI-powered platform makes hiring and job searching more efficient and effective.
+            </p>
           </div>
 
-          <div className='c1'>
-            <div className='size'><TbCircleNumber2Filled /></div>
-            <h3>Connect with AI Matching</h3>
-            <p>Our AI system analyzes profiles and job listings to suggest the best matches based on skills, experience, and requirements.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, index) => (
+              <div key={index} className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-blue-200 transform hover:-translate-y-2">
+                <div className="text-center">
+                  <div className="mb-6 flex justify-center">
+                    <div className="relative">
+                      <div className="w-16 h-16 object-contain mb-42">
+                        {feature.icon}
+                      </div>
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-4 group-hover:text-blue-600 transition-colors duration-200">
+                    {feature.title}
+                  </h3>
+                  <p className="text-gray-600 leading-relaxed">
+                    {feature.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>      
+      {/* How It Works Section */}
+      <section className="py-20 px-4 bg-gradient-to-b from-rose-50 to-orange-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">How JobConnect Works</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Our platform makes the hiring process simple and efficient for both employers and job seekers.
+            </p>
           </div>
 
-          <div className='c1'>
-            <div className='size'><TbCircleNumber3Filled /></div>
-            <h3>Apply or Hire with Confidence</h3>
-            <p>Job seekers can apply to recommended positions, while employers can review vetted candidates and make informed hiring decisions.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 relative">
+            {steps.map((step, index) => (
+              <div key={index} className="text-center relative">
+                {/* Connecting Line - only show between steps on desktop */}
+                {index < steps.length - 1 && (
+                  <div className="hidden lg:block absolute top-10 left-1/2 w-full h-0.5 bg-gradient-to-r from-blue-300 via-blue-200 to-blue-100 z-0"></div>
+                )}
+
+                <div className="relative z-10">
+                  <div className="relative mb-8 flex justify-center">
+                    <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center shadow-lg relative">
+                      <span className="text-3xl font-bold text-white">{step.number}</span>
+                    </div>
+                  </div>
+
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4">{step.title}</h3>
+                  <p className="text-gray-600 leading-relaxed max-w-sm mx-auto">
+                    {step.description}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Section 5 */}
-      <div className='section5'>
-        <div className='containeri'>
-          <h2>List Your Organization</h2>
-          <p>Join thousands of companies hiring top talent through JobConnect</p>
-        </div>
-        <button className='but2' onClick={() => goToRegister('employer')}>List Your Organization</button>
-      </div>
+      {/* Organization CTA Section */}
+      <section className="py-16 px-4 bg-white">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-3xl p-12 border border-blue-100">
+            <div className="mb-8">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Building2 className="w-8 h-8 text-blue-600" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">List Your Organization</h2>
+              <p className="text-xl text-gray-600">
+                Join thousands of companies hiring top talent through JobConnect
+              </p>
+            </div>
 
-      {/* Section 4 */}
-      <div className='section4'>
-        <h1 className='text'>Ready to Find Your Perfect Match?</h1>
-        <p className='text'>Join thousands of companies and job seekers who have already found success with JobConnect.</p>
-        <div className='button2'>
-          <button className="bu1" onClick={() => goToRegister('jobseeker')}>Sign Up as Job Seeker</button>
-          <button className="bu2" onClick={() => goToRegister('employer')}>Sign Up as Job Employer</button>
+            <button
+              onClick={() => goToRegister('employer')}
+              className="group flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 mx-auto"
+            >
+              <Building2 className="w-6 h-6" />
+              List Your Organization
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* Final CTA Section */}
+      <section className="py-20 px-4 bg-gradient-to-br from-orange-400 via-yellow-400 to-orange-500 relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-orange-400 opacity-20">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-10 transform skew-y-12"></div>
+        </div>
+
+        <div className="max-w-4xl mx-auto text-center relative z-10">
+          <div className="mb-8">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+              Ready to Find Your Perfect Match?
+            </h2>
+            <p className="text-xl text-white/90 max-w-3xl mx-auto">
+              Join thousands of companies and job seekers who have already found success with JobConnect.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <button
+              onClick={() => goToRegister('jobseeker')}
+              className="group flex items-center gap-3 px-8 py-4 bg-black text-white rounded-full hover:bg-orange-600 hover:text-black focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-orange-400 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            >
+              <Search className="w-6 h-6" />
+              Sign Up as Job Seeker
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+            </button>
+
+            <button
+              onClick={() => goToRegister('employer')}
+              className="group flex items-center gap-3 px-8 py-4 bg-black text-white rounded-full hover:bg-orange-600 hover:text-black focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-orange-400 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            >
+              <Briefcase className="w-6 h-6" />
+              Sign Up as Job Employer
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+            </button>
+          </div>
+
+          <div className="mt-12 flex justify-center items-center gap-8 text-white/80">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              <span>Free to Join</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              <span>AI-Powered</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              <span>Trusted Platform</span>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
 
 export default Home;
-  

@@ -1,29 +1,27 @@
 import { useEffect } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 
-import Navbar from './components/common/Navbarcompany';
-import Navbarhome from './components/common/Navbarhome';
-import Navbaruser from './components/common/Navbaruser';
+import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
 
-import Dashboard from './Pages/CompanySide/Dashboard/Dashboard';
-import Jobdetails from './Pages/CompanySide/JobDetails/Jobdetails';
-import ApplicantsList from './Pages/CompanySide/JobDetails/ApplicantsList';
-import OrgProfile from './Pages/CompanySide/ProfilePage/Orgprofile';
-import Postjob from './Pages/CompanySide/PostJobPage/Postjob';
-import RegisterOrganization from './Pages/CompanySide/RegisterOrg/RegisterOrganization';
-import RegistrationSuccess from './Pages/CompanySide/RegisterOrg/RegistrationSuccess';
-import CompanyDetailsPage from './Pages/CompanySide/CompanyDetails/CompanyDetails'; // ✅ Company Side Details Page
+import Dashboard from './pages/CompanySide/Dashboard/Dashboard';
+import Jobdetails from './pages/CompanySide/JobDetails/Jobdetails';
+import ApplicantsList from './pages/CompanySide/JobDetails/ApplicantsList';
+import OrgProfile from './pages/CompanySide/ProfilePage/Orgprofile';
+import Postjob from './pages/CompanySide/PostJobPage/Postjob';
+import RegisterOrganization from './pages/CompanySide/RegisterOrg/RegisterOrganization';
+import RegistrationSuccess from './pages/CompanySide/RegisterOrg/RegistrationSuccess';
+import CompanyDetailsPage from './pages/CompanySide/CompanyDetails/CompanyDetails'; // ✅ Company Side Details Page
 
-import Home from './Pages/Home/Home';
-import AuthPage from './Pages/Auth/AuthPage';
+import Home from './pages/Home/Home';
+import AuthPage from './pages/Auth/AuthPage';
 
-import JobDashboard from './Pages/UserSide/UserDashboard/JobDashboard';
-import UserProfile from './Pages/UserSide/UserProfile/UserProfile';
-import UploadResume from './Pages/UserSide/UserResume/UploadResume';
-import UserJobDetails from './Pages/UserSide/UserJobDetails/UserJobDetails';
-import HRDetails from './Pages/UserSide/UserJobDetails/HRDetails';
-import CompanyDetails from './Pages/UserSide/UserJobDetails/CompanyDetails'; // ✅ User Side Details Page
+import JobDashboard from './pages/UserSide/UserDashboard/JobDashboard';
+import UserProfile from './pages/UserSide/UserProfile/UserProfile';
+import UserJobDetails from './pages/UserSide/UserJobDetails/UserJobDetails';
+import HRDetails from './pages/UserSide/UserJobDetails/HRDetails';
+import CompanyDetails from './pages/UserSide/UserJobDetails/CompanyDetails'; // ✅ User Side Details Page
+import UploadResume from './pages/UserSide/UserResume/UploadResume';
 
 import './App.css';
 
@@ -31,25 +29,16 @@ function App() {
   const location = useLocation();
   const path = location.pathname;
 
-  const isHomePage = path === '/home' || path === '/';
   const isAuthPage = path === '/auth';
-  const isUserPage = path.startsWith('/user');
   const isUploadPage = path === '/user/upload-resume';
 
   useEffect(() => {
     document.body.classList.toggle('no-scroll', isAuthPage);
   }, [path]);
-
-  return (
+    return (
     <div className={`page-wrapper ${isUploadPage ? 'upload-background' : ''}`}>
-      {/* Dynamic Navbar */}
-      {isHomePage ? (
-        <Navbarhome />
-      ) : isAuthPage ? null : isUserPage ? (
-        <Navbaruser />
-      ) : (
-        <Navbar />
-      )}
+      {/* Unified Navbar - shows appropriate navbar based on auth state and route */}
+      <Navbar />
 
       <main className="main-content">
         <Routes>

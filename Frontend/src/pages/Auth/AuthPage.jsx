@@ -1,4 +1,4 @@
-// src/Pages/Auth/AuthPage.jsx
+// src/pages/Auth/AuthPage.jsx
 
 import React from "react";
 import { useLocation } from "react-router-dom";
