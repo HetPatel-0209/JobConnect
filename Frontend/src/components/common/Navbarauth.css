@@ -1,0 +1,58 @@
+img {
+  width: 50%;
+  height: auto;
+  max-height: 60px;
+  object-fit: contain;
+}
+
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 20px 40px;
+    background: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.labl {
+    font-size: 18px;
+    color: #000;
+    font-weight: 600;
+}
+
+.navbar .link {
+    font-size: 18px;
+    color: #000;
+    font-weight: 500;
+    margin-left: 40px;
+    text-decoration: none;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.navbar .link::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0%;
+    height: 2px;
+    background: #000;
+    transition: width 0.3s ease;
+}
+
+.navbar .link:hover::before {
+    width: 100%;
+}
+
+

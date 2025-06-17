@@ -1,0 +1,182 @@
+/* src/Pages/Home/Home.css */
+
+.containerh {
+  text-align: center;
+  padding: 50px;
+  padding-bottom: 25px;
+}
+
+.t1 {
+  font-size: 40px;
+  font-family: hanuman;
+  color: #fff;
+}
+
+.t2 {
+  font-size: 20px;
+  font-family: kdam thmorpro;
+  padding: 10px;
+  color: #fff;
+}
+
+.b1 {
+  color: #1D4ED8;
+  background-color: #fff;
+  width: 128px;
+  height: 37px;
+  border-radius: 5px;
+}
+
+.b1:hover {
+  color: #fff;
+  background-color: black;
+  border: 1px solid white;
+}
+
+.b2 {
+  margin: 10px;
+  width: 128px;
+  height: 37px;
+  border-radius: 5px;
+  background-color: #1D4ED8;
+  color: #fff;
+  border-color: #fff;
+}
+
+.b2:hover {
+  color: #fff;
+  background-color: black;
+  border: 1px solid white;
+}
+
+.button {
+  text-align: center;
+  padding-bottom: 30px;
+}
+
+/* ✅ FIXED: Added padding-top to prevent navbar overlap */
+.section1 {
+  background: #1D53CA;
+  padding-top: 100px;  /* <-- This prevents the content from hiding under navbar */
+}
+
+.section2 {
+  padding: 50px;
+  background: #FFFFFFAB;
+}
+
+.containerg {
+  text-align: center;
+}
+
+.card {
+  border: 1px solid #8a8686;
+  border-radius: 10px;
+  box-shadow: 5px 5px 5px hsla(0, 0%, 0%, 0.1);
+  background: #D1D0D054;
+  padding: 20px;
+  margin: 10px;
+  text-align: center;
+  max-width: 247px;
+  display: inline-block;
+}
+
+.card:hover {
+  color: #8a8686;
+}
+
+.card-container {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 25px;
+}
+
+.pic {
+  width: 49px;
+  height: 47px;
+  padding-bottom: 5px;
+}
+
+.section3 {
+  text-align: center;
+  background: #d9c5c586;
+  padding-top: 40px;
+}
+
+.containerf {
+  padding: 20px;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.c1 {
+  width: 315px;
+  padding: 30px;
+  flex: 1;
+}
+
+.size {
+  font-size: 40px;
+}
+
+.section4 {
+  text-align: center;
+  background: #F59E0B;
+  padding: 30px;
+}
+
+.text {
+  color: #fff;
+}
+
+.bu1 {
+  border-radius: 50px;
+  padding: 10px;
+  background: #000;
+  color: #fff;
+}
+
+.bu1:hover {
+  background-color: #F59E0B;
+  color: black;
+}
+
+.bu2 {
+  margin: 10px;
+  border-radius: 50px;
+  padding: 10px;
+  background-color: #000;
+  border-color: #000;
+  color: #fff;
+}
+
+.bu2:hover {
+  background-color: #F59E0B;
+  color: black;
+}
+
+.button2 {
+  padding: 20px;
+  text-align: center;
+}
+
+.section5 {
+  text-align: center;
+  padding: 30px;
+}
+
+.but2 {
+  color: #fff;
+  background-color: #1D4ED8;
+  border-radius: 8px;
+  padding: 10px 15px;
+}
+
+.but2:hover {
+  background-color: #000;
+  color: white;
+}

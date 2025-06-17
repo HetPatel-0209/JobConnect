@@ -1,0 +1,90 @@
+/* UserJobDetails.css */
+
+.job-detail-container {
+  max-width: 600px;
+  margin: 100px auto 40px; /* ⬅ Increased top margin to clear navbar */
+  padding: 30px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  font-family: 'Segoe UI', sans-serif;
+  position: relative;
+  z-index: 1;
+}
+
+.job-detail-container h1 {
+  font-size: 24px;
+  margin-bottom: 8px;
+  color: #222;
+}
+
+.job-meta {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.job-section {
+  margin-bottom: 18px;
+}
+
+.job-section h3 {
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.job-section p {
+  font-size: 14px;
+  color: #444;
+  line-height: 1.5;
+}
+
+.skill-tag {
+  display: inline-block;
+  background-color: #f0f0f0;
+  color: #333;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  margin-top: 6px;
+}
+
+.back-btn {
+  margin-top: 25px;
+  display: inline-block;
+  padding: 10px 18px;
+  background-color: #2e60ff;
+  color: white;
+  font-size: 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.back-btn:hover {
+  background-color: #1a4de2;
+}
+
+.job-line {
+  font-size: 15px;
+  color: #333;
+  margin: 12px 0 4px;
+}
+
+.job-text {
+  margin-bottom: 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #444;
+}
+
+.job-title {
+  font-size: 24px;
+  margin-bottom: 16px;
+  color: #222;
+}
