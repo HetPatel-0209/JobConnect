@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { 
     getAllJobs,
-    getJobsByLocation,
-    getJobsBySkills,
+    getJobById,
     getAppliedJobs,
     calculateATSScore,
     postJob,
@@ -11,26 +10,38 @@ const {
     applyForJob,
     updateJobStatus,
     deleteJob,
-    searchJobs
+    uploadResume,
+    getUserResumes,
+    deleteResume,
+    setActiveResume,
+    viewResume
 } = require('../controllers/jobs.controller');
 const { authenticate, authorizeRoles } = require('../middlewares/auth.middleware');
-const { jobPostValidation } = require('../middlewares/validation.middleware');
+const { jobPostValidation, atsCalculationValidation } = require('../middlewares/validation.middleware');
+const { uploadResume: uploadResumeMiddleware, handleUploadError } = require('../middlewares/upload.middleware');
 
 // Public routes
-router.get('/jobs', getAllJobs);
-router.get('/jobs/search', searchJobs);
+router.get('/', getAllJobs); // Consolidated route with filtering support
 
-// Protected routes - Jobseeker
-router.get('/jobs/location', authenticate, authorizeRoles('jobseeker'), getJobsByLocation);
-router.get('/jobs/skills', authenticate, authorizeRoles('jobseeker'), getJobsBySkills);
-router.get('/jobs/applied', authenticate, authorizeRoles('jobseeker'), getAppliedJobs);
-router.get('/jobs/:jobId/ats-score', authenticate, authorizeRoles('jobseeker'), calculateATSScore);
-router.post('/jobs/:jobId/apply', authenticate, authorizeRoles('jobseeker'), applyForJob);
+// Protected routes - Jobseeker only
+router.get('/applied', authenticate, authorizeRoles('jobseeker'), getAppliedJobs);
 
-// Protected routes - Recruiter
-router.post('/jobs', authenticate, authorizeRoles('recruiter'), jobPostValidation, postJob);
-router.put('/jobs/:jobId', authenticate, authorizeRoles('recruiter'), jobPostValidation, updateJobStatus);
-router.delete('/jobs/:jobId', authenticate, authorizeRoles('recruiter'), deleteJob);
-router.get('/jobs/:jobId/candidates', authenticate, authorizeRoles('recruiter'), getAppliedCandidates);
+// Resume management routes - Jobseeker only
+router.post('/resumes/upload', authenticate, authorizeRoles('jobseeker'), uploadResumeMiddleware, handleUploadError, uploadResume);
+router.get('/resumes', authenticate, authorizeRoles('jobseeker'), getUserResumes);
+router.get('/resumes/:resumeId/view', authenticate, viewResume);
+router.delete('/resumes/:resumeId', authenticate, authorizeRoles('jobseeker'), deleteResume);
+router.put('/resumes/:resumeId/activate', authenticate, authorizeRoles('jobseeker'), setActiveResume);
+
+// Protected routes - Recruiter only
+router.post('/', authenticate, authorizeRoles('recruiter'), jobPostValidation, postJob);
+
+// Routes with parameters (must come after static routes)
+router.get('/:jobId', getJobById); // Get specific job
+router.get('/:jobId/ats-score', authenticate, authorizeRoles('jobseeker'), calculateATSScore);
+router.post('/:jobId/apply', authenticate, authorizeRoles('jobseeker'), applyForJob);
+router.put('/:jobId', authenticate, authorizeRoles('recruiter'), updateJobStatus);
+router.delete('/:jobId', authenticate, authorizeRoles('recruiter'), deleteJob);
+router.get('/:jobId/applications', authenticate, authorizeRoles('recruiter'), getAppliedCandidates);
 
 module.exports = router;

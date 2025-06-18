@@ -9,13 +9,14 @@ const orgSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true
-    },
-    companySize: {
+    },    companySize: {
         type: String,
         enum: ['1-10', '11-50', '51-200', '201-500', '501-1000', '1000+']
     },
     logo: String,
+    logoPublicId: String, // Cloudinary public ID for logo
     banner: String,
+    bannerPublicId: String, // Cloudinary public ID for banner
     website: String,
     description: {
         about: String,
