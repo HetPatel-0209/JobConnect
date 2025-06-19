@@ -135,7 +135,7 @@ export default function RegisterOrganization() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-      const email = currentUser?.email;
+      const email = currentUser?.email || 'temp_registration';
 
       const companyData = {
         gstin: company.gstin,
@@ -145,6 +145,8 @@ export default function RegisterOrganization() {
           logo: form.logo ? URL.createObjectURL(form.logo) : '',
           banner: form.banner ? URL.createObjectURL(form.banner) : '',
         },
+        registeredAt: new Date().toISOString(),
+        isTemporary: !currentUser // Flag to indicate this is a temporary registration
       };
 
       const existing = JSON.parse(localStorage.getItem('registeredCompanyDetails')) || {};

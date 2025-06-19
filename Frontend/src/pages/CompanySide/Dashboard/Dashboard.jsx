@@ -84,7 +84,7 @@ const Dashboard = () => {
       {/* Header Section */}
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          Welcome back, {currentUser?.name || 'User'}! 👋
+          Welcome back, <span className="text-blue-600">{currentUser?.name || 'User'}</span>! 👋
         </h2>
         <p className="text-gray-600 text-lg mb-5">
           Here's what's happening with your job listings today.

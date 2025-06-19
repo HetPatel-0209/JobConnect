@@ -1,5 +1,12 @@
 import { useEffect } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { usePreventAltArrowNavigation } from './hooks/usePreventAltArrowNavigation';
+
+import { AuthProvider } from './contexts/AuthContext';
+import { ProfileProvider } from './contexts/ProfileContext';
+import { ChatProvider } from './contexts/ChatContext';
+import { OrganizationProvider } from './contexts/OrganizationContext';
+import ProtectedRoute from './components/common/ProtectedRoute';
 
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
@@ -30,47 +37,117 @@ function App() {
   const path = location.pathname;
 
   const isAuthPage = path === '/auth';
+  const isHomePage = path === '/home';
   const isUploadPage = path === '/user/upload-resume';
+
+  // Use our custom hook to prevent Alt + Arrow key navigation
+  usePreventAltArrowNavigation();
 
   useEffect(() => {
     document.body.classList.toggle('no-scroll', isAuthPage);
   }, [path]);
-    return (
-    <div className={`page-wrapper ${isUploadPage ? 'upload-background' : ''}`}>
-      {/* Unified Navbar - shows appropriate navbar based on auth state and route */}
-      <Navbar />
 
-      <main className="main-content">
-        <Routes>
-          {/* General */}
-          <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/auth" element={<AuthPage />} />
+  return (
+    <AuthProvider>
+      <ProfileProvider>
+        <ChatProvider>
+          <OrganizationProvider>
+            <div className={`page-wrapper ${isUploadPage ? 'upload-background' : ''}`}>
+              {/* Unified Navbar - shows appropriate navbar based on auth state and route */}
+              <Navbar />
 
-          {/* ✅ Company Routes */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/job/:id" element={<Jobdetails />} />
-          <Route path="/profile" element={<OrgProfile />} />
-          <Route path="/job/:jobId/applicants" element={<ApplicantsList />} />
-          <Route path="/postjob" element={<Postjob />} />
-          <Route path="/register-organization" element={<RegisterOrganization />} />
-          <Route path="/registration-success" element={<RegistrationSuccess />} />
-          <Route path="/company-details" element={<CompanyDetailsPage />} />
+              <main className="main-content">
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/" element={<Navigate to="/home" replace />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/register-organization" element={<RegisterOrganization />} />
+                  <Route path="/registration-success" element={<RegistrationSuccess />} />
 
-          {/* ✅ User Routes */}
-          <Route path="/user/job-dashboard" element={<JobDashboard />} />
-          <Route path="/user/profile" element={<UserProfile />} />
-          <Route path="/user/upload-resume" element={<UploadResume />} />
-          <Route path="/user/job/:id" element={<UserJobDetails />} />
-          <Route path="/user/job/:id/hr" element={<HRDetails />} />
-          <Route path="/user/job/:id/company" element={<CompanyDetails />} />
-        </Routes>
-      </main>
+                  {/* ✅ Company Routes - Protected for recruiter users */}
+                  <Route path="/dashboard" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/job/:id" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <Jobdetails />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/profile" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <OrgProfile />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/job/:jobId/applicants" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <ApplicantsList />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/postjob" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <Postjob />
+                    </ProtectedRoute>
+                  } />
 
-      {!isAuthPage && <Footer />}
-    </div>
+
+                  <Route path="/company-details" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <CompanyDetailsPage />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* ✅ User Routes - Protected for jobseeker users */}
+                  <Route path="/user/job-dashboard" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <JobDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/user/profile" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <UserProfile />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/user/upload-resume" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <UploadResume />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/user/job/:id" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <UserJobDetails />
+                    </ProtectedRoute>
+                  } />                  <Route path="/user/job/:id/hr" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <HRDetails />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/user/job/:id/company" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <CompanyDetails />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruiter-details/:id" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <HRDetails />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/company-details/:id" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <CompanyDetails />
+                    </ProtectedRoute>
+                  } />
+                </Routes>
+              </main>        
+              {isHomePage && <Footer />}
+            </div>
+          </OrganizationProvider>
+        </ChatProvider>
+      </ProfileProvider>
+    </AuthProvider>
   );
 }
 
 export default App;
-

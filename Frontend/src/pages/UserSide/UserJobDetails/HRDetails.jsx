@@ -9,54 +9,87 @@ import {
   Briefcase, 
   FileText,
   Loader,
-  UserCircle
+  UserCircle,
+  Building2,
+  Calendar,
+  Clock
 } from 'lucide-react';
+import { JobService } from '../../../services/job.service';
 
 export default function HRDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [hrProfile, setHrProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const jobs = JSON.parse(localStorage.getItem('jobs')) || [];
-      const job = jobs.find(j => j.id === Number(id));
-      if (job && job.hrDetails) {
-        setHrProfile(job.hrDetails);
+    const fetchRecruiterDetails = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await JobService.getRecruiterById(id);
+        setHrProfile(response.recruiter);
+      } catch (err) {
+        console.error('Error fetching recruiter details:', err);
+        setError(err.response?.data?.message || 'Failed to load recruiter details');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    }, 500);
+    };
 
-    return () => clearTimeout(timer);
+    if (id) {
+      fetchRecruiterDetails();
+    }
   }, [id]);
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 pt-24 px-4 flex items-center justify-center">
         <div className="text-center">
           <Loader className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading HR details...</p>
+          <p className="text-gray-600">Loading recruiter details...</p>
         </div>
       </div>
     );
   }
 
-  if (!hrProfile) {
+  if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="min-h-screen bg-gray-50 pt-24 px-4">
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-xl shadow-lg p-8 text-center">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <UserCircle className="w-8 h-8 text-red-600" />
+              <UserCircle className="w-8 h-8 text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">HR Details Not Found</h2>
-            <p className="text-gray-600 mb-6">The HR profile could not be loaded or doesn't exist.</p>
-            <button
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Unable to Load Recruiter Details</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button 
               onClick={() => navigate(-1)}
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-semibold mx-auto"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft className="w-5 h-5" />
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (!hrProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50 pt-24 px-4">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <UserCircle className="w-8 h-8 text-gray-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Recruiter Details Not Found</h2>
+            <p className="text-gray-600 mb-6">The recruiter information could not be loaded.</p>
+            <button 
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-semibold mx-auto"
+            >
+              <ArrowLeft className="w-5 h-5" />
               Go Back
             </button>
           </div>
@@ -66,196 +99,242 @@ export default function HRDetails() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gray-50 pt-24 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200 mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </button>
-        </div>
+        {/* Header Section */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mb-8">
+          {/* Background Pattern */}
+          <div className="relative h-32 bg-gradient-to-r from-blue-600 to-indigo-700">
+            <div className="absolute inset-0 bg-black bg-opacity-20"></div>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Profile Card */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              {/* Header Section */}
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-6">
-                <div className="flex items-center">
-                  <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-4">
-                    <User className="w-8 h-8 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-white">
-                      {hrProfile.fullname || 'HR Representative'}
-                    </h1>
-                    <p className="text-blue-100">
-                      {hrProfile.title || 'Human Resources'}
-                    </p>
-                  </div>
+          {/* Profile Header */}
+          <div className="relative px-8 py-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+              {/* Profile Picture */}
+              <div className="relative -mt-16 mb-4 md:mb-0">
+                <div className="w-32 h-32 bg-white rounded-full shadow-lg border-4 border-white flex items-center justify-center overflow-hidden">
+                  {hrProfile.profilePic ? (
+                    <img 
+                      src={hrProfile.profilePic} 
+                      alt={`${hrProfile.name} profile`}
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <UserCircle className="w-20 h-20 text-gray-400" />
+                  )}
                 </div>
               </div>
 
-              {/* Content Section */}
-              <div className="p-8">
-                <h2 className="text-xl font-bold text-gray-900 mb-6">Contact Information</h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Phone */}
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Phone className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Phone</h3>
-                      <p className="text-gray-600 mt-1">
-                        {hrProfile.phone || 'Not provided'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Email */}
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Mail className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Email</h3>
-                      <p className="text-gray-600 mt-1">
-                        {hrProfile.email || 'Not provided'}
-                      </p>
-                      {hrProfile.email && (
-                        <a
-                          href={`mailto:${hrProfile.email}`}
-                          className="text-blue-600 hover:text-blue-700 text-sm mt-1 inline-block"
-                        >
-                          Send email
-                        </a>
+              {/* Profile Info */}
+              <div className="flex-1">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{hrProfile.name}</h1>
+                    <p className="text-lg text-blue-600 font-semibold mb-2">Recruiter</p>
+                    <div className="flex flex-wrap items-center gap-4 text-gray-600 mb-4">
+                      {hrProfile.location && (
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          <span>{hrProfile.location}</span>
+                        </div>
+                      )}
+                      {hrProfile.organization?.name && (
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4" />
+                          <span>{hrProfile.organization.name}</span>
+                        </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Location */}
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <button 
+                    onClick={() => navigate(-1)}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-semibold"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                    Back to Job
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Contact Information */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Mail className="w-5 h-5 text-blue-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">Contact Information</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {hrProfile.email && (
+                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Mail className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 font-medium">Email</p>
+                      <a 
+                        href={`mailto:${hrProfile.email}`}
+                        className="text-blue-600 hover:text-blue-700 font-semibold"
+                      >
+                        {hrProfile.email}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {hrProfile.phone && (
+                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Phone className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 font-medium">Phone</p>
+                      <a 
+                        href={`tel:${hrProfile.phone}`}
+                        className="text-green-600 hover:text-green-700 font-semibold"
+                      >
+                        {hrProfile.phone}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {hrProfile.location && (
+                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                       <MapPin className="w-5 h-5 text-purple-600" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900">Location</h3>
-                      <p className="text-gray-600 mt-1">
-                        {hrProfile.location || 'Not specified'}
-                      </p>
+                      <p className="text-sm text-gray-600 font-medium">Location</p>
+                      <p className="text-purple-600 font-semibold">{hrProfile.location}</p>
                     </div>
                   </div>
+                )}
 
-                  {/* Title */}
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                {hrProfile.role && (
+                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
                       <Briefcase className="w-5 h-5 text-orange-600" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900">Position</h3>
-                      <p className="text-gray-600 mt-1">
-                        {hrProfile.title || 'HR Representative'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bio Section */}
-                {hrProfile.bio && (
-                  <div className="mt-8">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                      <FileText className="w-5 h-5 mr-2 text-gray-600" />
-                      About
-                    </h3>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-gray-700 leading-relaxed">
-                        {hrProfile.bio}
-                      </p>
+                      <p className="text-sm text-gray-600 font-medium">Role</p>
+                      <p className="text-orange-600 font-semibold capitalize">{hrProfile.role}</p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
+
+            {/* Company Information */}
+            {hrProfile.organization && (
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">Company Details</h2>
+                </div>
+                
+                <div className="flex items-start gap-4 p-6 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl">
+                  {hrProfile.organization.logo && (
+                    <div className="w-16 h-16 bg-white rounded-lg shadow-md flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={hrProfile.organization.logo} 
+                        alt={`${hrProfile.organization.name} logo`}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{hrProfile.organization.name}</h3>
+                    {hrProfile.organization.location && (
+                      <div className="flex items-center gap-2 text-gray-600 mb-2">
+                        <MapPin className="w-4 h-4" />
+                        <span>{hrProfile.organization.location}</span>
+                      </div>
+                    )}
+                    {hrProfile.organization.contact?.email && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Mail className="w-4 h-4" />
+                        <span>{hrProfile.organization.contact.email}</span>
+                      </div>
+                    )}
+                    {hrProfile.organization.description?.about && (
+                      <p className="text-gray-700 mt-3 leading-relaxed">{hrProfile.organization.description.about}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Quick Actions */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
+            {/* Quick Stats */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-6">Profile Information</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">User ID</span>
+                  <span className="font-semibold text-gray-900 text-sm">{hrProfile._id}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Role</span>
+                  <span className="font-semibold text-gray-900 capitalize">{hrProfile.role}</span>
+                </div>
+                {hrProfile.lastSeen && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Last Seen</span>
+                    <span className="font-semibold text-gray-900">
+                      {new Date(hrProfile.lastSeen).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+                {hrProfile.createdAt && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Member Since</span>
+                    <span className="font-semibold text-gray-900">
+                      {new Date(hrProfile.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Contact Action */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Get in Touch</h3>
+              <p className="text-gray-600 mb-6">Have questions about this position? Reach out to the recruiter directly.</p>
+              
               <div className="space-y-3">
                 {hrProfile.email && (
-                  <a
+                  <a 
                     href={`mailto:${hrProfile.email}`}
-                    className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                    className="flex items-center gap-3 w-full p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium"
                   >
-                    <Mail className="w-4 h-4 mr-2" />
+                    <Mail className="w-5 h-5" />
                     Send Email
                   </a>
                 )}
                 
                 {hrProfile.phone && (
-                  <a
+                  <a 
                     href={`tel:${hrProfile.phone}`}
-                    className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                    className="flex items-center gap-3 w-full p-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors font-medium"
                   >
-                    <Phone className="w-4 h-4 mr-2" />
+                    <Phone className="w-5 h-5" />
                     Call Now
-                  </a>
-                )}
-                
-                <button className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200">
-                  <User className="w-4 h-4 mr-2" />
-                  View Profile
-                </button>
-              </div>
-            </div>
-
-            {/* HR Tips */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Interview Tips</h3>
-              <div className="space-y-3 text-sm text-gray-600">
-                <div className="flex items-start">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                  <p>Be prepared to discuss your experience and skills</p>
-                </div>
-                <div className="flex items-start">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                  <p>Research the company and role beforehand</p>
-                </div>
-                <div className="flex items-start">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                  <p>Prepare thoughtful questions about the role</p>
-                </div>
-                <div className="flex items-start">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                  <p>Dress professionally and arrive on time</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Info Summary */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Contact Summary</h3>
-              <div className="space-y-3">
-                <div className="text-sm">
-                  <span className="font-medium text-gray-700">Name:</span>
-                  <p className="text-gray-600">{hrProfile.fullname || 'N/A'}</p>
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium text-gray-700">Best time to contact:</span>
-                  <p className="text-gray-600">Business hours (9 AM - 5 PM)</p>
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium text-gray-700">Response time:</span>
-                  <p className="text-gray-600">Within 24-48 hours</p>
-                </div>
+                  </a>                )}
               </div>
             </div>
           </div>

@@ -1,40 +1,37 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function LoginForm() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
-    // Simulate loading delay for better UX
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    const users = JSON.parse(localStorage.getItem('users')) || [];
-    const foundUser = users.find(user => user.email === email && user.password === password);
-
-    if (foundUser) {
-      localStorage.setItem('currentUser', JSON.stringify(foundUser));
-
-      // ✅ Redirect based on type
-      if (foundUser.type === 'jobseeker') {
+    try {
+      const response = await login({ email, password });
+        // Redirect based on user role
+      if (response.user.role === 'jobseeker') {
         navigate('/user/job-dashboard');
-      } else if (foundUser.type === 'employer') {
+      } else if (response.user.role === 'recruiter') {
         navigate('/dashboard');
       } else {
-        alert('Unknown user type!');
+        navigate('/home');
       }
-    } else {
-      alert('Invalid email or password');
+    } catch (error) {
+      setError(error.response?.data?.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };  return (
     <div className="max-w-[390px] mx-auto mt-8 mb-8 px-6 py-7 bg-white rounded-xl shadow-lg font-['Inter',_sans-serif]">
       <div className="text-center">
@@ -49,6 +46,13 @@ export default function LoginForm() {
           </span>
         </p>
       </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
         <div>

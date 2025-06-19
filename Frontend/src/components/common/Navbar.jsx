@@ -1,12 +1,13 @@
 import logo from "../../assets/Job.jpeg";
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { ProfileContext } from '../../contexts/ProfileContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { AuthService } from '../../services/auth.service';
 
 export default function Navbar() {
   const { user: authUser } = useAuth();
-  const { profileImage, setProfileImage } = useContext(ProfileContext);
+  const { profileImage, setProfileImage, clearProfile } = useContext(ProfileContext);
   const [localOrgImage, setLocalOrgImage] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -21,35 +22,55 @@ export default function Navbar() {
       setIsLoading(true);
       try {
         let user = null;
-        
-        // Try to get user from localStorage first
-        const storedCurrentUser = localStorage.getItem('currentUser');
-        const storedUser = localStorage.getItem('user');
-        
-        if (storedCurrentUser) {
+
+        // First try to get user from backend if token exists
+        const token = localStorage.getItem('token');
+        if (token) {
           try {
-            user = JSON.parse(storedCurrentUser);
-          } catch (e) {
-            console.warn('Failed to parse currentUser from localStorage:', e);
-            localStorage.removeItem('currentUser');
-          }
-        } else if (storedUser) {
-          try {
-            user = JSON.parse(storedUser);
-          } catch (e) {
-            console.warn('Failed to parse user from localStorage:', e);
-            localStorage.removeItem('user');
+            const profileResponse = await AuthService.getProfile();
+            user = profileResponse.user;
+
+            // Update localStorage with fresh user data
+            localStorage.setItem('currentUser', JSON.stringify(user));
+            localStorage.setItem('user', JSON.stringify(user));
+
+            // Update profile image from backend
+            if (user.profilePic) {
+              setProfileImage(user.profilePic);
+            }
+          } catch (error) {
+            // Silent error handling - remove invalid token
+            localStorage.removeItem('token');
           }
         }
-        
-        // Fallback to authUser if localStorage is empty or corrupted
+
+        // Fallback to localStorage if backend fails
+        if (!user) {
+          const storedCurrentUser = localStorage.getItem('currentUser');
+          const storedUser = localStorage.getItem('user');
+
+          if (storedCurrentUser) {
+            try {
+              user = JSON.parse(storedCurrentUser);
+            } catch (e) {
+              localStorage.removeItem('currentUser');
+            }
+          } else if (storedUser) {
+            try {
+              user = JSON.parse(storedUser);
+            } catch (e) {
+              localStorage.removeItem('user');
+            }
+          }
+        }
+
+        // Final fallback to authUser
         if (!user && authUser) {
           user = authUser;
         }
-        
+
         setCurrentUser(user);
       } catch (error) {
-        console.error('Error loading user:', error);
         setCurrentUser(null);
       } finally {
         setIsLoading(false);
@@ -57,13 +78,15 @@ export default function Navbar() {
     };
 
     loadUser();
-  }, [authUser, location.pathname]); // Added location.pathname to re-check on route changes  // Load profile images from localStorage with error handling
+  }, [authUser, setProfileImage]);
+
+  // Load profile images from localStorage with error handling
   useEffect(() => {
     if (!currentUser) return;
-    
+
     try {
-      const userRole = currentUser.type;
-      
+      const userRole = currentUser.role;
+
       if (userRole === 'recruiter' || userRole === 'organization' || userRole === 'company') {
         const savedOrgImage = localStorage.getItem('orgProfileImage');
         if (savedOrgImage) setLocalOrgImage(savedOrgImage);
@@ -76,15 +99,14 @@ export default function Navbar() {
               setProfileImage(savedProfile.profileImage);
             }
           } catch (e) {
-            console.warn('Failed to parse user profile from localStorage:', e);
             localStorage.removeItem(`user_profile_${currentUser.email}`);
           }
         }
       }
     } catch (error) {
-      console.error('Error loading profile images:', error);
+      // Silent error handling
     }
-  }, [currentUser, setProfileImage]);
+  }, [currentUser?.email, currentUser?.role, setProfileImage]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -96,72 +118,78 @@ export default function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  const handleLogout = () => {
+
+  // Memoized logout handler to prevent unnecessary re-renders
+  const handleLogout = useCallback(async () => {
     try {
-      localStorage.removeItem('currentUser');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      // Clear profile context
+      if (clearProfile) {
+        clearProfile();
+      }
+
+      // Clear all localStorage data
+      localStorage.clear();
+
+      // Reset state
       setCurrentUser(null);
       setProfileImage(null);
       setLocalOrgImage(null);
-      navigate('/home');
+      setIsDropdownOpen(false);
+
+      // Navigate to home immediately
+      navigate('/home', { replace: true });
+
     } catch (error) {
-      console.error('Error during logout:', error);
       // Force navigation even if cleanup fails
-      navigate('/home');
+      navigate('/home', { replace: true });
     }
-  };  // Determine navbar type based on user state and current route
-  const getNavbarType = () => {
+  }, [clearProfile, setProfileImage, navigate]);
+
+  // Memoize navbar type calculation to prevent unnecessary re-renders
+  const navbarType = useMemo(() => {
     // Auth pages (login/signup)
-    if (location.pathname === '/auth' || 
-        location.pathname.includes('/login') || 
-        location.pathname.includes('/register')) {
+    if (location.pathname === '/auth' ||
+      location.pathname.includes('/login') ||
+      location.pathname.includes('/register')) {
       return 'auth';
     }
-    
+
     if (currentUser) {
-      console.log('Current user for navbar:', currentUser); // Debug log
-      
-      const userRole = currentUser.type;
-      
+      const userRole = currentUser.role;
+
       // Check if user is on user/jobseeker routes first (more specific)
       if (location.pathname.includes('/user/')) {
         return 'user';
       }
-      
+
       // Check if user is on company/organization routes
-      if (location.pathname.includes('/dashboard') || 
-          location.pathname.includes('/company-details') || 
-          location.pathname.includes('/profile') || 
-          location.pathname.includes('/postjob')) {
+      if (location.pathname.includes('/dashboard') ||
+        location.pathname.includes('/company-details') ||
+        location.pathname.includes('/profile') ||
+        location.pathname.includes('/postjob')) {
         // Only return recruiter if the user actually has a recruiter role
-        if (userRole === 'organization' || 
-            userRole === 'recruiter' || 
-            userRole === 'company') {
+        if (userRole === 'organization' ||
+          userRole === 'recruiter' ||
+          userRole === 'company') {
           return 'recruiter';
         }
       }
-      
-      if (userRole === 'organization' || 
-          userRole === 'recruiter' || 
-          userRole === 'company') {
+
+      if (userRole === 'organization' ||
+        userRole === 'recruiter' ||
+        userRole === 'company') {
         return 'recruiter';
-      } else if (userRole === 'jobseeker' || 
-                 userRole === 'user') {
+      } else if (userRole === 'jobseeker' ||
+        userRole === 'user') {
         return 'user';
       }
-      
 
-      console.warn('User exists but type is unclear:', currentUser);
-      return 'user';
+      return 'user'; // Default for logged-in users
     }
-    
+
     // Default to home navbar for visitors
     return 'home';
-  };
-
-  const navbarType = getNavbarType();
-  console.log('Navbar type determined:', navbarType, 'for user:', currentUser); // Debug log  // Show loading state briefly to prevent flash
+  }, [currentUser, location.pathname]);// Show loading state briefly to prevent flash
   if (isLoading) {
     return (
       <header className='fixed top-0 left-0 w-full px-5 md:px-10 py-2.5 md:py-5 bg-white flex justify-between items-center z-[100] shadow-sm'>
@@ -184,7 +212,7 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2 md:gap-3">
           <Link to="/" className="px-4 md:px-5 py-2 md:py-2.5 bg-blue-600 text-white border-none rounded-md font-bold text-sm md:text-base cursor-pointer inline-block transition-colors duration-300 hover:bg-black hover:text-white">Organization</Link>
-          <Link to="/auth" className="px-4 md:px-5 py-2 md:py-2.5 bg-blue-600 text-white border-none rounded-md font-bold text-sm md:text-base cursor-pointer inline-block transition-colors duration-300 hover:bg-black hover:text-white">Join Us</Link>
+          <Link to="/auth" className="px-4 md:px-5 py-2 md:py-2.5 bg-blue-600 text-white border-none rounded-md font-bold text-sm md:text-base cursor-pointer inline-block transition-colors duration-300 hover:bg-black hover:text-white">Login</Link>
         </div>
       </header>
     );
@@ -263,7 +291,7 @@ export default function Navbar() {
             {isDropdownOpen && (
               <div className="absolute top-full right-0 mt-2 bg-white border border-black rounded-lg min-w-[140px] md:min-w-[160px] z-[1000] overflow-hidden shadow-md">
                 <Link to="/user/profile" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Profile Detail</Link>
-                <Link to="/user/upload-resume" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Upload Resume</Link>
+                <Link to="/user/upload-resume" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Update Resume</Link>                
                 <button onClick={handleLogout} className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-red-500 font-medium cursor-pointer transition-colors duration-200 text-left bg-none w-full border-none hover:bg-red-50">Logout</button>
               </div>
             )}
@@ -271,16 +299,15 @@ export default function Navbar() {
         </nav>
       </header>
     );
-  }  // Fallback - this should rarely be reached
-  console.warn('Navbar fallback reached. NavbarType:', navbarType, 'CurrentUser:', currentUser, 'Path:', location.pathname);
-  
+  }
+  // Fallback - this should rarely be reached  
   return (
     <header className='fixed top-0 left-0 w-full px-5 md:px-10 py-2.5 md:py-5 bg-white flex justify-between items-center z-[100] shadow-sm'>
       <div className='flex items-center gap-2.5'>
         <img src={logo} alt="Logo" className="w-1/2 h-auto max-h-10 md:max-h-[60px] object-contain" />
       </div>
       <div className="text-red-500 text-xs">
-        Navbar Error: Type={navbarType} Role={currentUser?.type || 'none'}
+        Navbar Error: Type={navbarType} Role={currentUser?.role || 'none'}
       </div>
     </header>
   );

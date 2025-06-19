@@ -45,6 +45,7 @@ const jobPostSchema = new mongoose.Schema({
         ref: 'Organization',
         required: true
     },
+    atsCriteria: Number,
     status: { type: String, enum: ['draft', 'active', 'closed'], default: 'draft' },
     createdAt: {
         type: Date,

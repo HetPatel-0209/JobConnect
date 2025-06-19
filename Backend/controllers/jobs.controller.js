@@ -1,11 +1,60 @@
+const mongoose = require('mongoose');
 const JobPost = require('../models/JobPost');
 const User = require('../models/User');
-const Resume = require('../models/Resume');
+const JobSeekerProfile = require('../models/JobSeeker');
 const Application = require('../models/Application');
+const Resume = require('../models/Resume');
+const Organization = require('../models/Organizations');
 const { parseResumeFromBuffer, calculateAIATSScore, calculateBasicATSScore, compressPDF, generateRandomFilename } = require('../utils/aiResumeParser');
 const cloudinary = require('cloudinary');
 const fs = require('fs').promises;
 const path = require('path');
+
+// Helper function to escape special characters in regex
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
+// Helper function to delete user resumes from both database and Cloudinary
+const deleteUserResumes = async (userId) => {
+    try {
+        // Find all existing resumes for the user
+        const existingResumes = await Resume.find({ user: userId });
+        
+        // Delete files from Cloudinary first
+        for (const resume of existingResumes) {
+            if (resume.cloudinaryPublicId) {
+                try {
+                    await new Promise((resolve, reject) => {
+                        cloudinary.v2.uploader.destroy(
+                            resume.cloudinaryPublicId,
+                            { resource_type: 'raw' },
+                            (error, result) => {
+                                if (error) {
+                                    console.warn(`Could not delete resume ${resume.cloudinaryPublicId} from Cloudinary:`, error);
+                                    resolve(); // Continue even if Cloudinary delete fails
+                                } else {
+                                    console.log(`Successfully deleted resume ${resume.cloudinaryPublicId} from Cloudinary`);
+                                    resolve(result);
+                                }
+                            }
+                        );
+                    });
+                } catch (cloudinaryError) {
+                    console.warn('Error during Cloudinary file deletion:', cloudinaryError.message);
+                }
+            }
+        }
+        
+        // Delete all existing resume records from database
+        const deleteResult = await Resume.deleteMany({ user: userId });
+        console.log(`Deleted ${deleteResult.deletedCount} resume records for user ${userId}`);        
+        return { deletedCount: deleteResult.deletedCount, cloudinaryFilesDeleted: existingResumes.length };
+    } catch (error) {
+        console.error('Error in deleteUserResumes:', error);
+        throw error;
+    }
+};
 
 // Get all job posts with optional filtering
 exports.getAllJobs = async (req, res) => {
@@ -27,13 +76,13 @@ exports.getAllJobs = async (req, res) => {
         
         // Add filters if provided
         if (location) {
-            query.location = { $regex: location, $options: 'i' };
+            query.location = { $regex: escapeRegExp(location), $options: 'i' };
         }
           if (skills) {
             const skillsArray = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim());
             // Use case-insensitive regex for each skill
             query['requirements.skills.required'] = { 
-                $in: skillsArray.map(skill => new RegExp(skill, 'i'))
+                $in: skillsArray.map(skill => new RegExp(escapeRegExp(skill), 'i'))
             };
         }
         
@@ -60,8 +109,8 @@ exports.getAllJobs = async (req, res) => {
         
         if (search) {
             query.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } }
+                { title: { $regex: escapeRegExp(search), $options: 'i' } },
+                { description: { $regex: escapeRegExp(search), $options: 'i' } }
             ];
         }
 
@@ -118,7 +167,17 @@ exports.getJobById = async (req, res) => {
 // Get applied jobs
 exports.getAppliedJobs = async (req, res) => {
     try {
-        const applications = await Application.find({ applicant: req.user._id })
+        const { page = 1, limit = 10, status } = req.query;
+        
+        // Build query
+        const query = { applicant: req.user._id };
+        if (status) {
+            query.status = status;
+        }
+        
+        const skip = (page - 1) * limit;
+        
+        const applications = await Application.find(query)
             .populate({
                 path: 'job',
                 populate: {
@@ -126,11 +185,21 @@ exports.getAppliedJobs = async (req, res) => {
                     select: 'name logo'
                 }
             })
-            .sort('-appliedAt');
+            .sort('-appliedAt')
+            .skip(skip)
+            .limit(Number(limit));
+
+        const total = await Application.countDocuments(query);
         
         res.json({
             applications,
-            total: applications.length
+            pagination: {
+                currentPage: Number(page),
+                totalPages: Math.ceil(total / limit),
+                totalJobs: total,
+                hasNext: page * limit < total,
+                hasPrev: page > 1
+            }
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -140,8 +209,23 @@ exports.getAppliedJobs = async (req, res) => {
 // Calculate ATS score with AI
 exports.calculateATSScore = async (req, res) => {
     try {
-        const { jobId } = req.params;
-        const { useAI = true } = req.query;
+        let jobId, resumeId, useAI = true;
+        
+        // Handle both GET and POST requests with different parameter structures
+        if (req.method === 'GET') {
+            // Handle GET request from params
+            jobId = req.params.jobId;
+            useAI = req.query.useAI !== 'false';
+        } else {
+            // Handle POST request from body
+            jobId = req.body.jobId;
+            resumeId = req.body.resumeId;
+            useAI = req.body.useAI !== false;
+        }
+        
+        if (!jobId) {
+            return res.status(400).json({ message: 'Job ID is required' });
+        }
         
         const job = await JobPost.findById(jobId);
         if (!job) {
@@ -150,11 +234,23 @@ exports.calculateATSScore = async (req, res) => {
 
         const user = await User.findById(req.user._id);
         
-        // Get user's active resume
-        const resume = await Resume.findOne({ 
-            user: req.user._id, 
-            isActive: true 
-        });
+        // Get user's resume - either by ID from request or active resume
+        let resume;
+        if (resumeId) {
+            resume = await Resume.findOne({ 
+                _id: resumeId,
+                user: req.user._id
+            });
+        } else {
+            resume = await Resume.findOne({ 
+                user: req.user._id, 
+                isActive: true 
+            });
+        }
+        
+        if (!resume) {
+            return res.status(404).json({ message: 'No resume found. Please upload a resume first.' });
+        }
 
         let resumeData = {
             skills: user.skills || [],
@@ -163,7 +259,7 @@ exports.calculateATSScore = async (req, res) => {
         };
 
         // If resume exists and has parsed data, use that
-        if (resume && resume.parsedData) {
+        if (resume.parsedData) {
             resumeData = {
                 ...resumeData,
                 ...resume.parsedData
@@ -173,10 +269,8 @@ exports.calculateATSScore = async (req, res) => {
         const jobData = {
             title: job.title,
             description: job.description,
-            skills: job.skills,
             requirements: job.requirements,
-            location: job.location,
-            experienceLevel: job.experienceLevel
+            location: job.location
         };
 
         let result;
@@ -193,7 +287,14 @@ exports.calculateATSScore = async (req, res) => {
         }
 
         res.json({
-            ...result,
+            atsScore: result.atsScore,
+            analysis: result.analysis,
+            aiEvaluation: {
+                score: result.atsScore,
+                matchedSkills: result.matchedSkills || [],
+                missingSkills: result.missingSkills || [],
+                suggestions: result.suggestions || []
+            },
             jobId: jobId,
             hasResume: !!resume
         });
@@ -305,7 +406,6 @@ exports.applyForJob = async (req, res) => {
             const jobData = {
                 title: job.title,
                 description: job.description,
-                skills: job.requirements?.skills?.required || [],
                 requirements: job.requirements,
                 location: job.location
             };
@@ -418,11 +518,9 @@ exports.uploadResume = async (req, res) => {
 
         const userId = req.user._id;
         
-        // Deactivate existing resumes
-        await Resume.updateMany(
-            { user: userId },
-            { isActive: false }
-        );
+        // Delete all existing resumes (both from database and Cloudinary)
+        const deleteResult = await deleteUserResumes(userId);
+        console.log(`Cleanup completed: ${deleteResult.deletedCount} resume records deleted, ${deleteResult.cloudinaryFilesDeleted} files removed from Cloudinary`);
 
         const fileExt = path.extname(req.file.originalname).toLowerCase();
         const isDocx = fileExt === '.docx' || fileExt === '.doc';
@@ -548,8 +646,12 @@ exports.uploadResume = async (req, res) => {
         if (parsedData.experience.length > 0 && (!user.experience || user.experience.length === 0)) {
             user.experience = parsedData.experience;
         }
-        await user.save();        res.status(201).json({
-            message: 'Resume uploaded and parsed successfully',
+        await user.save();
+
+        res.status(201).json({
+            message: deleteResult.deletedCount > 0 
+                ? `Resume uploaded successfully. Previous resume replaced.` 
+                : 'Resume uploaded and parsed successfully',
             resume: {
                 id: resume._id,
                 filename: resume.filename,
@@ -558,12 +660,11 @@ exports.uploadResume = async (req, res) => {
                 downloadUrl: resume.downloadUrl,
                 fileSize: resume.fileSize,
                 originalSize: resume.originalSize,
-                compressedSize: resume.compressedSize,
-                compressionRatio: resume.compressionRatio,
                 mimeType: resume.mimeType,
                 uploadedAt: resume.uploadedAt,
                 parsedData: resume.parsedData
-            }
+            },
+            previousResumeDeleted: deleteResult.deletedCount > 0
         });
     } catch (error) {
         console.error('Resume upload error:', error);
@@ -579,6 +680,33 @@ exports.getUserResumes = async (req, res) => {
             .sort('-uploadedAt');
         
         res.json(resumes);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get user's active resume
+exports.getUserActiveResume = async (req, res) => {
+    try {
+        const activeResume = await Resume.findOne({ 
+            user: req.user._id, 
+            isActive: true 
+        }).select('-parsedText -__v');
+        
+        if (!activeResume) {
+            return res.status(200).json({ 
+                message: 'No active resume found',
+                activeResume: null,
+                hasActiveResume: false
+            });
+        }
+        
+        res.json({
+            message: 'Active resume found',
+            activeResume: activeResume,
+            hasActiveResume: true,
+            ...activeResume.toObject()
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -606,7 +734,6 @@ exports.deleteResume = async (req, res) => {
                         { resource_type: 'raw' },
                         (error, result) => {
                             if (error) {
-                                console.warn('Could not delete resume from Cloudinary:', error);
                                 resolve(); // Continue even if Cloudinary delete fails
                             } else {
                                 resolve(result);
@@ -615,7 +742,6 @@ exports.deleteResume = async (req, res) => {
                     );
                 });
             } catch (cloudinaryError) {
-                console.warn('Error during Cloudinary file deletion:', cloudinaryError.message);
             }
         }
 
@@ -660,28 +786,259 @@ exports.viewResume = async (req, res) => {
         const { resumeId } = req.params;
         
         const resume = await Resume.findById(resumeId);
-        
         if (!resume) {
             return res.status(404).json({ message: 'Resume not found' });
         }
-        
-        // Check if user has access to this resume
-        const isOwner = resume.user.toString() === req.user._id.toString();
-        const isRecruiter = req.user.role === 'recruiter';
-        
-        if (!isOwner && !isRecruiter) {
-            return res.status(403).json({ message: 'You do not have permission to view this resume' });
+
+        // Check if user has permission to view this resume
+        if (resume.user.toString() !== req.user._id.toString() && req.user.role !== 'recruiter') {
+            return res.status(403).json({ message: 'Not authorized to view this resume' });
         }
-        
-        // For PDFs, redirect to the Cloudinary URL
-        if (resume.mimeType === 'application/pdf') {
-            return res.redirect(resume.cloudinaryUrl);
-        }
-        
-        // For DOCX files, provide download URL
-        return res.redirect(resume.downloadUrl);
+
+        // Generate a signed URL for temporary access
+        const signedUrl = cloudinary.v2.url(resume.cloudinaryPublicId, {
+            resource_type: 'raw',
+            secure: true,
+            sign_url: true,
+            expires_at: Math.floor(Date.now() / 1000) + 3600 // 1 hour expiry
+        });
+
+        res.json({
+            resume: {
+                id: resume._id,
+                filename: resume.filename,
+                fileUrl: signedUrl,
+                mimeType: resume.mimeType,
+                fileSize: resume.fileSize,
+                uploadedAt: resume.uploadedAt
+            }
+        });
     } catch (error) {
-        console.error('Error viewing resume:', error);
-        return res.status(500).json({ message: 'Error viewing resume' });
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get jobseeker stats for dashboard
+exports.getJobseekerStats = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        // Get total applications
+        const totalApplications = await Application.countDocuments({ applicant: userId });
+        
+        // Get pending applications
+        const pendingApplications = await Application.countDocuments({ 
+            applicant: userId, 
+            status: 'pending' 
+        });        // Get interview count
+        const interviews = await Application.countDocuments({ 
+            applicant: userId, 
+            status: 'interview' 
+        });
+        
+        // Get rejections
+        const rejections = await Application.countDocuments({ 
+            applicant: userId, 
+            status: 'rejected' 
+        });
+          // Check if user has active resume
+        const hasActiveResume = await Resume.exists({ user: userId, isActive: true });
+        
+        // For now, we'll use placeholder values for savedJobs and unreadMessages
+        // These can be implemented when we add saved jobs and messaging features
+        const savedJobs = 0; // TODO: Implement saved jobs functionality
+        const unreadMessages = 0; // TODO: Implement messaging functionality
+        
+        res.json({
+            appliedJobs: totalApplications,
+            savedJobs: savedJobs,
+            interviews: interviews,
+            unreadMessages: unreadMessages,
+            pendingApplications: pendingApplications,
+            rejections: rejections,
+            hasActiveResume: !!hasActiveResume
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get recommended jobs based on user skills and preferences
+exports.getRecommendedJobs = async (req, res) => {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+        const userId = req.user.id;
+        
+        // Get user's jobseeker profile with skills
+        const jobseekerProfile = await JobSeekerProfile.findOne({ user: userId });
+        
+        if (!jobseekerProfile) {
+            return res.json({
+                jobs: [],
+                pagination: {
+                    currentPage: Number(page),
+                    totalPages: 0,
+                    totalJobs: 0,
+                    hasNext: false,
+                    hasPrev: false
+                }
+            });
+        }
+        
+        const userSkills = jobseekerProfile.skills.map(skill => skill.name);
+        const userPreferences = jobseekerProfile.jobPreferences || {};
+        
+        // Build query for recommendations
+        const query = { status: 'active' };
+        
+        // Match skills if user has skills
+        if (userSkills.length > 0) {
+            query['requirements.skills.required'] = { 
+                $in: userSkills.map(skill => new RegExp(escapeRegExp(skill), 'i'))
+            };
+        }
+        
+        // Apply user preferences
+        if (userPreferences.jobTypes && userPreferences.jobTypes.length > 0) {
+            query.jobType = { $in: userPreferences.jobTypes };
+        }
+        
+        if (userPreferences.workModes && userPreferences.workModes.length > 0) {
+            query.workMode = { $in: userPreferences.workModes };
+        }
+        
+        if (userPreferences.locations && userPreferences.locations.length > 0) {
+            query.location = { 
+                $in: userPreferences.locations.map(loc => new RegExp(escapeRegExp(loc), 'i'))
+            };
+        }
+        
+        // Salary range filter
+        if (userPreferences.salaryRange && userPreferences.salaryRange.min) {
+            query['salary.max'] = { $gte: userPreferences.salaryRange.min };
+        }
+        
+        const skip = (page - 1) * limit;
+        
+        const jobs = await JobPost.find(query)
+            .populate('recruiter', 'name email')
+            .populate('organization', 'name logo location')
+            .sort('-createdAt')
+            .skip(skip)
+            .limit(Number(limit));
+
+        const total = await JobPost.countDocuments(query);
+
+        res.json({
+            jobs,
+            pagination: {
+                currentPage: Number(page),
+                totalPages: Math.ceil(total / limit),
+                totalJobs: total,
+                hasNext: page * limit < total,
+                hasPrev: page > 1
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Update application status (for testing/recruiter use)
+exports.updateApplicationStatus = async (req, res) => {
+    try {
+        const { applicationId } = req.params;
+        const { status } = req.body;
+        
+        // Validate status
+        const validStatuses = ['applied', 'reviewed', 'shortlisted', 'interview', 'rejected', 'hired'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ 
+                message: 'Invalid status', 
+                validStatuses 
+            });
+        }
+        
+        const application = await Application.findById(applicationId)
+            .populate('job')
+            .populate('applicant');
+            
+        if (!application) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+        
+        // Check if user is the recruiter of the job or the applicant (for testing)
+        const isRecruiter = application.job.recruiter.toString() === req.user._id.toString();
+        const isApplicant = application.applicant._id.toString() === req.user._id.toString();
+        
+        if (!isRecruiter && !isApplicant) {
+            return res.status(403).json({ message: 'Unauthorized to update this application' });
+        }
+        
+        application.status = status;
+        await application.save();
+        
+        res.json({
+            message: 'Application status updated successfully',
+            application: application
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get recruiter details by ID
+exports.getRecruiterById = async (req, res) => {
+    try {
+        const { recruiterId } = req.params;
+        
+        // Validate ObjectId format
+        if (!recruiterId.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({ message: 'Invalid recruiter ID format' });
+        }
+
+        const recruiter = await User.findById(recruiterId)
+            .select('name email phone profilePic location organizationId role')
+            .populate('organizationId', 'name logo location contact description');
+
+        if (!recruiter) {
+            return res.status(404).json({ message: 'Recruiter not found' });
+        }
+
+        if (recruiter.role !== 'recruiter') {
+            return res.status(400).json({ message: 'User is not a recruiter' });
+        }
+
+        res.json({ 
+            recruiter: {
+                ...recruiter.toObject(),
+                organization: recruiter.organizationId
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get company details by organization ID  
+exports.getCompanyById = async (req, res) => {
+    try {
+        const { companyId } = req.params;
+        
+        // Validate ObjectId format
+        if (!companyId.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({ message: 'Invalid company ID format' });
+        }
+
+        const company = await Organization.findById(companyId)
+            .populate('recruiters', 'name email phone profilePic');
+
+        if (!company) {
+            return res.status(404).json({ message: 'Company not found' });
+        }
+
+        res.json({ company });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 };

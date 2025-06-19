@@ -41,7 +41,7 @@ const Home = () => {
     {
       icon: <MessageCircle className="w-12 h-12 text-blue-600" />,
       title: "Real-Time Chat",
-      description: "Connect directly with potential candidates or employers through our messaging system."
+      description: "Connect directly with potential candidates or recruiters through our messaging system."
     }
   ];
 
@@ -49,7 +49,7 @@ const Home = () => {
     {
       number: "1",
       title: "Create Your Profile",
-      description: "Sign up and create a detailed profile. For job seekers, upload your resume; for employers, set up your company profile."
+      description: "Sign up and create a detailed profile. For job seekers, upload your resume; for recruiters, set up your company profile."
     },
     {
       number: "2",
@@ -59,7 +59,7 @@ const Home = () => {
     {
       number: "3",
       title: "Apply or Hire with Confidence",
-      description: "Job seekers can apply to recommended positions, while employers can review vetted candidates and make informed hiring decisions."
+      description: "Job seekers can apply to recommended positions, while recruiters can review vetted candidates and make informed hiring decisions."
     }
   ];
 
@@ -97,7 +97,7 @@ const Home = () => {
             </button>
 
             <button
-              onClick={() => goToRegister('employer')}
+              onClick={() => goToRegister('recruiter')}
               className="group flex items-center gap-3 px-8 py-4 bg-blue-800 text-white border-2 border-white rounded-lg hover:bg-black hover:border-gray-300 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1"
             >
               <Briefcase className="w-6 h-6" />
@@ -147,7 +147,7 @@ const Home = () => {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">How JobConnect Works</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Our platform makes the hiring process simple and efficient for both employers and job seekers.
+              Our platform makes the hiring process simple and efficient for both recruiters and job seekers.
             </p>
           </div>
 
@@ -192,7 +192,7 @@ const Home = () => {
             </div>
 
             <button
-              onClick={() => goToRegister('employer')}
+              onClick={() => navigate('/register-organization')}
               className="group flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 mx-auto"
             >
               <Building2 className="w-6 h-6" />
@@ -231,7 +231,7 @@ const Home = () => {
             </button>
 
             <button
-              onClick={() => goToRegister('employer')}
+              onClick={() => goToRegister('recruiter')}
               className="group flex items-center gap-3 px-8 py-4 bg-black text-white rounded-full hover:bg-orange-600 hover:text-black focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-orange-400 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1"
             >
               <Briefcase className="w-6 h-6" />

@@ -61,7 +61,10 @@ const organizations = [
                 country: "India"
             }
         },
-        website: "https://innovatelabs.com"
+        website: "https://innovatelabs.com",
+        socialMedia: {
+            linkedin: "https://linkedin.com/company/innovatelabs"
+        }
     },
     {
         gstin: "27AAAAA0000A1Z5",
@@ -84,7 +87,87 @@ const organizations = [
                 country: "India"
             }
         },
-        website: "https://globalenterprises.com"
+        website: "https://globalenterprises.com",
+        socialMedia: {
+            linkedin: "https://linkedin.com/company/globalenterprises"
+        }
+    },
+    {
+        gstin: "09AAAAA0000A1Z5",
+        name: "StartupTech",
+        companySize: "11-50",
+        description: {
+            about: "Fast-growing startup specializing in e-commerce solutions.",
+            vision: "Revolutionizing online shopping experiences.",
+            mission: "Creating seamless digital commerce platforms for businesses.",
+            benefits: ["Equity Participation", "Flexible Hours", "Learning Opportunities", "Startup Culture"]
+        },
+        contact: {
+            email: "jobs@startuptech.com",
+            phone: "+91-9123456789",
+            address: {
+                street: "Startup Hub, Phase 2",
+                city: "Noida",
+                state: "Uttar Pradesh",
+                pincode: "201301",
+                country: "India"
+            }
+        },
+        website: "https://startuptech.com",
+        socialMedia: {
+            linkedin: "https://linkedin.com/company/startuptech"
+        }
+    },
+    {
+        gstin: "29AAAAA0000A1Z5",
+        name: "CloudSystems Inc",
+        companySize: "501-1000",
+        description: {
+            about: "Cloud infrastructure and DevOps solutions provider.",
+            vision: "Enabling digital transformation through cloud technologies.",
+            mission: "Simplifying cloud adoption for enterprises worldwide.",
+            benefits: ["Cloud Certifications", "Remote Work", "Health Benefits", "Professional Development"]
+        },
+        contact: {
+            email: "talent@cloudsystems.com",
+            phone: "+91-8234567890",
+            address: {
+                street: "Cloud Tower, IT Park",
+                city: "Chennai",
+                state: "Tamil Nadu",
+                pincode: "600001",
+                country: "India"
+            }
+        },
+        website: "https://cloudsystems.com",
+        socialMedia: {
+            linkedin: "https://linkedin.com/company/cloudsystems"
+        }
+    },    {
+        gstin: "24AAAAA0000A1Z5",
+        name: "DataMinds Analytics",
+        companySize: "51-200",
+        description: {
+            about: "Data science and business intelligence consulting firm.",
+            vision: "Transforming data into actionable business insights.",
+            mission: "Empowering organizations with data-driven decision making.",
+            benefits: ["Research Time", "Conference Attendance", "Skill Development", "Work-Life Balance"]
+        },
+        contact: {
+            email: "careers@dataminds.com",
+            phone: "+91-7345678901",
+            address: {
+                street: "Analytics Center, Cyber City",
+                city: "Pune",
+                state: "Maharashtra",
+                pincode: "411001",
+                country: "India"
+            }
+        },
+        website: "https://dataminds.com",
+        socialMedia: {
+            linkedin: "https://linkedin.com/company/dataminds"
+        }
     }
 ];
 
@@ -115,6 +198,33 @@ const users = [
         name: "Priya Sharma",
         phone: "+91-7654321098",
         location: "Mumbai, Maharashtra",
+        profileCompleted: true
+    },
+    {
+        email: "recruiter4@startuptech.com",
+        password: "password123",
+        role: "recruiter",
+        name: "Amit Kumar",
+        phone: "+91-9123456789",
+        location: "Noida, Uttar Pradesh",
+        profileCompleted: true
+    },
+    {
+        email: "recruiter5@cloudsystems.com",
+        password: "password123",
+        role: "recruiter",
+        name: "Sneha Reddy",
+        phone: "+91-8234567890",
+        location: "Chennai, Tamil Nadu",
+        profileCompleted: true
+    },
+    {
+        email: "recruiter6@dataminds.com",
+        password: "password123",
+        role: "recruiter",
+        name: "Vikram Singh",
+        phone: "+91-7345678901",
+        location: "Pune, Maharashtra",
         profileCompleted: true
     },
     // Job Seekers
@@ -397,7 +507,8 @@ const jobPosts = [
         jobType: "full-time",
         workMode: "hybrid",
         salary: { min: 1200000, max: 2000000 },
-        status: "active"
+        status: "active",
+        atsCriteria: 65
     },
     {
         title: "Data Science Manager",
@@ -414,7 +525,8 @@ const jobPosts = [
         jobType: "full-time",
         workMode: "remote",
         salary: { min: 2500000, max: 4000000 },
-        status: "active"
+        status: "active",
+        atsCriteria: 70
     },
     {
         title: "Frontend React Developer",
@@ -431,7 +543,8 @@ const jobPosts = [
         jobType: "full-time",
         workMode: "remote",
         salary: { min: 800000, max: 1500000 },
-        status: "active"
+        status: "active",
+        atsCriteria: 60
     },
     {
         title: "DevOps Engineer",
@@ -545,14 +658,19 @@ async function seedDatabase() {
         // Separate users by role
         const recruiters = createdUsers.filter(user => user.role === 'recruiter');
         const jobseekers = createdUsers.filter(user => user.role === 'jobseeker');
-        const admin = createdUsers.find(user => user.role === 'admin');
-
-        // Update organizations with recruiters
+        const admin = createdUsers.find(user => user.role === 'admin');        // Update organizations with recruiters and link recruiters to organizations
         console.log('🔗 Linking recruiters to organizations...');
         for (let i = 0; i < recruiters.length && i < createdOrganizations.length; i++) {
+            // Add recruiter to organization's recruiters array
             await Organization.findByIdAndUpdate(
                 createdOrganizations[i]._id,
                 { $push: { recruiters: recruiters[i]._id } }
+            );
+            
+            // Update recruiter's organizationId field
+            await User.findByIdAndUpdate(
+                recruiters[i]._id,
+                { organizationId: createdOrganizations[i]._id }
             );
         }
 
@@ -570,7 +688,9 @@ async function seedDatabase() {
         const jobPostsWithData = jobPosts.map((job, index) => ({
             ...job,
             recruiter: recruiters[index % recruiters.length]._id,
-            organization: createdOrganizations[index % createdOrganizations.length]._id
+            organization: createdOrganizations[index % createdOrganizations.length]._id,
+            // Add atsCriteria field with values under 71
+            atsCriteria: Math.floor(Math.random() * 41) + 30 // Random value between 30-70
         }));
         const createdJobPosts = await JobPost.insertMany(jobPostsWithData);
         console.log(`✅ Created ${createdJobPosts.length} job posts`);

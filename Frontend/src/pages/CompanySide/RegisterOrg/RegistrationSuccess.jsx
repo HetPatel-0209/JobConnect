@@ -1,15 +1,27 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import successImg from "../../../assets/Success.svg";
-import { ArrowRight, CheckCircle, LayoutDashboard } from 'lucide-react';
+import { ArrowRight, CheckCircle, LayoutDashboard, UserPlus } from 'lucide-react';
 
 
 
 const RegistrationSuccess = () => {
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check if user is authenticated
+    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    const token = localStorage.getItem('token');
+    setIsAuthenticated(!!(currentUser && token));
+  }, []);
 
   const goToDashboard = () => {
     navigate("/dashboard");
+  };
+
+  const goToAuth = () => {
+    navigate("/auth?mode=login&type=recruiter");
   };
 
   return (
@@ -35,8 +47,11 @@ const RegistrationSuccess = () => {
             🎉 Registration Successful!
           </h2>
           <p className="text-lg text-gray-600 leading-relaxed">
-            Welcome to JobConnect! Your organization has been successfully registered. 
-            You can now manage everything from your dashboard and start posting jobs to attract top talent.
+            Welcome to JobConnect! Your organization has been successfully registered.
+            {isAuthenticated
+              ? "You can now manage everything from your dashboard and start posting jobs to attract top talent."
+              : "Please complete your account registration to access your dashboard and start posting jobs."
+            }
           </p>
         </div>
 
@@ -66,14 +81,25 @@ const RegistrationSuccess = () => {
         </div>
 
         {/* Action Button */}
-        <button 
-          onClick={goToDashboard}
-          className="group flex items-center justify-center gap-3 w-full px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-        >
-          <LayoutDashboard className="w-6 h-6" />
-          Go to Dashboard
-          <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
-        </button>
+        {isAuthenticated ? (
+          <button
+            onClick={goToDashboard}
+            className="group flex items-center justify-center gap-3 w-full px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+          >
+            <LayoutDashboard className="w-6 h-6" />
+            Go to Dashboard
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+          </button>
+        ) : (
+          <button
+            onClick={goToAuth}
+            className="group flex items-center justify-center gap-3 w-full px-8 py-4 bg-green-600 text-white rounded-xl hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+          >
+            <UserPlus className="w-6 h-6" />
+            Complete Registration
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+          </button>
+        )}
 
         {/* Additional Info */}
         <p className="mt-6 text-sm text-gray-500">

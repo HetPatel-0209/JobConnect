@@ -7,10 +7,11 @@ const memoryStorage = multer.memoryStorage();
 const fileFilter = (req, file, cb) => {
     if (file.fieldname === 'resume') {
         if (file.mimetype === 'application/pdf' || 
-            file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+            file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+            file.mimetype === 'application/msword') {
             cb(null, true);
         } else {
-            cb(new Error('Only PDF and DOCX files are allowed for resumes!'), false);
+            cb(new Error('Only PDF, DOC, and DOCX files are allowed for resumes!'), false);
         }
     } else if (file.fieldname === 'profilePic') {
         // Allow only jpg, jpeg, and png for profile pictures

@@ -24,7 +24,7 @@ router.post('/admin-login', loginValidation, adminLogin);
 
 // Protected routes
 router.get('/profile', authenticate, getProfile);
-router.put('/profile', authenticate, updateProfile); // Generic profile update route
+
 router.put('/profile-jobseeker', authenticate, authorizeRoles('jobseeker'), jobseekerProfileValidation, updateProfile);
 router.put('/profile-recruiter', authenticate, authorizeRoles('recruiter'), recruiterProfileValidation, updateProfile);
 router.post('/profile-picture', authenticate, uploadProfilePic, handleUploadError, uploadProfilePicture);

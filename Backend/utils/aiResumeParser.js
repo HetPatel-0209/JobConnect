@@ -8,15 +8,15 @@ const { v4: uuidv4 } = require('uuid');
 
 const PATTERNS = {
     skills: [
-        'javascript', 'python', 'java', 'c++', 'c#', 'ruby', 'php', 'sql', 'html', 'css', 
-        'react', 'angular', 'vue', 'node.js', 'express', 'mongodb', 'mysql', 'postgresql', 
-        'aws', 'docker', 'kubernetes', 'git', 'agile', 'scrum', 'leadership', 'communication', 
-        'vercel', 'render', 'r', 'rust', 'scala', 'dart', 'perl', 'matlab', 'shell scripting', 
-        'next.js', 'vue.js', 'svelte', 'jquery', 'asp', 'asp.net', '.net', 'django', 'spring', 
-        'react native', 'flutter', 'swift', 'objective-c', 'kotlin', 'terraform', 'oracle', 
-        'nmap', 'wireshark', 'iot', 'cyber security', 'oauth', 'matplotlib', 'pytorch', 
-        'tensorflow', 'apache hadoop', 'apache spark', 'apache kafka', 'apache hive', 
-        'apache flink', 'apache storm', 'jenkins', 'jira', 'blockchain', 'ethereum', 
+        'javascript', 'python', 'java', 'c++', 'c#', 'ruby', 'php', 'sql', 'html', 'css',
+        'react', 'angular', 'vue', 'node.js', 'express', 'mongodb', 'mysql', 'postgresql',
+        'aws', 'docker', 'kubernetes', 'git', 'agile', 'scrum', 'leadership', 'communication',
+        'vercel', 'render', 'r', 'rust', 'scala', 'dart', 'perl', 'matlab', 'shell scripting',
+        'next.js', 'vue.js', 'svelte', 'jquery', 'asp', 'asp.net', '.net', 'django', 'spring',
+        'react native', 'flutter', 'swift', 'objective-c', 'kotlin', 'terraform', 'oracle',
+        'nmap', 'wireshark', 'iot', 'cyber security', 'oauth', 'matplotlib', 'pytorch',
+        'tensorflow', 'apache hadoop', 'apache spark', 'apache kafka', 'apache hive',
+        'apache flink', 'apache storm', 'jenkins', 'jira', 'blockchain', 'ethereum',
         'solidity', 'web3', 'web3.js', 'typescript', 'bootstrap', 'tailwind', 'sass', 'less'
     ],
     degrees: [
@@ -37,15 +37,15 @@ const PATTERNS = {
 const parseResumeFromBuffer = async (fileBuffer, mimeType) => {
     try {
         let text = '';
-        
         if (mimeType === 'application/pdf') {
             const data = await pdfParse(fileBuffer);
             text = data.text.toLowerCase();
-        } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        } else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+            mimeType === 'application/msword') {
             const tempPath = path.join(__dirname, '../temp', `temp_${Date.now()}.docx`);
             await fs.mkdir(path.dirname(tempPath), { recursive: true });
             await fs.writeFile(tempPath, fileBuffer);
-            
+
             text = await new Promise((resolve, reject) => {
                 docxParse.parseDocx(tempPath, (data) => {
                     if (typeof data === 'string') {
@@ -55,8 +55,8 @@ const parseResumeFromBuffer = async (fileBuffer, mimeType) => {
                     }
                 });
             });
-            
-            await fs.unlink(tempPath).catch(() => {});
+
+            await fs.unlink(tempPath).catch(() => { });
         } else {
             throw new Error('Unsupported file type: ' + mimeType);
         }
@@ -92,17 +92,19 @@ const calculateAIATSScore = async (resumeData, jobData) => {
             messages: [
                 {
                     role: "system",
-                    content: `You are an AI that analyzes resumes and calculates ATS scores. You MUST respond with ONLY a JSON object in this exact format: {"atsScore": number, "analysis": "text", "matchedSkills": [], "missingSkills": []}`
+                    content: `You are an AI that analyzes resumes and calculates ATS scores. You MUST respond with ONLY a JSON object in this exact format: {"atsScore": number, "analysis": "text", "matchedSkills": [], "missingSkills": [], "suggestions": []}`
                 },
                 {
                     role: "user",
                     content: `Analyze this resume against the job requirements:
-                    
+
                     Job Requirements:
                     - Title: ${jobData.title}
                     - Description: ${jobData.description}
-                    - Required Skills: ${jobData.skills?.join(', ') || 'Not specified'}
-                    - Experience Level: ${jobData.experienceLevel || 'Not specified'}
+                    - Required Skills: ${jobData.requirements?.skills?.required?.join(', ') || 'Not specified'}
+                    - Preferred Skills: ${jobData.requirements?.skills?.preferred?.join(', ') || 'Not specified'}
+                    - Experience Required: ${jobData.requirements?.experience ? `${jobData.requirements.experience.min}-${jobData.requirements.experience.max} years` : 'Not specified'}
+                    - Education Required: ${jobData.requirements?.education?.join(', ') || 'Not specified'}
                     - Location: ${jobData.location || 'Not specified'}
                     
                     Resume Data:
@@ -115,7 +117,15 @@ const calculateAIATSScore = async (resumeData, jobData) => {
                     2. "analysis": A brief analysis of the match (max 200 words)
                     3. "matchedSkills": Array of skills that match between resume and job
                     4. "missingSkills": Array of required skills missing from resume
-                    
+                    5. "suggestions": Array of suggestions to improve the resume
+
+                    Example response:
+                    {"atsScore": "85", 
+                    "analysis": "Matches Python and MongoDB requirements, but missing Spring Boot",
+                    "matchedSkills": ["Python", "MongoDB"], 
+                    "missingSkills": ["Spring Boot"], 
+                    "suggestions": ["Update your resume with your latest achievements"]}
+
                     Consider:
                     - Skill relevance and match percentage
                     - Education requirements
@@ -167,10 +177,12 @@ const calculateBasicATSScore = (resumeData, jobData) => {
     const matchedSkills = [];
     const missingSkills = [];
 
-    if (jobData.skills && jobData.skills.length > 0) {
+    // Skills evaluation (50% weight)
+    const requiredSkills = jobData.requirements?.skills?.required || [];
+    if (requiredSkills.length > 0) {
         const resumeSkills = resumeData.skills?.map(s => s.toLowerCase()) || [];
-        const jobSkills = jobData.skills.map(s => s.toLowerCase());
-        
+        const jobSkills = requiredSkills.map(s => s.toLowerCase());
+
         jobSkills.forEach(skill => {
             if (resumeSkills.includes(skill)) {
                 matchedSkills.push(skill);
@@ -179,23 +191,56 @@ const calculateBasicATSScore = (resumeData, jobData) => {
             }
         });
 
-        const skillsScore = (matchedSkills.length / jobSkills.length) * 60;
+        const skillsScore = (matchedSkills.length / jobSkills.length) * 50;
         score += skillsScore;
         analysis.push(`Skills match: ${matchedSkills.length}/${jobSkills.length} (${Math.round(skillsScore)}%)`);
     }
 
-    if (resumeData.education && resumeData.education.length > 0) {
-        score += 20;
-        analysis.push('Education information found (+20%)');
+    // Education evaluation (25% weight)
+    const requiredEducation = jobData.requirements?.education || [];
+    if (requiredEducation.length > 0 && resumeData.education && resumeData.education.length > 0) {
+        const resumeEducation = resumeData.education.map(e => e.degree?.toLowerCase() || '');
+        const hasMatchingEducation = requiredEducation.some(reqEdu =>
+            resumeEducation.some(resEdu => resEdu.includes(reqEdu.toLowerCase()))
+        );
+
+        if (hasMatchingEducation) {
+            score += 25;
+            analysis.push('Education requirements met (+25%)');
+        } else {
+            score += 10;
+            analysis.push('Education found but may not match requirements (+10%)');
+        }
+    } else if (resumeData.education && resumeData.education.length > 0) {
+        score += 15;
+        analysis.push('Education information found (+15%)');
     }
 
-    if (resumeData.experience && resumeData.experience.length > 0) {
-        score += 20;
-        analysis.push('Work experience found (+20%)');
+    // Experience evaluation (25% weight)
+    const experienceReq = jobData.requirements?.experience;
+    if (experienceReq && resumeData.experience && resumeData.experience.length > 0) {
+        // Simple heuristic: count number of experience entries as years
+        const resumeExperienceYears = resumeData.experience.length;
+        const minRequired = experienceReq.min || 0;
+        const maxRequired = experienceReq.max || 100;
+
+        if (resumeExperienceYears >= minRequired && resumeExperienceYears <= maxRequired) {
+            score += 25;
+            analysis.push(`Experience matches requirement: ${resumeExperienceYears} years (+25%)`);
+        } else if (resumeExperienceYears >= minRequired) {
+            score += 20;
+            analysis.push(`Experience exceeds minimum: ${resumeExperienceYears} years (+20%)`);
+        } else {
+            score += 10;
+            analysis.push(`Experience below requirement: ${resumeExperienceYears} years (+10%)`);
+        }
+    } else if (resumeData.experience && resumeData.experience.length > 0) {
+        score += 15;
+        analysis.push('Work experience found (+15%)');
     }
 
     return {
-        atsScore: Math.round(score),
+        atsScore: Math.round(Math.min(100, score)), // Cap at 100
         analysis: analysis.join(', '),
         matchedSkills,
         missingSkills
@@ -236,15 +281,15 @@ function findExperience(lines) {
 async function compressPDF(buffer, compressionLevel = 'medium') {
     try {
         const pdfDoc = await PDFDocument.load(buffer);
-        
+
         // Define compression options based on level
         let options = {};
-        switch(compressionLevel) {
+        switch (compressionLevel) {
             case 'low':
                 options = { useObjectStreams: false };
                 break;
             case 'high':
-                options = { 
+                options = {
                     useObjectStreams: true,
                     addXrefStreams: true,
                     objectsPerTick: 100,
@@ -252,19 +297,19 @@ async function compressPDF(buffer, compressionLevel = 'medium') {
                 break;
             case 'medium':
             default:
-                options = { 
+                options = {
                     useObjectStreams: true
                 };
                 break;
         }
-        
+
         // Save with compression options
         const compressedPdfBytes = await pdfDoc.save(options);
-        
+
         const originalSize = buffer.length;
         const compressedSize = compressedPdfBytes.length;
         const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(2);
-        
+
         return {
             buffer: Buffer.from(compressedPdfBytes),
             originalSize,
@@ -274,11 +319,11 @@ async function compressPDF(buffer, compressionLevel = 'medium') {
     } catch (error) {
         console.error('Error compressing PDF:', error);
         // Return original buffer if compression fails
-        return { 
-            buffer, 
-            originalSize: buffer.length, 
-            compressedSize: buffer.length, 
-            compressionRatio: 0 
+        return {
+            buffer,
+            originalSize: buffer.length,
+            compressedSize: buffer.length,
+            compressionRatio: 0
         };
     }
 }

@@ -9,10 +9,13 @@ const resumeSchema = new mongoose.Schema({
     cloudinarySecureUrl: String,
     downloadUrl: String,
     fileSize: Number,
-    originalSize: Number,
-    mimeType: {
+    originalSize: Number,    mimeType: {
         type: String,
-        enum: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        enum: [
+            'application/pdf', 
+            'application/msword', 
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ],
         required: true
     },
     parsedText: String,

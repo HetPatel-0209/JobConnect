@@ -1,44 +1,126 @@
 import api from './api';
 
 export const JobService = {
-    getAllJobs: async () => {
-        const response = await api.get('/jobs');
-        return response.data;
+    /**
+     * Get all jobs with optional filters
+     * @param {Object} filters - Filter parameters
+     * @returns {Promise<Object>} Jobs list with pagination
+     */
+    getAllJobs: async (filters = {}) => {
+        return await api.get('/jobs', filters);
     },
 
-    getJobsByLocation: async () => {
-        const response = await api.get('/jobs/location');
-        return response.data;
+    /**
+     * Get recommended jobs based on user skills
+     * @param {Object} filters - Filter parameters
+     * @returns {Promise<Object>} Recommended jobs
+     */
+    getRecommendedJobs: async (filters = {}) => {
+        return await api.get('/jobs/recommended', filters);
     },
 
-    getJobsBySkills: async () => {
-        const response = await api.get('/jobs/skills');
-        return response.data;
+    /**
+     * Get jobseeker dashboard stats
+     * @returns {Promise<Object>} Dashboard stats
+     */
+    getJobseekerStats: async () => {
+        return await api.get('/jobs/stats');
     },
 
-    getAppliedJobs: async () => {
-        const response = await api.get('/jobs/applied');
-        return response.data;
+
+    
+    /**
+     * Get jobs applied by the user
+     * @param {Object} filters - Filter parameters
+     * @returns {Promise<Object>} Applied jobs
+     */
+    getAppliedJobs: async (filters = {}) => {
+        return await api.get('/jobs/applied', filters);
+    },
+    
+    /**
+     * Get a specific job by ID
+     * @param {string} jobId - Job ID
+     * @returns {Promise<Object>} Job details
+     */
+    getJobById: async (jobId) => {
+        return await api.get(`/jobs/${jobId}`);
     },
 
-    calculateATSScore: async (jobId) => {
-        const response = await api.get(`/jobs/${jobId}/ats-score`);
-        return response.data;
+    /**
+     * Get recruiter details by ID
+     * @param {string} recruiterId - Recruiter ID
+     * @returns {Promise<Object>} Recruiter details
+     */
+    getRecruiterById: async (recruiterId) => {
+        return await api.get(`/jobs/recruiter/${recruiterId}`);
     },
 
-    applyForJob: async (jobId) => {
-        const response = await api.post(`/jobs/${jobId}/apply`);
-        return response.data;
+    /**
+     * Get company details by ID
+     * @param {string} companyId - Company ID
+     * @returns {Promise<Object>} Company details
+     */
+    getCompanyById: async (companyId) => {
+        return await api.get(`/jobs/company/${companyId}`);
     },
 
     // Recruiter endpoints
+    
+    /**
+     * Post a new job
+     * @param {Object} jobData - Job data
+     * @returns {Promise<Object>} Created job
+     */
     postJob: async (jobData) => {
-        const response = await api.post('/jobs', jobData);
-        return response.data;
+        return await api.post('/jobs', jobData);
     },
 
+    /**
+     * Get candidates who applied for a job
+     * @param {string} jobId - Job ID
+     * @returns {Promise<Object>} List of candidates
+     */
     getAppliedCandidates: async (jobId) => {
-        const response = await api.get(`/jobs/${jobId}/candidates`);
-        return response.data;
+        return await api.get(`/jobs/${jobId}/applications`);
+    },
+
+    /**
+     * Update an existing job
+     * @param {string} jobId - Job ID
+     * @param {Object} jobData - Job data to update
+     * @returns {Promise<Object>} Updated job
+     */
+    updateJob: async (jobId, jobData) => {
+        return await api.put(`/jobs/${jobId}`, jobData);
+    },
+
+    /**
+     * Delete a job
+     * @param {string} jobId - Job ID
+     * @returns {Promise<Object>} Delete result
+     */
+    deleteJob: async (jobId) => {
+        return await api.delete(`/jobs/${jobId}`);
+    },
+
+    /**
+     * Calculate ATS score for a job using user's active resume
+     * @param {string} jobId - Job ID
+     * @param {boolean} useAI - Whether to use AI for calculation (default: true)
+     * @returns {Promise<Object>} ATS score and evaluation
+     */
+    calculateATSScore: async (jobId, useAI = true) => {
+        return await api.get(`/jobs/${jobId}/ats-score`, { useAI });
+    },
+
+    /**
+     * Apply for a job
+     * @param {string} jobId - Job ID
+     * @param {Object} applicationData - Application data (optional)
+     * @returns {Promise<Object>} Application result
+     */
+    applyForJob: async (jobId, applicationData = {}) => {
+        return await api.post(`/jobs/${jobId}/apply`, applicationData);
     }
 };

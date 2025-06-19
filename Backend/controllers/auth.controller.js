@@ -9,11 +9,24 @@ const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinar
 // Register new user
 exports.register = async (req, res) => {
     try {
-        const { email, password, role, name, ...profileData } = req.body;
+        const { email, password, role, name, organizationId, ...profileData } = req.body;
 
         // Check if role is valid
         if (!['recruiter', 'jobseeker'].includes(role)) {
             return res.status(400).json({ message: 'Invalid role' });
+        }
+
+        // For recruiters, organizationId is required
+        if (role === 'recruiter' && !organizationId) {
+            return res.status(400).json({ message: 'Organization selection is required for recruiters' });
+        }
+
+        // If recruiter, verify organization exists
+        if (role === 'recruiter' && organizationId) {
+            const organization = await Organization.findById(organizationId);
+            if (!organization) {
+                return res.status(400).json({ message: 'Selected organization does not exist' });
+            }
         }
 
         // Hash password
@@ -26,10 +39,20 @@ exports.register = async (req, res) => {
                 password: hashedPassword,
                 role,
                 name,
+                organizationId: role === 'recruiter' ? organizationId : undefined,
                 ...profileData
             });
 
             await user.save();
+
+            // If recruiter, add them to the organization's recruiters list
+            if (role === 'recruiter' && organizationId) {
+                await Organization.findByIdAndUpdate(
+                    organizationId,
+                    { $addToSet: { recruiters: user._id } }, // $addToSet prevents duplicates
+                    { new: true }
+                );
+            }
 
             // Generate token
             const token = jwt.sign(
@@ -44,9 +67,11 @@ exports.register = async (req, res) => {
                     id: user._id,
                     email: user.email,
                     role: user.role,
-                    name: user.name
+                    name: user.name,
+                    organizationId: user.organizationId
                 }
-            });        } catch (err) {
+            });
+        } catch (err) {
             // Handle duplicate key error (E11000) or transformed duplicate error
             if (err.code === 11000 || err.isDuplicateError || (err.message && err.message.includes('Email address already exists'))) {
                 return res.status(400).json({ message: 'User with this email already exists' });
@@ -81,15 +106,14 @@ exports.login = async (req, res) => {
             { userId: user._id, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
-        );
-
-        res.json({
+        );        res.json({
             token,
             user: {
                 id: user._id,
                 email: user.email,
                 role: user.role,
-                name: user.name
+                name: user.name,
+                organizationId: user.organizationId
             }
         });
     } catch (error) {
@@ -101,12 +125,31 @@ exports.login = async (req, res) => {
 exports.getProfile = async (req, res) => {
     try {
         // The user is already attached to req.user by the authenticate middleware
-        // No need to query the database again
         const user = req.user;
         
         // Convert to a plain object and remove the password field
         const userData = user.toObject();
         delete userData.password;
+        
+        // If jobseeker, include profile and active resume info
+        if (user.role === 'jobseeker') {
+            const jobseekerProfile = await JobSeekerProfile.findOne({ user: user._id })
+                .populate('activeResume');
+            
+            if (jobseekerProfile) {
+                userData.jobseekerProfile = jobseekerProfile;
+            }
+            
+            // Get active resume info
+            const activeResume = await require('../models/Resume').findOne({ 
+                user: user._id, 
+                isActive: true 
+            }).select('filename cloudinarySecureUrl uploadedAt fileSize mimeType');
+            
+            if (activeResume) {
+                userData.activeResume = activeResume;
+            }
+        }
         
         res.json({ user: userData });
     } catch (error) {
@@ -128,7 +171,15 @@ exports.updateProfile = async (req, res) => {
 
         // Start a session for transaction (ensures all or nothing updates)
         const session = await mongoose.startSession();
-        session.startTransaction();        try {
+        session.startTransaction();        try {            // Check if profile should be marked as completed
+            const hasBasicInfo = updateData.name && updateData.phone;
+            const hasJobseekerData = userRole === 'jobseeker' && 
+                updateData.skills && updateData.skills.length > 0 &&
+                updateData.experience && updateData.experience.length > 0 &&
+                updateData.education && updateData.education.length > 0;
+            
+            const profileCompleted = hasBasicInfo && (userRole !== 'jobseeker' || hasJobseekerData);
+
             // Update basic user data
             const user = await User.findByIdAndUpdate(
                 userId,
@@ -136,7 +187,7 @@ exports.updateProfile = async (req, res) => {
                     name: updateData.name,
                     phone: updateData.phone,
                     location: updateData.location,
-                    profileCompleted: true
+                    profileCompleted: profileCompleted
                     // Profile picture is handled by the uploadProfilePicture route
                 },
                 { new: true, runValidators: true, session }
@@ -153,20 +204,20 @@ exports.updateProfile = async (req, res) => {
                 // Get or create jobseeker profile
                 let jobseekerProfile = await JobSeekerProfile.findOne({ user: userId }).session(session);
                 
-                if (!jobseekerProfile) {
-                    jobseekerProfile = new JobSeekerProfile({
+                if (!jobseekerProfile) {                    jobseekerProfile = new JobSeekerProfile({
                         user: userId,
                         skills: updateData.skills || [],
                         experience: updateData.experience || [],
                         education: updateData.education || [],
+                        bio: updateData.bio || '',
                         jobPreferences: updateData.jobPreferences || {}
-                    });
-                } else {
+                    });} else {
                     // Update existing profile
                     if (updateData.skills) jobseekerProfile.skills = updateData.skills;
                     if (updateData.experience) jobseekerProfile.experience = updateData.experience;
                     if (updateData.education) jobseekerProfile.education = updateData.education;
                     if (updateData.jobPreferences) jobseekerProfile.jobPreferences = updateData.jobPreferences;
+                    if (updateData.bio) jobseekerProfile.bio = updateData.bio;
                     if (updateData.activeResume) jobseekerProfile.activeResume = updateData.activeResume;
                 }
                 
