@@ -22,6 +22,14 @@ const messageSchema = new mongoose.Schema({
         enum: ['text', 'file', 'interview_invite', 'status_update'],
         default: 'text'
     },
+    status: {
+        sent: { type: Boolean, default: true },
+        sentAt: { type: Date, default: Date.now },
+        delivered: { type: Boolean, default: false },
+        deliveredAt: { type: Date },
+        seen: { type: Boolean, default: false },
+        seenAt: { type: Date }
+    },
     readBy: [{
         user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         readAt: { type: Date, default: Date.now }

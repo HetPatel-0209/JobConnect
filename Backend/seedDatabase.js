@@ -9,6 +9,7 @@ const Organization = require('./models/Organizations');
 const JobPost = require('./models/JobPost');
 const Resume = require('./models/Resume');
 const Application = require('./models/Application');
+const { Chat, Message } = require('./models/Chat');
 
 // Sample organizations
 const organizations = [
@@ -513,14 +514,15 @@ async function seedDatabase() {
         console.log('✅ Connected to database');
 
         // Clear existing data
-        console.log('🧹 Clearing existing data...');
-        await Promise.all([
+        console.log('🧹 Clearing existing data...');        await Promise.all([
             User.deleteMany({}),
             JobSeeker.deleteMany({}),
             Organization.deleteMany({}),
             JobPost.deleteMany({}),
             Resume.deleteMany({}),
-            Application.deleteMany({})
+            Application.deleteMany({}),
+            Chat.deleteMany({}),
+            Message.deleteMany({})
         ]);
         console.log('✅ Cleared existing data');
 
@@ -593,17 +595,132 @@ async function seedDatabase() {
                     appliedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000) // Random date in last 30 days
                 });
             }
+        }        const createdApplications = await Application.insertMany(applications);
+        console.log(`✅ Created ${createdApplications.length} applications`);
+
+        // Create sample chats and messages
+        console.log('💬 Creating sample chats and messages...');
+        const chats = [];
+        const messages = [];
+
+        // Create chats between recruiters and job seekers (based on applications)
+        const chatPairs = new Set();
+        
+        // Create chats for applications
+        for (const application of createdApplications) {
+            const jobPost = createdJobPosts.find(job => job._id.equals(application.job));
+            if (jobPost) {
+                const recruiterId = jobPost.recruiter;
+                const jobseekerId = application.applicant;
+                const pairKey = `${recruiterId}_${jobseekerId}`;
+                
+                if (!chatPairs.has(pairKey)) {
+                    chatPairs.add(pairKey);
+                    chats.push({
+                        participants: [
+                            { user: recruiterId, joinedAt: new Date(), lastSeen: new Date() },
+                            { user: jobseekerId, joinedAt: new Date(), lastSeen: new Date() }
+                        ],
+                        isActive: true
+                    });
+                }
+            }
         }
 
-        const createdApplications = await Application.insertMany(applications);
-        console.log(`✅ Created ${createdApplications.length} applications`);
-        console.log('\n🎉 Database seeded successfully!');
-        console.log('\n📊 Summary:');
+        // Create some additional random chats between users
+        for (let i = 0; i < 3; i++) {
+            const recruiter = recruiters[Math.floor(Math.random() * recruiters.length)];
+            const jobseeker = jobseekers[Math.floor(Math.random() * jobseekers.length)];
+            const pairKey = `${recruiter._id}_${jobseeker._id}`;
+            
+            if (!chatPairs.has(pairKey)) {
+                chatPairs.add(pairKey);
+                chats.push({
+                    participants: [
+                        { user: recruiter._id, joinedAt: new Date(), lastSeen: new Date() },
+                        { user: jobseeker._id, joinedAt: new Date(), lastSeen: new Date() }
+                    ],
+                    isActive: true
+                });
+            }
+        }
+
+        const createdChats = await Chat.insertMany(chats);
+        console.log(`✅ Created ${createdChats.length} chats`);
+
+        // Create sample messages for each chat
+        const sampleMessages = [
+            "Hi! I saw your application for the Full Stack Developer position. I'd like to discuss your experience.",
+            "Thank you for reaching out! I'm very interested in this opportunity.",
+            "Could you tell me more about your experience with React and Node.js?",
+            "I have been working with React for over 3 years and Node.js for 2 years. I've built several full-stack applications.",
+            "That's great! When would be a good time for a technical interview?",
+            "I'm available this week. Tuesday or Wednesday afternoon works best for me.",
+            "Perfect! Let's schedule it for Wednesday at 2 PM. I'll send you the meeting details.",
+            "Sounds good! Looking forward to it.",
+            "Great! I'll prepare some technical questions about JavaScript and React.",
+            "Thank you! I'll review my projects and be ready to discuss them.",
+            "Do you have any questions about our company or the role?",
+            "Yes, could you tell me more about the team structure and development practices?",
+            "We follow Agile methodology with 2-week sprints. The team consists of 5 developers.",
+            "That sounds like a great environment. I'm excited about the possibility of joining your team.",
+            "We're looking forward to our interview. Have a great day!",
+            "Thank you! You too!"
+        ];
+
+        for (const chat of createdChats) {
+            const numMessages = Math.floor(Math.random() * 8) + 3; // 3-10 messages per chat
+            const chatMessages = [];
+            
+            for (let i = 0; i < numMessages; i++) {
+                const sender = chat.participants[i % 2].user; // Alternate between participants
+                const messageContent = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
+                const messageTime = new Date(Date.now() - (numMessages - i) * 60 * 60 * 1000); // Spread over hours
+                
+                const message = {
+                    chat: chat._id,
+                    sender: sender,
+                    content: messageContent,
+                    messageType: 'text',
+                    readBy: [{ user: sender, readAt: messageTime }],
+                    timestamp: messageTime
+                };
+
+                // Some messages are read by both participants
+                if (Math.random() > 0.3) {
+                    const otherParticipant = chat.participants[(i + 1) % 2].user;
+                    message.readBy.push({ 
+                        user: otherParticipant, 
+                        readAt: new Date(messageTime.getTime() + Math.random() * 30 * 60 * 1000) // Read within 30 minutes
+                    });
+                }
+
+                chatMessages.push(message);
+            }
+            
+            messages.push(...chatMessages);
+        }
+
+        const createdMessages = await Message.insertMany(messages);
+        console.log(`✅ Created ${createdMessages.length} messages`);
+
+        // Update chats with last message
+        for (const chat of createdChats) {
+            const chatMessages = createdMessages.filter(msg => msg.chat.equals(chat._id));
+            if (chatMessages.length > 0) {
+                const lastMessage = chatMessages[chatMessages.length - 1];
+                await Chat.findByIdAndUpdate(chat._id, { lastMessage: lastMessage._id });
+            }
+        }
+
+        console.log('\n🎉 Database seeded successfully!');        console.log('\n📊 Summary:');
         console.log(`  👥 Users: ${createdUsers.length} (${recruiters.length} recruiters, ${jobseekers.length} jobseekers, 1 admin)`);
         console.log(`  🏢 Organizations: ${createdOrganizations.length}`);
         console.log(`  💼 Job Posts: ${createdJobPosts.length}`);
         console.log(`  📋 Applications: ${createdApplications.length}`);
         console.log(`  📝 Job Seeker Profiles: ${createdJobSeekerProfiles.length}`);
+        console.log(`  💬 Chats: ${createdChats.length}`);
+        console.log(`  📩 Messages: ${createdMessages.length}`);
 
         console.log('\n🔑 Test Credentials for Postman:');
         console.log('\n  🏢 RECRUITERS:');
@@ -617,12 +734,11 @@ async function seedDatabase() {
         });
 
         console.log('\n  🔧 ADMIN:');
-        console.log(`    ${admin.email} : admin123`);
-
-        console.log('\n📝 Sample IDs for Testing:');
+        console.log(`    ${admin.email} : admin123`);        console.log('\n📝 Sample IDs for Testing:');
         console.log(`  Organization IDs: ${createdOrganizations.map(org => org._id).join(', ')}`);
         console.log(`  Job Post IDs: ${createdJobPosts.slice(0, 3).map(job => job._id).join(', ')}`);
-        console.log(`  User IDs: ${jobseekers.slice(0, 2).map(user => user._id).join(', ')}`);        process.exit(0);
+        console.log(`  User IDs: ${jobseekers.slice(0, 2).map(user => user._id).join(', ')}`);
+        console.log(`  Chat IDs: ${createdChats.slice(0, 3).map(chat => chat._id).join(', ')}`);process.exit(0);
     } catch (error) {
         console.error('❌ Error seeding database:', error);
         console.error('Stack trace:', error.stack);
