@@ -23,6 +23,7 @@ import {
   BookOpen,
   Target
 } from 'lucide-react';
+import ChatButton from '../../../components/chat/ChatButton';
 
 export default function UserJobDetails() {
   const { id } = useParams();
@@ -122,6 +123,11 @@ export default function UserJobDetails() {
       </div>
     );
   }
+
+  // Debug logging for job data
+  console.log('UserJobDetails - Job data:', job);
+  console.log('UserJobDetails - Recruiter data:', job?.recruiter);
+  console.log('UserJobDetails - Organization data:', job?.organization);
   const formatSkills = (skills) => {
     if (!skills) return [];
     
@@ -471,6 +477,16 @@ export default function UserJobDetails() {
                     >
                       Recruiter Details
                     </button>
+                  )}
+                  {job.recruiter?._id && (
+                    <ChatButton
+                      recipientId={job.recruiter._id}
+                      recipientName={job.recruiter.name}
+                      recipientRole="recruiter"
+                      variant="secondary"
+                      className="w-full"
+                      initialMessage={`Hi! I'm interested in the ${job.title} position at ${job.organization?.name || 'your company'}. I'd like to learn more about this opportunity.`}
+                    />
                   )}
                 </div>
               </div>

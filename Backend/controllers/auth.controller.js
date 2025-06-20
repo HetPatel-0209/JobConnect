@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const JobSeekerProfile = require('../models/JobSeeker');
 const Organization = require('../models/Organizations');
@@ -546,6 +548,153 @@ exports.changeOrganization = async (req, res) => {
     }
 };
 
+// Configure nodemailer transporter
+const createEmailTransporter = () => {
+    return nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+        }
+    });
+};
+
+// Forgot Password
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+
+        // Find user by email
+        const user = await User.findOne({ email });
+        if (!user) {
+            // Don't reveal if email exists or not for security
+            return res.json({
+                message: 'If an account with that email exists, we have sent a password reset link.'
+            });
+        }
+
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
+
+        // Save reset token to user
+        user.resetPasswordToken = resetToken;
+        user.resetPasswordExpires = resetTokenExpiry;
+        await user.save();
+
+        // Create reset URL
+        const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password?token=${resetToken}`;
+
+        // Email content
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Password Reset Request - JobConnect',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #2563eb;">Password Reset Request</h2>
+                    <p>Hello ${user.name},</p>
+                    <p>You requested a password reset for your JobConnect account. Click the button below to reset your password:</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="${resetUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
+                    </div>
+                    <p>Or copy and paste this link in your browser:</p>
+                    <p style="word-break: break-all; color: #2563eb;">${resetUrl}</p>
+                    <p><strong>This link will expire in 1 hour.</strong></p>
+                    <p>If you didn't request this password reset, please ignore this email.</p>
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #6b7280; font-size: 14px;">Best regards,<br>The JobConnect Team</p>
+                </div>
+            `
+        };
+
+        // Send email
+        const transporter = createEmailTransporter();
+        await transporter.sendMail(mailOptions);
+
+        res.json({
+            message: 'If an account with that email exists, we have sent a password reset link.'
+        });
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({ message: 'Failed to send reset email. Please try again.' });
+    }
+};
+
+// Validate Reset Token
+exports.validateResetToken = async (req, res) => {
+    try {
+        const { token } = req.params;
+
+        if (!token) {
+            return res.status(400).json({ message: 'Reset token is required' });
+        }
+
+        // Find user with valid reset token
+        const user = await User.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired reset token' });
+        }
+
+        res.json({ message: 'Reset token is valid' });
+    } catch (error) {
+        console.error('Validate reset token error:', error);
+        res.status(500).json({ message: 'Failed to validate reset token' });
+    }
+};
+
+// Reset Password
+exports.resetPassword = async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+
+        if (!token) {
+            return res.status(400).json({ message: 'Reset token is required' });
+        }
+
+        if (!password) {
+            return res.status(400).json({ message: 'New password is required' });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+        }
+
+        // Find user with valid reset token
+        const user = await User.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired reset token' });
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // Update user password and clear reset token
+        user.password = hashedPassword;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+
+        res.json({ message: 'Password has been reset successfully' });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ message: 'Failed to reset password. Please try again.' });
+    }
+};
+
 // Export all controller methods
 module.exports = {
     register: exports.register,
@@ -555,5 +704,8 @@ module.exports = {
     updateProfile: exports.updateProfile,
     uploadProfilePicture: exports.uploadProfilePicture,
     getUserProfile: exports.getUserProfile,
-    changeOrganization: exports.changeOrganization
+    changeOrganization: exports.changeOrganization,
+    forgotPassword: exports.forgotPassword,
+    validateResetToken: exports.validateResetToken,
+    resetPassword: exports.resetPassword
 };

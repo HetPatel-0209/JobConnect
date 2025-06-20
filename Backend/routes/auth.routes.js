@@ -8,7 +8,10 @@ const {
     updateProfile,
     uploadProfilePicture,
     getUserProfile,
-    changeOrganization
+    changeOrganization,
+    forgotPassword,
+    validateResetToken,
+    resetPassword
 } = require('../controllers/auth.controller');
 const { authenticate, authorizeRoles } = require('../middlewares/auth.middleware');
 const { uploadProfilePic, handleUploadError } = require('../middlewares/upload.middleware');
@@ -23,6 +26,11 @@ const {
 router.post('/register', registerValidation, register);
 router.post('/login', loginValidation, login);
 router.post('/admin-login', loginValidation, adminLogin);
+
+// Password reset routes (public)
+router.post('/forgot-password', forgotPassword);
+router.get('/reset-password/:token/validate', validateResetToken);
+router.post('/reset-password/:token', resetPassword);
 
 // Protected routes
 router.get('/profile', authenticate, getProfile);

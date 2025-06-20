@@ -3,6 +3,7 @@ const User = require('../models/User');
 
 exports.sendMessage = async (req, res) => {
     try {
+        console.log('POST /chat/messages - User:', req.user, 'Body:', req.body);
         const { recipientId, content, messageType = 'text' } = req.body;
         const senderId = req.user._id;
 
@@ -59,6 +60,7 @@ exports.sendMessage = async (req, res) => {
 
 exports.getChats = async (req, res) => {
     try {
+        console.log('GET /chat/chats - User:', req.user);
         const userId = req.user._id;
         
         const chats = await Chat.find({ 

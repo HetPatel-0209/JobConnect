@@ -15,6 +15,7 @@ import {
   Clock,
   Users
 } from 'lucide-react';
+import ChatButton from '../../../components/chat/ChatButton';
 import { JobService } from '../../../services/job.service';
 
 export default function HRDetails() {
@@ -338,8 +339,17 @@ export default function HRDetails() {
               <p className="text-gray-600 mb-6">Have questions about this position? Reach out to the recruiter directly.</p>
               
               <div className="space-y-3">
+                <ChatButton
+                  recipientId={hrProfile._id}
+                  recipientName={hrProfile.name}
+                  recipientRole="recruiter"
+                  variant="primary"
+                  className="w-full"
+                  initialMessage={`Hi ${hrProfile.name}! I'm interested in opportunities at ${hrProfile.organization?.name || 'your company'}. I'd love to connect and discuss potential roles.`}
+                />
+
                 {hrProfile.email && (
-                  <a 
+                  <a
                     href={`mailto:${hrProfile.email}`}
                     className="flex items-center gap-3 w-full p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium"
                   >
@@ -347,9 +357,9 @@ export default function HRDetails() {
                     Send Email
                   </a>
                 )}
-                
+
                 {hrProfile.phone && (
-                  <a 
+                  <a
                     href={`tel:${hrProfile.phone}`}
                     className="flex items-center gap-3 w-full p-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors font-medium"
                   >

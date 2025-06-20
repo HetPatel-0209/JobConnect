@@ -3,11 +3,22 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import React, { useContext, useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { ProfileContext } from '../../contexts/ProfileContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useChat } from '../../contexts/ChatContext';
 import { AuthService } from '../../services/auth.service';
 
 export default function Navbar() {
   const { user: authUser } = useAuth();
   const { profileImage, setProfileImage, clearProfile } = useContext(ProfileContext);
+
+  // Safely get unread count with fallback
+  let unreadCount = 0;
+  try {
+    const chatContext = useChat();
+    unreadCount = chatContext?.unreadCount || 0;
+  } catch (error) {
+    console.log('Chat context not available in navbar');
+  }
+
   const [localOrgImage, setLocalOrgImage] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -241,6 +252,14 @@ export default function Navbar() {
         <nav className="flex items-center">
           <Link to="/dashboard" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Dashboard</Link>
           <Link to="/analytics" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Analytics</Link>
+          <Link to="/chat" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">
+            Messages
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Link>
           <Link to="/profile" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Profile</Link>
           <Link to="/company-details" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Your Organization</Link>
           
@@ -282,6 +301,14 @@ export default function Navbar() {
         <nav className="flex items-center">
           <Link to="/user/job-dashboard" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Dashboard</Link>
           <Link to="/user/profile" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Profile</Link>
+          <Link to="/user/chat" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">
+            Messages
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Link>
 
           <div className="relative ml-4 md:ml-10" ref={dropdownRef}>
             <div className="flex items-center gap-1.5 bg-gray-400/50 px-2.5 py-1.5 rounded-xl border border-black cursor-pointer transition-colors duration-200 hover:bg-gray-400/60" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>

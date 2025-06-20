@@ -71,7 +71,9 @@ const apiService = {
      */
     get: async (url, params = {}) => {
         try {
+            console.log(`API GET: ${url}`, params);
             const response = await api.get(url, { params });
+            console.log(`API GET Response: ${url}`, response.data);
             return response.data;
         } catch (error) {
             const formattedError = handleApiError(error, false);
@@ -89,7 +91,9 @@ const apiService = {
      */
     post: async (url, data = {}, config = {}) => {
         try {
+            console.log(`API POST: ${url}`, data);
             const response = await api.post(url, data, config);
+            console.log(`API POST Response: ${url}`, response.data);
             return response.data;
         } catch (error) {
             const formattedError = handleApiError(error, false);

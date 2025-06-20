@@ -20,6 +20,7 @@ import {
   Clock,
   Building
 } from 'lucide-react';
+import ChatButton from '../../../components/chat/ChatButton';
 
 export default function ApplicantProfile() {
   const { applicantId } = useParams();
@@ -184,10 +185,13 @@ export default function ApplicantProfile() {
 
               {/* Action Buttons */}
               <div className="flex gap-3">
-                <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  <MessageSquare className="w-4 h-4" />
-                  Contact Applicant
-                </button>
+                <ChatButton
+                  recipientId={applicant._id}
+                  recipientName={applicant.name}
+                  recipientRole="jobseeker"
+                  variant="primary"
+                  initialMessage={`Hi ${applicant.name}! I reviewed your profile and would like to discuss potential opportunities with you.`}
+                />
                 <button className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                   <Download className="w-4 h-4" />
                   Download Resume

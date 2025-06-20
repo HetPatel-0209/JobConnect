@@ -62,6 +62,9 @@ const { Chat, Message } = require('./models/Chat');
 const User = require('./models/User');
 const jwt = require('jsonwebtoken');
 
+// Track online users
+const onlineUsers = new Map(); // userId -> { socketId, lastSeen, userInfo }
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
@@ -73,10 +76,22 @@ io.on('connection', (socket) => {
                 socket.userId = user._id.toString();
                 socket.join(`user_${user._id}`);
                 console.log(`User ${user.name} authenticated with socket ${socket.id}`);
-                
-                // Update user's last seen
+
+                // Update user's last seen and add to online users
                 await User.findByIdAndUpdate(user._id, { lastSeen: new Date() });
-                
+                onlineUsers.set(user._id.toString(), {
+                    socketId: socket.id,
+                    lastSeen: new Date(),
+                    userInfo: { id: user._id, name: user.name, role: user.role }
+                });
+
+                // Broadcast user online status
+                socket.broadcast.emit('user_online', {
+                    userId: user._id.toString(),
+                    name: user.name,
+                    lastSeen: new Date()
+                });
+
                 socket.emit('authenticated', { success: true, user: { id: user._id, name: user.name } });
             } else {
                 socket.emit('auth_error', { message: 'User not found' });
@@ -160,20 +175,41 @@ io.on('connection', (socket) => {
                 content: message.content,
                 messageType: message.messageType,
                 timestamp: message.timestamp,
-                readBy: message.readBy
+                readBy: message.readBy,
+                status: {
+                    sent: true,
+                    delivered: false,
+                    read: false
+                }
             });
 
-            // Emit to specific users (for notifications)
+            // Emit to specific users (for notifications and delivery status)
             chat.participants.forEach(participant => {
-                if (participant.user.toString() !== socket.userId) {
-                    io.to(`user_${participant.user}`).emit('new_message_notification', {
+                const participantId = participant.user.toString();
+                if (participantId !== socket.userId) {
+                    // Send notification
+                    io.to(`user_${participantId}`).emit('new_message_notification', {
                         chatId,
                         message: {
                             _id: message._id,
                             content: message.content,
                             sender: message.sender
-                        }
+                        },
+                        unreadCount: 1 // This will be calculated properly in the frontend
                     });
+
+                    // Check if user is online and mark as delivered
+                    if (onlineUsers.has(participantId)) {
+                        // Mark as delivered immediately if user is online
+                        setTimeout(() => {
+                            io.to(chatId).emit('message_delivered', {
+                                messageId: message._id,
+                                chatId,
+                                deliveredTo: participantId,
+                                deliveredAt: new Date()
+                            });
+                        }, 100);
+                    }
                 }
             });
 
@@ -256,11 +292,74 @@ io.on('connection', (socket) => {
     socket.on('leave_chat', (chatId) => {
         socket.leave(chatId);
         console.log(`User ${socket.userId} left chat ${chatId}`);
-    });    // Handle disconnection
+    });
+
+    // Handle user online status
+    socket.on('user_online', (data) => {
+        if (socket.userId) {
+            onlineUsers.set(socket.userId, {
+                socketId: socket.id,
+                lastSeen: new Date(),
+                userInfo: data.userInfo || {}
+            });
+
+            // Broadcast to all users
+            socket.broadcast.emit('user_online', {
+                userId: socket.userId,
+                lastSeen: new Date()
+            });
+        }
+    });
+
+    // Handle user offline status
+    socket.on('user_offline', (data) => {
+        if (socket.userId) {
+            onlineUsers.delete(socket.userId);
+
+            // Broadcast to all users
+            socket.broadcast.emit('user_offline', {
+                userId: socket.userId,
+                lastSeen: new Date()
+            });
+        }
+    });
+
+    // Get online users
+    socket.on('get_online_users', () => {
+        const onlineUsersList = Array.from(onlineUsers.entries()).map(([userId, data]) => ({
+            userId,
+            lastSeen: data.lastSeen,
+            userInfo: data.userInfo
+        }));
+
+        socket.emit('online_users_list', onlineUsersList);
+    });
+
+    // Handle message delivery confirmation
+    socket.on('message_delivered', (data) => {
+        const { messageId, chatId } = data;
+
+        // Broadcast delivery confirmation to chat participants
+        socket.to(chatId).emit('message_delivered', {
+            messageId,
+            chatId,
+            deliveredBy: socket.userId,
+            deliveredAt: new Date()
+        });
+    });
+
+    // Handle disconnection
     socket.on('disconnect', async () => {
         if (socket.userId) {
             // Update user's last seen
             await User.findByIdAndUpdate(socket.userId, { lastSeen: new Date() });
+
+            // Remove from online users and broadcast offline status
+            onlineUsers.delete(socket.userId);
+            socket.broadcast.emit('user_offline', {
+                userId: socket.userId,
+                lastSeen: new Date()
+            });
         }
         console.log('User disconnected:', socket.id);
     });

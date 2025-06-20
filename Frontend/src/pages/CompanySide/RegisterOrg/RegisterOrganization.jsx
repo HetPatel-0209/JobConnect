@@ -1,23 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../../../components/common/Footer';
 import { OrganizationService } from '../../../services/organization.service';
 import { useAuth } from '../../../contexts/AuthContext';
-import { 
-  Building2, 
-  CheckCircle, 
-  AlertCircle, 
-  Upload, 
-  Globe, 
-  Users, 
+import {
+  Building2,
+  CheckCircle,
+  AlertCircle,
+  Upload,
+  Globe,
+  Users,
   Search,
   Eye,
   Target,
-  Linkedin,
-  Twitter,
   ExternalLink,
   Loader,
-  FileText
+  FileText,
+  MapPin
 } from 'lucide-react';
 
 export default function RegisterOrganization() {
@@ -41,7 +40,14 @@ export default function RegisterOrganization() {
     twitter: '',
     instagram: '',
     website: '',
-    companySize: ''
+    companySize: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      pincode: '',
+      country: 'India'
+    }
   });
   const [urlErrors, setUrlErrors] = useState({
     linkedin: '',
@@ -68,30 +74,43 @@ export default function RegisterOrganization() {
 
       if (response.success) {
         const gstData = response.data;
+        console.log('GST API Response:', gstData); // Debug log
 
-        // Map GST API response to our company state
-        setCompany({
+        // Map processed GST API response to our company state
+        const companyData = {
           gstin: gstData.gstin || gstin,
-          name: gstData.name || gstData.gstDetails?.tradeName || gstData.gstDetails?.legalName || 'Unknown',
-          legalName: gstData.gstDetails?.legalName || '',
-          tradeName: gstData.gstDetails?.tradeName || '',
-          businessType: gstData.gstDetails?.businessType || '',
-          businessNature: gstData.gstDetails?.businessNature || [],
-          registrationDate: gstData.gstDetails?.registrationDate || '',
-          status: gstData.gstDetails?.status || '',
+          name: gstData.name || gstData.tradeName || gstData.legalName || 'Unknown',
+          legalName: gstData.legalName || '',
+          tradeName: gstData.tradeName || '',
+          businessType: gstData.businessType || '',
+          businessNature: gstData.businessActivities || [],
+          registrationDate: gstData.registrationDate || '',
+          status: gstData.status || '',
           address: {
-            street: gstData.contact?.address?.street || '',
-            city: gstData.contact?.address?.city || '',
-            state: gstData.contact?.address?.state || '',
-            pincode: gstData.contact?.address?.pincode || '',
-            fullAddress: gstData.gstDetails?.fullAddress || ''
+            street: gstData.address?.street || '',
+            city: gstData.address?.city || '',
+            state: gstData.address?.state || '',
+            pincode: gstData.address?.pincode || '',
+            fullAddress: gstData.address?.fullAddress || '',
+            building: gstData.address?.building || '',
+            locality: gstData.address?.locality || ''
           }
-        });
+        };
 
-        // Pre-fill form with GST data
+        console.log('Mapped Company Data:', companyData); // Debug log
+        setCompany(companyData);
+
+        // Pre-fill form with processed GST data
         setForm(prev => ({
           ...prev,
-          about: gstData.description?.about || ''
+          about: '', // No description in GST API, user will fill this
+          address: {
+            street: gstData.address?.street || '',
+            city: gstData.address?.city || '',
+            state: gstData.address?.state || '',
+            pincode: gstData.address?.pincode || '',
+            country: gstData.address?.country || 'India'
+          }
         }));
       } else {
         setError('Organization not found in GST records. Please check your GSTIN.');
@@ -137,12 +156,48 @@ export default function RegisterOrganization() {
     return valid;
   };
 
+  // Separate function for validation without side effects
+  const checkURLsValid = () => {
+    if (form.linkedin && !form.linkedin.startsWith('https://www.linkedin.com/')) {
+      return false;
+    }
+
+    if (form.twitter && !form.twitter.startsWith('https://twitter.com/')) {
+      return false;
+    }
+
+    if (form.instagram && !form.instagram.startsWith('https://www.instagram.com/')) {
+      return false;
+    }
+
+    if (
+      form.website &&
+      !(form.website.startsWith('https://') || form.website.startsWith('http://'))
+    ) {
+      return false;
+    }
+
+    return true;
+  };
+
   const handleChange = (e) => {
     const { name, value, files } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: files ? files[0] : value
-    }));
+
+    if (name.startsWith('address.')) {
+      const addressField = name.split('.')[1];
+      setForm((prev) => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          [addressField]: value
+        }
+      }));
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        [name]: files ? files[0] : value
+      }));
+    }
 
     // Clear URL errors when user starts typing
     if (urlErrors[name]) {
@@ -150,22 +205,29 @@ export default function RegisterOrganization() {
     }
   };
 
-  const isFormValid = () => {
+  // Memoized form validation to prevent infinite re-renders
+  const isFormValid = useMemo(() => {
     return (
       company &&
       form.email.trim() &&
       form.phone.trim() &&
       form.about.trim() &&
       form.companySize.trim() &&
-      validateURLs()
+      checkURLsValid()
     );
-  };
+  }, [company, form.email, form.phone, form.about, form.companySize, form.linkedin, form.twitter, form.instagram, form.website]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!isFormValid()) {
+    if (!isFormValid) {
       setError('Please fill out all required fields with valid values before submitting.');
+      return;
+    }
+
+    // Validate URLs and set errors for display
+    if (!validateURLs()) {
+      setError('Please fix the URL validation errors before submitting.');
       return;
     }
 
@@ -187,7 +249,7 @@ export default function RegisterOrganization() {
         contact: {
           email: form.email,
           phone: form.phone,
-          address: company.address
+          address: form.address
         },
         socialMedia: {
           linkedin: form.linkedin,
@@ -331,42 +393,80 @@ export default function RegisterOrganization() {
                       <div className="flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-blue-600" />
                         <span className="font-medium">Business Name:</span>
-                        <span className="text-gray-700">{company.name}</span>
+                        <span className="text-gray-700">{company.name || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span className="font-medium">GSTIN:</span>
+                        <span className="text-gray-700 font-mono">{company.gstin}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-blue-600" />
                         <span className="font-medium">Legal Name:</span>
-                        <span className="text-gray-700">{company.legalName}</span>
+                        <span className="text-gray-700">{company.legalName || 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-blue-600" />
                         <span className="font-medium">Trade Name:</span>
-                        <span className="text-gray-700">{company.tradeName}</span>
+                        <span className="text-gray-700">{company.tradeName || 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-blue-600" />
                         <span className="font-medium">Business Type:</span>
-                        <span className="text-gray-700">{company.businessType}</span>
+                        <span className="text-gray-700">{company.businessType || 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Target className="w-4 h-4 text-blue-600" />
                         <span className="font-medium">Registration Date:</span>
-                        <span className="text-gray-700">{company.registrationDate}</span>
+                        <span className="text-gray-700">{company.registrationDate || 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-blue-600" />
                         <span className="font-medium">Status:</span>
-                        <span className="text-gray-700">{company.status}</span>
+                        <span className={`font-semibold ${company.status === 'Active' ? 'text-green-600' : 'text-red-600'}`}>
+                          {company.status || 'N/A'}
+                        </span>
                       </div>
-                      <div className="col-span-full flex items-start gap-2">
-                        <Building2 className="w-4 h-4 text-blue-600 mt-1" />
-                        <span className="font-medium">Address:</span>
-                        <span className="text-gray-700">{company.address.fullAddress || `${company.address.street}, ${company.address.city}, ${company.address.state} - ${company.address.pincode}`}</span>
+                      <div className="col-span-full flex items-start gap-2 mb-2">
+                        <MapPin className="w-4 h-4 text-blue-600 mt-1" />
+                        <span className="font-medium">Full Address:</span>
+                        <span className="text-gray-700">
+                          {company.address?.fullAddress || 'N/A'}
+                        </span>
+                      </div>
+                      {company.address?.building && (
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-blue-600" />
+                          <span className="font-medium">Building:</span>
+                          <span className="text-gray-700">{company.address.building}</span>
+                        </div>
+                      )}
+                      {company.address?.locality && (
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-blue-600" />
+                          <span className="font-medium">Locality:</span>
+                          <span className="text-gray-700">{company.address.locality}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-blue-600" />
+                        <span className="font-medium">City:</span>
+                        <span className="text-gray-700">{company.address?.city || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-blue-600" />
+                        <span className="font-medium">State:</span>
+                        <span className="text-gray-700">{company.address?.state || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-blue-600" />
+                        <span className="font-medium">Pincode:</span>
+                        <span className="text-gray-700">{company.address?.pincode || 'N/A'}</span>
                       </div>
                       {company.businessNature && company.businessNature.length > 0 && (
                         <div className="col-span-full flex items-start gap-2">
                           <Target className="w-4 h-4 text-blue-600 mt-1" />
-                          <span className="font-medium">Business Nature:</span>
+                          <span className="font-medium">Business Activities:</span>
                           <span className="text-gray-700">{company.businessNature.join(', ')}</span>
                         </div>
                       )}
@@ -414,6 +514,81 @@ export default function RegisterOrganization() {
                           className={inputClasses}
                           required
                         />
+                      </div>
+                    </div>
+
+                    {/* Address Information */}
+                    <div className="mb-6">
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-blue-600" />
+                        Company Address
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Street Address
+                          </label>
+                          <input
+                            type="text"
+                            name="address.street"
+                            value={form.address.street}
+                            onChange={handleChange}
+                            placeholder="Enter street address"
+                            className={inputClasses}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            City
+                          </label>
+                          <input
+                            type="text"
+                            name="address.city"
+                            value={form.address.city}
+                            onChange={handleChange}
+                            placeholder="Enter city"
+                            className={inputClasses}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            State
+                          </label>
+                          <input
+                            type="text"
+                            name="address.state"
+                            value={form.address.state}
+                            onChange={handleChange}
+                            placeholder="Enter state"
+                            className={inputClasses}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Pincode
+                          </label>
+                          <input
+                            type="text"
+                            name="address.pincode"
+                            value={form.address.pincode}
+                            onChange={handleChange}
+                            placeholder="Enter pincode"
+                            className={inputClasses}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Country
+                          </label>
+                          <input
+                            type="text"
+                            name="address.country"
+                            value={form.address.country}
+                            onChange={handleChange}
+                            placeholder="Enter country"
+                            className={inputClasses}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -554,7 +729,7 @@ export default function RegisterOrganization() {
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                           <div className="flex items-center gap-2">
-                            <Linkedin className="w-4 h-4 text-blue-600" />
+                            <ExternalLink className="w-4 h-4 text-blue-600" />
                             LinkedIn URL
                           </div>
                         </label>
@@ -577,7 +752,7 @@ export default function RegisterOrganization() {
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                           <div className="flex items-center gap-2">
-                            <Twitter className="w-4 h-4 text-blue-600" />
+                            <ExternalLink className="w-4 h-4 text-blue-600" />
                             Twitter URL
                           </div>
                         </label>
@@ -650,7 +825,7 @@ export default function RegisterOrganization() {
                     <div className="flex justify-center pt-6 border-t border-gray-200">
                       <button
                         type="submit"
-                        disabled={submitLoading || !isFormValid()}
+                        disabled={submitLoading || !isFormValid}
                         className="flex items-center gap-2 px-10 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-lg"
                       >
                         {submitLoading ? (

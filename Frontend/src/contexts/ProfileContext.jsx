@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { AuthService } from '../services/auth.service';
 import { ApplicationService } from '../services/application.service';
@@ -22,14 +22,14 @@ export const ProfileProvider = ({ children }) => {
     }
   }, [user]);
   
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
       const response = await AuthService.getProfile();
       setProfileData(response.user || response);
-      
+
       // If profile has an image URL, set it
       if (response.user?.profilePic) {
         setProfileImage(response.user.profilePic);
@@ -42,19 +42,19 @@ export const ProfileProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
-  
-  const updateProfile = async (updatedData) => {
+  }, [user]);
+
+  const updateProfile = useCallback(async (updatedData) => {
     setLoading(true);
     try {
       const response = await AuthService.updateProfile(updatedData);
       setProfileData(response.user || response);
-      
+
       // Update profile image if it was updated
       if (response.user?.profilePic) {
         setProfileImage(response.user.profilePic);
       }
-      
+
       return response;
     } catch (err) {
       console.error('Error updating profile:', err);
@@ -63,21 +63,21 @@ export const ProfileProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
-  
-  const uploadProfileImage = async (imageFile) => {
+  }, []);
+
+  const uploadProfileImage = useCallback(async (imageFile) => {
     setLoading(true);
     try {
       const formData = new FormData();
       formData.append('profilePic', imageFile);
-      
+
       const response = await AuthService.uploadProfilePicture(formData);
-      
+
       // Update the profile image state
       if (response.user?.profilePic) {
         setProfileImage(response.user.profilePic);
       }
-      
+
       return response;
     } catch (err) {
       console.error('Error uploading profile image:', err);
@@ -86,16 +86,16 @@ export const ProfileProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const clearProfile = () => {
+  const clearProfile = useCallback(() => {
     setProfileData(null);
     setProfileImage(null);
     setApplications([]);
     setError(null);
-  };
+  }, []);
 
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     setLoading(true);
     try {
       const response = await ApplicationService.getUserApplications();
@@ -108,15 +108,21 @@ export const ProfileProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  return (    <ProfileContext.Provider value={{
+  // Memoized setProfileImage to prevent infinite re-renders
+  const memoizedSetProfileImage = useCallback((image) => {
+    setProfileImage(image);
+  }, []);
+
+  return (
+    <ProfileContext.Provider value={{
       profileData,
       profileImage,
       applications,
       loading,
       error,
-      setProfileImage,
+      setProfileImage: memoizedSetProfileImage,
       updateProfile,
       uploadProfileImage,
       fetchProfile,

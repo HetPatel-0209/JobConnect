@@ -108,7 +108,10 @@ export default function LoginForm() {
             />
             <span className="text-gray-600">Remember me</span>
           </label>
-          <span className="text-blue-600 cursor-pointer hover:text-blue-700 transition-colors">
+          <span
+            className="text-blue-600 cursor-pointer hover:text-blue-700 transition-colors"
+            onClick={() => navigate('/auth/forgot-password')}
+          >
             Forgot password?
           </span>
         </div>

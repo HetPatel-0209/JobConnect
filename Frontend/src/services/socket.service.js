@@ -13,13 +13,14 @@ class SocketService {
             this.disconnect();
         }
 
-        const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        
+        const serverUrl = import.meta.env.BACKEND_API_BASE_URL?.replace('/api', '') || 'http://localhost:3000';
+
         this.socket = io(serverUrl, {
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'],
             upgrade: true,
             timeout: 20000,
-            forceNew: true
+            forceNew: true,
+            autoConnect: true
         });
 
         // Handle connection events
@@ -36,16 +37,40 @@ class SocketService {
         this.socket.on('disconnect', (reason) => {
             console.log('Socket disconnected:', reason);
             this.isConnected = false;
+
+            // Auto-reconnect for certain disconnect reasons
+            if (reason === 'io server disconnect') {
+                // Server initiated disconnect, try to reconnect
+                setTimeout(() => {
+                    if (this.socket) {
+                        this.socket.connect();
+                    }
+                }, 1000);
+            }
         });
 
         this.socket.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
             this.isConnected = false;
+
+            // Try to reconnect after a delay
+            setTimeout(() => {
+                if (!this.isConnected && this.socket) {
+                    console.log('Attempting to reconnect...');
+                    this.socket.connect();
+                }
+            }, 5000);
         });
 
         // Handle authentication responses
         this.socket.on('authenticated', (data) => {
             console.log('Socket authenticated:', data);
+            this.userId = data.user?.id;
+            this.isConnected = true;
+
+            // Emit user online status
+            this.socket.emit('user_online', { userId: this.userId });
+
             this.triggerHandler('authenticated', data);
         });
 
@@ -83,6 +108,24 @@ class SocketService {
             this.triggerHandler('error', error);
         });
 
+        // Handle online/offline status updates
+        this.socket.on('user_online', (data) => {
+            this.triggerHandler('user_online', data);
+        });
+
+        this.socket.on('user_offline', (data) => {
+            this.triggerHandler('user_offline', data);
+        });
+
+        // Handle message delivery status
+        this.socket.on('message_delivered', (data) => {
+            this.triggerHandler('message_delivered', data);
+        });
+
+        this.socket.on('message_read', (data) => {
+            this.triggerHandler('message_read', data);
+        });
+
         return this.socket;
     }
 
@@ -96,9 +139,15 @@ class SocketService {
     // Disconnect socket
     disconnect() {
         if (this.socket) {
+            // Emit user offline status before disconnecting
+            if (this.userId) {
+                this.socket.emit('user_offline', { userId: this.userId });
+            }
+
             this.socket.disconnect();
             this.socket = null;
             this.isConnected = false;
+            this.userId = null;
             this.eventHandlers.clear();
         }
     }
@@ -187,6 +236,29 @@ class SocketService {
     // Get socket ID
     getSocketId() {
         return this.socket ? this.socket.id : null;
+    }
+
+    // Get current user ID
+    getCurrentUserId() {
+        return this.userId;
+    }
+
+    // Request online users
+    requestOnlineUsers() {
+        if (this.socket && this.isConnected) {
+            this.socket.emit('get_online_users');
+        }
+    }
+
+    // Send message delivery confirmation
+    confirmMessageDelivery(messageId, chatId) {
+        if (this.socket && this.isConnected) {
+            this.socket.emit('message_delivered', {
+                messageId,
+                chatId,
+                deliveredAt: new Date()
+            });
+        }
     }
 }
 

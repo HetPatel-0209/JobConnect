@@ -8,7 +8,7 @@ if (import.meta.env.DEV) {
   console.log('🚀 JobConnect Frontend Debug Mode Active');
   
   // Make API base URL available globally for debugging
-  window.API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  window.API_BASE_URL = import.meta.env.BACKEND_API_URL || 'http://localhost:3000/api';
   
   // Debug helper to test API endpoints
   window.debugAPI = {

@@ -175,24 +175,55 @@ export const AuthService = {
     },
 
     /**
-     * Upload profile picture
-     * @param {FormData} formData - Form data containing the image file
-     * @returns {Promise<Object>} Updated user data
+     * Logout user
      */
-    uploadProfilePicture: async (formData) => {
+    logout: () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('currentUser');
+    },
+
+    /**
+     * Send forgot password email
+     * @param {string} email - User email
+     * @returns {Promise<Object>} Response data
+     */
+    forgotPassword: async (email) => {
         try {
-            const response = await api.post('/auth/profile-picture', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
-            if (response.user) {
-                localStorage.setItem('user', JSON.stringify(response.user));
-                localStorage.setItem('currentUser', JSON.stringify(response.user));
-            }
+            const response = await api.post('/auth/forgot-password', { email });
             return response;
         } catch (error) {
-            console.error('Upload profile picture error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Validate password reset token
+     * @param {string} token - Reset token
+     * @returns {Promise<Object>} Response data
+     */
+    validateResetToken: async (token) => {
+        try {
+            const response = await api.get(`/auth/reset-password/${token}/validate`);
+            return response;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Reset password with token
+     * @param {string} token - Reset token
+     * @param {string} newPassword - New password
+     * @returns {Promise<Object>} Response data
+     */
+    resetPassword: async (token, newPassword) => {
+        try {
+            const response = await api.post(`/auth/reset-password/${token}`, {
+                password: newPassword
+            });
+            return response;
+        } catch (error) {
             throw error;
         }
     }

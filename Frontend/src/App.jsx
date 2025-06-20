@@ -25,9 +25,14 @@ import AnalyticsDashboard from './pages/CompanySide/Analytics/AnalyticsDashboard
 import JobAnalytics from './pages/CompanySide/Analytics/JobAnalytics';
 import PublicCompanyProfile from './pages/CompanySide/PublicProfile/PublicCompanyProfile';
 import GenericJobDetails from './components/common/GenericJobDetails';
+import ChatPage from './pages/Chat/ChatPage';
+import ChatTest from './pages/Chat/ChatTest';
+import NotificationManager from './components/chat/NotificationManager';
 
 import Home from './pages/Home/Home';
 import AuthPage from './pages/Auth/AuthPage';
+import ForgotPassword from './pages/Auth/ForgotPassword';
+import ResetPassword from './pages/Auth/ResetPassword';
 
 import JobDashboard from './pages/UserSide/UserDashboard/JobDashboard';
 import UserProfile from './pages/UserSide/UserProfile/UserProfile';
@@ -61,6 +66,7 @@ function App() {
             <div className={`page-wrapper ${isUploadPage ? 'upload-background' : ''}`}>
               {/* Unified Navbar - shows appropriate navbar based on auth state and route */}
               <Navbar />
+              <NotificationManager />
 
               <main className="main-content">
                 <Routes>
@@ -68,6 +74,8 @@ function App() {
                   <Route path="/" element={<Navigate to="/home" replace />} />
                   <Route path="/home" element={<Home />} />
                   <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/auth/reset-password" element={<ResetPassword />} />
                   <Route path="/register-organization" element={<RegisterOrganization />} />
                   <Route path="/registration-success" element={<RegistrationSuccess />} />
 
@@ -131,6 +139,11 @@ function App() {
                       <JobAnalytics />
                     </ProtectedRoute>
                   } />
+                  <Route path="/chat" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <ChatPage />
+                    </ProtectedRoute>
+                  } />
 
                   {/* ✅ User Routes - Protected for jobseeker users */}
                   <Route path="/user/job-dashboard" element={
@@ -172,6 +185,12 @@ function App() {
                       <CompanyDetails />
                     </ProtectedRoute>
                   } />
+                  <Route path="/user/chat" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <ChatPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/chat-test" element={<ChatTest />} />
 
                   {/* Public Company Profile - accessible to all authenticated users */}
                   <Route path="/company/:companyId" element={

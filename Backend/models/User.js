@@ -30,7 +30,11 @@ const userSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true },
     profileCompleted: { type: Boolean, default: false },
     lastLogin: Date,
-    lastSeen: { type: Date, default: Date.now }
+    lastSeen: { type: Date, default: Date.now },
+
+    // Password reset fields
+    resetPasswordToken: String,
+    resetPasswordExpires: Date
 }, { timestamps: true });
 
 // Add error handling for duplicate key errors

@@ -20,11 +20,11 @@ export const OrganizationProvider = ({ children }) => {
         }
     }, [user]);
 
-    const loadUserOrganization = async () => {
+    const loadUserOrganization = useCallback(async () => {
         setLoading(true);
         try {
             // Check if user has recruiter profile with organization
-            const organizationId = user.recruiterProfile?.organizationId?._id || user.recruiterProfile?.organizationId || user.organizationId;
+            const organizationId = user?.recruiterProfile?.organizationId?._id || user?.recruiterProfile?.organizationId || user?.organizationId;
             if (organizationId) {
                 const response = await OrganizationService.getOrganization(organizationId);
                 setCurrentOrganization(response.data);
@@ -35,7 +35,7 @@ export const OrganizationProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    };    const fetchByGST = useCallback(async (gstNumber) => {
+    }, [user]);    const fetchByGST = useCallback(async (gstNumber) => {
         setLoading(true);
         setError(null);
         try {
@@ -62,17 +62,17 @@ export const OrganizationProvider = ({ children }) => {
         }
     }, []);
 
-    const updateOrganization = async (orgId, organizationData) => {
+    const updateOrganization = useCallback(async (orgId, organizationData) => {
         setLoading(true);
         setError(null);
         try {
             const response = await OrganizationService.updateOrganization(orgId, organizationData);
-            
+
             // Update current organization if it's the same one being updated
             if (currentOrganization && currentOrganization._id === orgId) {
                 setCurrentOrganization(response.data);
             }
-            
+
             return response;
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to update organization');
@@ -80,19 +80,19 @@ export const OrganizationProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentOrganization]);
 
-    const uploadImages = async (orgId, files) => {
+    const uploadImages = useCallback(async (orgId, files) => {
         setLoading(true);
         setError(null);
         try {
             const response = await OrganizationService.uploadImages(orgId, files);
-            
+
             // Update current organization if it's the same one being updated
             if (currentOrganization && currentOrganization._id === orgId) {
                 setCurrentOrganization(response.data);
             }
-            
+
             return response;
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to upload images');
@@ -100,7 +100,7 @@ export const OrganizationProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    };    const searchOrganizations = useCallback(async (searchQuery, options = {}) => {
+    }, [currentOrganization]);    const searchOrganizations = useCallback(async (searchQuery, options = {}) => {
         setLoading(true);
         setError(null);
         try {
@@ -128,9 +128,9 @@ export const OrganizationProvider = ({ children }) => {
         }
     }, []);
 
-    const validateGSTFormat = (gstNumber) => {
+    const validateGSTFormat = useCallback((gstNumber) => {
         return OrganizationService.validateGSTFormat(gstNumber);
-    };    const clearError = useCallback(() => {
+    }, []);    const clearError = useCallback(() => {
         setError(null);
     }, []);
 
