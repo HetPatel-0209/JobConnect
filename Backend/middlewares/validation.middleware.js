@@ -44,8 +44,8 @@ exports.jobPostValidation = validate([
     body('location').notEmpty().withMessage('Job location is required'),
     body('jobType').isIn(['full-time', 'part-time', 'contract', 'internship']).withMessage('Invalid job type'),
     body('workMode').isIn(['remote', 'on-site', 'hybrid']).withMessage('Invalid work mode'),
-    body('salary.min').isNumeric().withMessage('Minimum salary must be a number'),
-    body('salary.max').isNumeric().withMessage('Maximum salary must be a number'),
+    body('salary.min').optional().isNumeric().withMessage('Minimum salary must be a number'),
+    body('salary.max').optional().isNumeric().withMessage('Maximum salary must be a number'),
     body('organization').notEmpty().withMessage('Organization ID is required')
 ]);
 

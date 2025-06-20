@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { JobService } from '../../../services/job.service';
-import { 
-  ArrowLeft, 
-  Building2, 
-  MapPin, 
-  Clock, 
-  IndianRupee, 
+import {
+  ArrowLeft,
+  Building2,
+  MapPin,
+  Clock,
+  IndianRupee,
   Calendar,
   FileText,
   CheckCircle,
@@ -18,6 +18,7 @@ import {
   Phone,
   Mail,
   User,
+  UserCircle,
   Briefcase,
   BookOpen,
   Target
@@ -187,15 +188,39 @@ export default function UserJobDetails() {
               <div className="flex-1">
                 <h1 className="text-3xl font-bold text-gray-900 mb-4">{job.title}</h1>
                 
+                {/* Organization Header */}
+                <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                  {job.organization?.logo ? (
+                    <div className="w-16 h-16 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden">
+                      <img
+                        src={job.organization.logo}
+                        alt={`${job.organization.name} logo`}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Building2 className="w-8 h-8 text-blue-600" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900">{job.organization?.name}</h3>
+                    <div className="flex items-center gap-4 text-gray-600 mt-1">
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        <span className="text-sm">{job.location}</span>
+                      </div>
+                      {job.organization?.companySize && (
+                        <div className="flex items-center gap-1">
+                          <Users className="w-4 h-4" />
+                          <span className="text-sm">{job.organization.companySize} employees</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className="flex items-center text-gray-600">
-                    <Building2 className="w-5 h-5 mr-3 text-blue-600" />
-                    <span className="font-medium">{job.organization?.name}</span>
-                  </div>
-                  <div className="flex items-center text-gray-600">
-                    <MapPin className="w-5 h-5 mr-3 text-green-600" />
-                    <span>{job.location}</span>
-                  </div>
                   <div className="flex items-center text-gray-600">
                     <Clock className="w-5 h-5 mr-3 text-purple-600" />
                     <span>{job.jobType}</span>
@@ -368,22 +393,71 @@ export default function UserJobDetails() {
           <div className="space-y-6">            {/* Company Info */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Company Information</h3>
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <Building2 className="w-4 h-4 mr-3 text-gray-500" />
-                  <span className="text-sm text-gray-600">Company</span>
+
+              {/* Organization Section */}
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                  {job.organization?.logo ? (
+                    <div className="w-12 h-12 bg-white rounded-lg shadow-sm flex items-center justify-center overflow-hidden">
+                      <img
+                        src={job.organization.logo}
+                        alt={`${job.organization.name} logo`}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Building2 className="w-6 h-6 text-blue-600" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm text-gray-600">Company</span>
+                    </div>
+                    <p className="font-medium text-gray-900">{job.organization?.name || 'N/A'}</p>
+                    {job.organization?.companySize && (
+                      <p className="text-sm text-gray-600 mt-1">{job.organization.companySize} employees</p>
+                    )}
+                  </div>
                 </div>
-                <p className="font-medium text-gray-900">{job.organization?.name || 'N/A'}</p>
-                
-                <div className="flex items-center mt-4">
+
+                {/* Recruiter Section */}
+                {job.recruiter && (
+                  <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                    {job.recruiter.profilePic ? (
+                      <div className="w-12 h-12 rounded-full overflow-hidden">
+                        <img
+                          src={job.recruiter.profilePic}
+                          alt={`${job.recruiter.name} profile`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                        <UserCircle className="w-6 h-6 text-purple-600" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm text-gray-600">Recruiter</span>
+                      </div>
+                      <p className="font-medium text-gray-900">{job.recruiter.name}</p>
+                      {job.recruiter.title && (
+                        <p className="text-sm text-gray-600 mt-1">{job.recruiter.title}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center">
                   <MapPin className="w-4 h-4 mr-3 text-gray-500" />
                   <span className="text-sm text-gray-600">Location</span>
                 </div>
-                <p className="font-medium text-gray-900">{job.location}</p>
-                
-                <div className="space-y-2 mt-4">
+                <p className="font-medium text-gray-900 ml-7">{job.location}</p>
+
+                <div className="space-y-2 mt-6">
                   {job.organization?._id && (
-                    <button 
+                    <button
                       onClick={() => navigate(`/company-details/${job.organization._id}`)}
                       className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
                     >
@@ -391,7 +465,7 @@ export default function UserJobDetails() {
                     </button>
                   )}
                   {job.recruiter?._id && (
-                    <button 
+                    <button
                       onClick={() => navigate(`/recruiter-details/${job.recruiter._id}`)}
                       className="w-full px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
                     >

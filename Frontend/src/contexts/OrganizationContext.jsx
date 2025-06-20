@@ -23,9 +23,10 @@ export const OrganizationProvider = ({ children }) => {
     const loadUserOrganization = async () => {
         setLoading(true);
         try {
-            // If user has an organizationId, fetch it
-            if (user.organizationId) {
-                const response = await OrganizationService.getOrganization(user.organizationId);
+            // Check if user has recruiter profile with organization
+            const organizationId = user.recruiterProfile?.organizationId?._id || user.recruiterProfile?.organizationId || user.organizationId;
+            if (organizationId) {
+                const response = await OrganizationService.getOrganization(organizationId);
                 setCurrentOrganization(response.data);
             }
         } catch (err) {

@@ -26,10 +26,39 @@ exports.authenticate = async (req, res, next) => {
 exports.authorizeRoles = (...roles) => {
     return (req, res, next) => {
         if (!roles.includes(req.user.role)) {
-            return res.status(403).json({ 
-                message: 'Not authorized to access this resource' 
+            return res.status(403).json({
+                message: 'Not authorized to access this resource'
             });
         }
         next();
     };
+};
+
+// Optional authentication - doesn't fail if no token provided
+exports.optionalAuthenticate = async (req, res, next) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            // No authentication provided, continue without user
+            req.user = null;
+            return next();
+        }
+
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        const user = await User.findById(decoded.userId);
+        if (!user) {
+            // Invalid user, continue without user
+            req.user = null;
+            return next();
+        }
+
+        req.user = user;
+        next();
+    } catch (error) {
+        // Invalid token, continue without user
+        req.user = null;
+        next();
+    }
 };

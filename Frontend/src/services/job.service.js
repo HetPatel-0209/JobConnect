@@ -122,5 +122,63 @@ export const JobService = {
      */
     applyForJob: async (jobId, applicationData = {}) => {
         return await api.post(`/jobs/${jobId}/apply`, applicationData);
+    },
+
+    // Recruiter-specific methods
+
+    /**
+     * Get all jobs posted by the current recruiter
+     * @param {Object} filters - Filter parameters
+     * @returns {Promise<Object>} Recruiter's posted jobs
+     */
+    getRecruiterJobs: async (filters = {}) => {
+        return await api.get('/jobs/recruiter/posted', filters);
+    },
+
+    /**
+     * Get recruiter dashboard statistics
+     * @returns {Promise<Object>} Dashboard stats
+     */
+    getRecruiterStats: async () => {
+        return await api.get('/jobs/recruiter/stats');
+    },
+
+    /**
+     * Get analytics for a specific job
+     * @param {string} jobId - Job ID
+     * @returns {Promise<Object>} Job analytics
+     */
+    getJobAnalytics: async (jobId) => {
+        return await api.get(`/jobs/${jobId}/analytics`);
+    },
+
+    /**
+     * Get overall analytics for recruiter's jobs
+     * @param {Object} filters - Filter parameters (date range, etc.)
+     * @returns {Promise<Object>} Overall analytics
+     */
+    getRecruiterAnalytics: async (filters = {}) => {
+        return await api.get('/jobs/recruiter/analytics', filters);
+    },
+
+    /**
+     * Get jobs by organization
+     * @param {string} organizationId - Organization ID
+     * @param {Object} filters - Filter options
+     * @returns {Promise<Object>} Jobs list
+     */
+    getJobsByOrganization: async (organizationId, filters = {}) => {
+        return await api.get(`/jobs/organization/${organizationId}`, filters);
+    },
+
+
+
+    /**
+     * Get candidates who applied for a job (recruiter only)
+     * @param {string} jobId - Job ID
+     * @returns {Promise<Object>} List of candidates who applied
+     */
+    getAppliedCandidates: async (jobId) => {
+        return await api.get(`/jobs/${jobId}/applications`);
     }
 };

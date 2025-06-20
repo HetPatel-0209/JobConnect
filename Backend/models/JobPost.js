@@ -45,7 +45,19 @@ const jobPostSchema = new mongoose.Schema({
         ref: 'Organization',
         required: true
     },
-    atsCriteria: Number,
+    atsCriteria: {
+        minimumScore: { type: Number, default: 60 }, // Minimum ATS score required (0-100)
+        keywordWeights: {
+            skills: { type: Number, default: 40 }, // Weight for skills matching (%)
+            experience: { type: Number, default: 30 }, // Weight for experience matching (%)
+            education: { type: Number, default: 20 }, // Weight for education matching (%)
+            keywords: { type: Number, default: 10 } // Weight for other keywords (%)
+        },
+        requiredKeywords: [String], // Must-have keywords in resume
+        preferredKeywords: [String], // Nice-to-have keywords
+        experienceWeight: { type: Number, default: 1 }, // Multiplier for experience matching
+        educationRequired: { type: Boolean, default: false } // Whether education is mandatory
+    },
     status: { type: String, enum: ['draft', 'active', 'closed'], default: 'draft' },
     createdAt: {
         type: Date,

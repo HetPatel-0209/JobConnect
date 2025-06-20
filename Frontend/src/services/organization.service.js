@@ -53,22 +53,10 @@ export const OrganizationService = {
     /**
      * Upload organization images (logo and/or banner)
      * @param {string} orgId - Organization ID
-     * @param {Object} files - Files to upload
+     * @param {FormData} formData - FormData with files to upload
      * @returns {Promise<Object>} Upload result
      */
-    uploadImages: async (orgId, files) => {
-        const formData = new FormData();
-        
-        // Add logo if provided
-        if (files.logo) {
-            formData.append('logo', files.logo);
-        }
-        
-        // Add banner if provided
-        if (files.banner) {
-            formData.append('banner', files.banner);
-        }
-
+    uploadImages: async (orgId, formData) => {
         return await api.post(`/organizations/${orgId}/images`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
@@ -99,5 +87,36 @@ export const OrganizationService = {
             search: searchQuery,
             ...options
         });
+    },
+
+    /**
+     * Invite a recruiter to join the organization
+     * @param {string} orgId - Organization ID
+     * @param {Object} inviteData - Invitation data (email, name, role)
+     * @returns {Promise<Object>} Invitation result
+     */
+    inviteRecruiter: async (orgId, inviteData) => {
+        return await api.post(`/organizations/${orgId}/invite`, inviteData);
+    },
+
+    /**
+     * Remove a recruiter from the organization
+     * @param {string} orgId - Organization ID
+     * @param {string} recruiterId - Recruiter ID to remove
+     * @returns {Promise<Object>} Removal result
+     */
+    removeRecruiter: async (orgId, recruiterId) => {
+        return await api.delete(`/organizations/${orgId}/recruiters/${recruiterId}`);
+    },
+
+    /**
+     * Update recruiter role in organization
+     * @param {string} orgId - Organization ID
+     * @param {string} recruiterId - Recruiter ID
+     * @param {string} newRole - New role (admin, recruiter)
+     * @returns {Promise<Object>} Update result
+     */
+    updateRecruiterRole: async (orgId, recruiterId, newRole) => {
+        return await api.put(`/organizations/${orgId}/recruiters/${recruiterId}/role`, { role: newRole });
     }
 };

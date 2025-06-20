@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    register, 
-    login, 
-    adminLogin, 
+const {
+    register,
+    login,
+    adminLogin,
     getProfile,
     updateProfile,
-    uploadProfilePicture
+    uploadProfilePicture,
+    getUserProfile,
+    changeOrganization
 } = require('../controllers/auth.controller');
 const { authenticate, authorizeRoles } = require('../middlewares/auth.middleware');
 const { uploadProfilePic, handleUploadError } = require('../middlewares/upload.middleware');
@@ -24,9 +26,11 @@ router.post('/admin-login', loginValidation, adminLogin);
 
 // Protected routes
 router.get('/profile', authenticate, getProfile);
+router.get('/user/:userId', authenticate, authorizeRoles('recruiter'), getUserProfile);
 
 router.put('/profile-jobseeker', authenticate, authorizeRoles('jobseeker'), jobseekerProfileValidation, updateProfile);
 router.put('/profile-recruiter', authenticate, authorizeRoles('recruiter'), recruiterProfileValidation, updateProfile);
 router.post('/profile-picture', authenticate, uploadProfilePic, handleUploadError, uploadProfilePicture);
+router.put('/change-organization', authenticate, authorizeRoles('recruiter'), changeOrganization);
 
 module.exports = router;

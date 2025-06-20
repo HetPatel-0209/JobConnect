@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const JobPost = require('../models/JobPost');
 const User = require('../models/User');
 const JobSeekerProfile = require('../models/JobSeeker');
+const Recruiter = require('../models/Recruiter');
 const Application = require('../models/Application');
 const Resume = require('../models/Resume');
 const Organization = require('../models/Organizations');
@@ -144,7 +145,7 @@ exports.getAllJobs = async (req, res) => {
 exports.getJobById = async (req, res) => {
     try {
         const { jobId } = req.params;
-        
+
         // Validate ObjectId format
         if (!jobId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({ message: 'Invalid job ID format' });
@@ -158,7 +159,14 @@ exports.getJobById = async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        res.json({ job });
+        // If user is authenticated and is a recruiter, include application count
+        let jobWithApplicationCount = job.toObject();
+        if (req.user && req.user.role === 'recruiter') {
+            const applicationCount = await Application.countDocuments({ job: jobId });
+            jobWithApplicationCount.applicationCount = applicationCount;
+        }
+
+        res.json({ job: jobWithApplicationCount });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -306,6 +314,10 @@ exports.calculateATSScore = async (req, res) => {
 // Post a job (recruiter)
 exports.postJob = async (req, res) => {
     try {
+        console.log('POST /jobs request received');
+        console.log('User:', req.user ? { id: req.user._id, role: req.user.role } : 'No user');
+        console.log('Request body:', JSON.stringify(req.body, null, 2));
+
         const job = new JobPost({
             ...req.body,
             recruiter: req.user._id
@@ -317,9 +329,18 @@ exports.postJob = async (req, res) => {
             $push: { postedJobs: savedJob._id }
         });
 
-        res.status(201).json(savedJob);
+        res.status(201).json({
+            success: true,
+            message: 'Job posted successfully',
+            data: savedJob
+        });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        console.error('Error posting job:', error);
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Failed to post job',
+            errors: error.errors || []
+        });
     }
 };
 
@@ -327,10 +348,16 @@ exports.postJob = async (req, res) => {
 exports.getAppliedCandidates = async (req, res) => {
     try {
         const { jobId } = req.params;
+        console.log('GET /jobs/:jobId/applications request received');
+        console.log('Job ID:', jobId);
+        console.log('User:', req.user ? { id: req.user._id, role: req.user.role } : 'No user');
         
         // Validate ObjectId format
         if (!jobId.match(/^[0-9a-fA-F]{24}$/)) {
-            return res.status(400).json({ message: 'Invalid job ID format' });
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid job ID format'
+            });
         }
         
         // Verify job exists and belongs to recruiter
@@ -340,7 +367,10 @@ exports.getAppliedCandidates = async (req, res) => {
         });
         
         if (!job) {
-            return res.status(404).json({ message: 'Job not found or not authorized' });
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found or not authorized'
+            });
         }
 
         const applications = await Application.find({ job: jobId })
@@ -349,16 +379,24 @@ exports.getAppliedCandidates = async (req, res) => {
             .sort('-appliedAt');
 
         res.json({
-            job: {
-                id: job._id,
-                title: job.title,
-                organization: job.organization
-            },
-            applications,
-            total: applications.length
+            success: true,
+            message: 'Applicants retrieved successfully',
+            data: {
+                job: {
+                    id: job._id,
+                    title: job.title,
+                    organization: job.organization
+                },
+                applications,
+                total: applications.length
+            }
         });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Error getting applied candidates:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to get applied candidates'
+        });
     }
 };
 
@@ -949,13 +987,19 @@ exports.updateApplicationStatus = async (req, res) => {
     try {
         const { applicationId } = req.params;
         const { status } = req.body;
+
+        console.log('PUT /jobs/applications/:applicationId/status request received');
+        console.log('Application ID:', applicationId);
+        console.log('New Status:', status);
+        console.log('User:', req.user ? { id: req.user._id, role: req.user.role } : 'No user');
         
         // Validate status
         const validStatuses = ['applied', 'reviewed', 'shortlisted', 'interview', 'rejected', 'hired'];
         if (!validStatuses.includes(status)) {
-            return res.status(400).json({ 
-                message: 'Invalid status', 
-                validStatuses 
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid status',
+                validStatuses
             });
         }
         
@@ -964,7 +1008,10 @@ exports.updateApplicationStatus = async (req, res) => {
             .populate('applicant');
             
         if (!application) {
-            return res.status(404).json({ message: 'Application not found' });
+            return res.status(404).json({
+                success: false,
+                message: 'Application not found'
+            });
         }
         
         // Check if user is the recruiter of the job or the applicant (for testing)
@@ -972,18 +1019,26 @@ exports.updateApplicationStatus = async (req, res) => {
         const isApplicant = application.applicant._id.toString() === req.user._id.toString();
         
         if (!isRecruiter && !isApplicant) {
-            return res.status(403).json({ message: 'Unauthorized to update this application' });
+            return res.status(403).json({
+                success: false,
+                message: 'Unauthorized to update this application'
+            });
         }
         
         application.status = status;
         await application.save();
         
         res.json({
+            success: true,
             message: 'Application status updated successfully',
-            application: application
+            data: application
         });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Error updating application status:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 };
 
@@ -991,15 +1046,14 @@ exports.updateApplicationStatus = async (req, res) => {
 exports.getRecruiterById = async (req, res) => {
     try {
         const { recruiterId } = req.params;
-        
+
         // Validate ObjectId format
         if (!recruiterId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({ message: 'Invalid recruiter ID format' });
         }
 
         const recruiter = await User.findById(recruiterId)
-            .select('name email phone profilePic location organizationId role')
-            .populate('organizationId', 'name logo location contact description');
+            .select('name email phone profilePic location role');
 
         if (!recruiter) {
             return res.status(404).json({ message: 'Recruiter not found' });
@@ -1009,10 +1063,16 @@ exports.getRecruiterById = async (req, res) => {
             return res.status(400).json({ message: 'User is not a recruiter' });
         }
 
-        res.json({ 
+        // Get recruiter profile with organization
+        const recruiterProfile = await Recruiter.findOne({ user: recruiterId })
+            .populate('organizationId', 'name logo contact description');
+
+        res.json({
             recruiter: {
-                ...recruiter.toObject(),
-                organization: recruiter.organizationId
+                ...recruiter?.toObject(),
+                recruiterProfile: recruiterProfile,
+                title: recruiterProfile?.title,
+                organization: recruiterProfile?.organizationId || null
             }
         });
     } catch (error) {
@@ -1020,25 +1080,451 @@ exports.getRecruiterById = async (req, res) => {
     }
 };
 
-// Get company details by organization ID  
+// Get company details by organization ID
 exports.getCompanyById = async (req, res) => {
     try {
         const { companyId } = req.params;
-        
+
         // Validate ObjectId format
         if (!companyId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({ message: 'Invalid company ID format' });
         }
 
-        const company = await Organization.findById(companyId)
-            .populate('recruiters', 'name email phone profilePic');
+        const company = await Organization.findById(companyId);
 
         if (!company) {
             return res.status(404).json({ message: 'Company not found' });
         }
 
-        res.json({ company });
+        // Get recruiters for this organization
+        const recruiters = await Recruiter.find({ organizationId: companyId })
+            .populate('user', 'name email phone profilePic')
+            .select('user title department');
+
+        res.json({
+            company: {
+                ...company.toObject(),
+                recruiters: recruiters.map(recruiter => ({
+                    ...recruiter.user.toObject(),
+                    title: recruiter.title,
+                    department: recruiter.department
+                }))
+            }
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// Get recruiter's posted jobs
+exports.getRecruiterJobs = async (req, res) => {
+    try {
+        const { page = 1, limit = 10, status } = req.query;
+        const recruiterId = req.user._id;
+
+        // Build query
+        const query = { recruiter: recruiterId };
+        if (status) {
+            query.status = status;
+        }
+
+        const skip = (page - 1) * limit;
+
+        const jobs = await JobPost.find(query)
+            .populate('organization', 'name logo location')
+            .sort('-createdAt')
+            .skip(skip)
+            .limit(Number(limit));
+
+        // Get application counts for each job
+        const jobsWithApplications = await Promise.all(
+            jobs.map(async (job) => {
+                const applicationCount = await Application.countDocuments({ job: job._id });
+                const newApplicationsToday = await Application.countDocuments({
+                    job: job._id,
+                    appliedAt: {
+                        $gte: new Date(new Date().setHours(0, 0, 0, 0)),
+                        $lt: new Date(new Date().setHours(23, 59, 59, 999))
+                    }
+                });
+
+                return {
+                    ...job.toObject(),
+                    applicationCount,
+                    newApplicationsToday
+                };
+            })
+        );
+
+        const total = await JobPost.countDocuments(query);
+
+        res.json({
+            jobs: jobsWithApplications,
+            pagination: {
+                currentPage: Number(page),
+                totalPages: Math.ceil(total / limit),
+                totalJobs: total,
+                hasNext: page * limit < total,
+                hasPrev: page > 1
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get recruiter dashboard statistics
+exports.getRecruiterStats = async (req, res) => {
+    try {
+        const recruiterId = req.user._id;
+
+        // Get total jobs posted
+        const totalJobs = await JobPost.countDocuments({ recruiter: recruiterId });
+
+        // Get active jobs
+        const activeJobs = await JobPost.countDocuments({
+            recruiter: recruiterId,
+            status: 'active'
+        });
+
+        // Get draft jobs
+        const draftJobs = await JobPost.countDocuments({
+            recruiter: recruiterId,
+            status: 'draft'
+        });
+
+        // Get closed jobs
+        const closedJobs = await JobPost.countDocuments({
+            recruiter: recruiterId,
+            status: 'closed'
+        });
+
+        // Get all applications for recruiter's jobs
+        const recruiterJobs = await JobPost.find({ recruiter: recruiterId }).select('_id');
+        const jobIds = recruiterJobs.map(job => job._id);
+
+        const totalApplications = await Application.countDocuments({
+            job: { $in: jobIds }
+        });
+
+        // Get applications by status
+        const pendingApplications = await Application.countDocuments({
+            job: { $in: jobIds },
+            status: 'applied'
+        });
+
+        const reviewedApplications = await Application.countDocuments({
+            job: { $in: jobIds },
+            status: 'reviewed'
+        });
+
+        const shortlistedApplications = await Application.countDocuments({
+            job: { $in: jobIds },
+            status: 'shortlisted'
+        });
+
+        const interviewApplications = await Application.countDocuments({
+            job: { $in: jobIds },
+            status: 'interview'
+        });
+
+        const hiredApplications = await Application.countDocuments({
+            job: { $in: jobIds },
+            status: 'hired'
+        });
+
+        const rejectedApplications = await Application.countDocuments({
+            job: { $in: jobIds },
+            status: 'rejected'
+        });
+
+        // Get new applications today
+        const newApplicationsToday = await Application.countDocuments({
+            job: { $in: jobIds },
+            appliedAt: {
+                $gte: new Date(new Date().setHours(0, 0, 0, 0)),
+                $lt: new Date(new Date().setHours(23, 59, 59, 999))
+            }
+        });
+
+        res.json({
+            jobs: {
+                total: totalJobs,
+                active: activeJobs,
+                draft: draftJobs,
+                closed: closedJobs
+            },
+            applications: {
+                total: totalApplications,
+                pending: pendingApplications,
+                reviewed: reviewedApplications,
+                shortlisted: shortlistedApplications,
+                interview: interviewApplications,
+                hired: hiredApplications,
+                rejected: rejectedApplications,
+                newToday: newApplicationsToday
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get analytics for a specific job
+exports.getJobAnalytics = async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        const recruiterId = req.user._id;
+
+        // Validate ObjectId format
+        if (!jobId.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid job ID format'
+            });
+        }
+
+        // Verify job exists and belongs to recruiter
+        const job = await JobPost.findOne({
+            _id: jobId,
+            recruiter: recruiterId
+        }).populate('organization', 'name logo');
+
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found or not authorized'
+            });
+        }
+
+        // Get application analytics
+        const totalApplications = await Application.countDocuments({ job: jobId });
+
+        const applicationsByStatus = await Application.aggregate([
+            { $match: { job: new mongoose.Types.ObjectId(jobId) } },
+            { $group: { _id: '$status', count: { $sum: 1 } } }
+        ]);
+
+        // Get applications over time (last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const applicationsOverTime = await Application.aggregate([
+            {
+                $match: {
+                    job: new mongoose.Types.ObjectId(jobId),
+                    appliedAt: { $gte: thirtyDaysAgo }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: '$appliedAt' },
+                        month: { $month: '$appliedAt' },
+                        day: { $dayOfMonth: '$appliedAt' }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
+        ]);
+
+        // Get top skills from applicants
+        const topSkills = await Application.aggregate([
+            { $match: { job: new mongoose.Types.ObjectId(jobId) } },
+            { $lookup: { from: 'users', localField: 'applicant', foreignField: '_id', as: 'applicantData' } },
+            { $unwind: '$applicantData' },
+            { $unwind: '$applicantData.skills' },
+            { $group: { _id: '$applicantData.skills', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]);
+
+        // Calculate average ATS score
+        const atsStats = await Application.aggregate([
+            { $match: { job: new mongoose.Types.ObjectId(jobId) } },
+            {
+                $group: {
+                    _id: null,
+                    avgScore: { $avg: '$atsScore' },
+                    maxScore: { $max: '$atsScore' },
+                    minScore: { $min: '$atsScore' }
+                }
+            }
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                job: {
+                    id: job._id,
+                    title: job.title,
+                    status: job.status,
+                    createdAt: job.createdAt,
+                    organization: job.organization
+                },
+                analytics: {
+                    totalApplications,
+                    applicationsByStatus: applicationsByStatus.reduce((acc, item) => {
+                        acc[item._id] = item.count;
+                        return acc;
+                    }, {}),
+                    applicationsOverTime,
+                    topSkills: topSkills.map(skill => ({
+                        skill: skill._id,
+                        count: skill.count
+                    })),
+                    atsStats: atsStats[0] || { avgScore: 0, maxScore: 0, minScore: 0 }
+                }
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Get overall analytics for recruiter's jobs
+exports.getRecruiterAnalytics = async (req, res) => {
+    try {
+        const recruiterId = req.user._id;
+        const { startDate, endDate } = req.query;
+
+        console.log('GET /jobs/recruiter/analytics request received');
+        console.log('Recruiter ID:', recruiterId);
+        console.log('Date range:', { startDate, endDate });
+        console.log('Query params:', req.query);
+
+        // Build date filter
+        let dateFilter = {};
+        if (startDate && startDate.trim() !== '') {
+            dateFilter.createdAt = dateFilter.createdAt || {};
+            dateFilter.createdAt.$gte = new Date(startDate);
+            console.log('Start date filter:', new Date(startDate));
+        }
+        if (endDate && endDate.trim() !== '') {
+            dateFilter.createdAt = dateFilter.createdAt || {};
+            // Add one day to endDate to include the entire end date
+            const endDateTime = new Date(endDate);
+            endDateTime.setHours(23, 59, 59, 999);
+            dateFilter.createdAt.$lte = endDateTime;
+            console.log('End date filter:', endDateTime);
+        }
+        console.log('Date filter applied:', dateFilter);
+
+        // Get recruiter's jobs
+        const recruiterJobs = await JobPost.find({
+            recruiter: recruiterId,
+            ...dateFilter
+        }).select('_id title createdAt status');
+
+        console.log('Found recruiter jobs:', recruiterJobs.length);
+        console.log('Job details:', recruiterJobs.map(job => ({
+            id: job._id,
+            title: job.title,
+            createdAt: job.createdAt,
+            status: job.status
+        })));
+
+        const jobIds = recruiterJobs.map(job => job._id);
+        console.log('Job IDs for analytics:', jobIds);
+
+        // Jobs created over time
+        let jobsOverTime = [];
+        try {
+            jobsOverTime = await JobPost.aggregate([
+                { $match: { recruiter: new mongoose.Types.ObjectId(recruiterId), ...dateFilter } },
+                {
+                    $group: {
+                        _id: {
+                            year: { $year: '$createdAt' },
+                            month: { $month: '$createdAt' }
+                        },
+                        count: { $sum: 1 }
+                    }
+                },
+                { $sort: { '_id.year': 1, '_id.month': 1 } }
+            ]);
+            console.log('Jobs over time result:', jobsOverTime);
+        } catch (error) {
+            console.error('Error in jobsOverTime aggregation:', error);
+        }
+
+        // Applications over time
+        let applicationsOverTime = [];
+        try {
+            if (jobIds.length > 0) {
+                applicationsOverTime = await Application.aggregate([
+                    { $match: { job: { $in: jobIds } } },
+                    {
+                        $group: {
+                            _id: {
+                                year: { $year: '$appliedAt' },
+                                month: { $month: '$appliedAt' }
+                            },
+                            count: { $sum: 1 }
+                        }
+                    },
+                    { $sort: { '_id.year': 1, '_id.month': 1 } }
+                ]);
+            }
+            console.log('Applications over time result:', applicationsOverTime);
+        } catch (error) {
+            console.error('Error in applicationsOverTime aggregation:', error);
+        }
+
+        // Top performing jobs (by application count)
+        let topJobs = [];
+        try {
+            if (jobIds.length > 0) {
+                topJobs = await Application.aggregate([
+                    { $match: { job: { $in: jobIds } } },
+                    { $group: { _id: '$job', applicationCount: { $sum: 1 } } },
+                    { $lookup: { from: 'jobposts', localField: '_id', foreignField: '_id', as: 'jobData' } },
+                    { $unwind: '$jobData' },
+                    { $sort: { applicationCount: -1 } },
+                    { $limit: 5 },
+                    {
+                        $project: {
+                            jobId: '$_id',
+                            title: '$jobData.title',
+                            applicationCount: 1
+                        }
+                    }
+                ]);
+            }
+            console.log('Top jobs result:', topJobs);
+        } catch (error) {
+            console.error('Error in topJobs aggregation:', error);
+        }
+
+        // Get total applications count
+        const totalApplications = await Application.countDocuments({ job: { $in: jobIds } });
+        console.log('Total applications found:', totalApplications);
+
+        const analyticsData = {
+            summary: {
+                totalJobs: recruiterJobs.length,
+                totalApplications: totalApplications
+            },
+            jobsOverTime,
+            applicationsOverTime,
+            topJobs
+        };
+
+        console.log('Final analytics data:', JSON.stringify(analyticsData, null, 2));
+
+        res.json({
+            success: true,
+            data: analyticsData
+        });
+    } catch (error) {
+        console.error('Error getting recruiter analytics:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 };

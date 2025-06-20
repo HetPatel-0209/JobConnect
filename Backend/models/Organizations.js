@@ -39,11 +39,7 @@ const orgSchema = new mongoose.Schema({
         linkedin: String,
         twitter: String,
         instagram: String
-    },
-    recruiters: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }]
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Organization', orgSchema);

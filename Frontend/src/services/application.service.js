@@ -47,7 +47,7 @@ export const ApplicationService = {
      * @returns {Promise<Object>} Updated application
      */
     updateApplicationStatus: async (applicationId, status, notes = '') => {
-        return await api.put(`/applications/${applicationId}/status`, {
+        return await api.put(`/jobs/applications/${applicationId}/status`, {
             status,
             notes
         });

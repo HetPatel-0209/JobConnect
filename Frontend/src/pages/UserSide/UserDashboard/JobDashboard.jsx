@@ -61,13 +61,36 @@ const JobCard = ({ job, onApply }) => {
     <div className="border border-gray-100 rounded-xl p-6 hover:shadow-md transition-all duration-200">
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
         <div className="flex-1">
-          <h3 className="text-xl font-bold text-gray-900 mb-3">{job.title}</h3>
+          {/* Job Title and Organization Header */}
+          <div className="flex items-start gap-4 mb-4">
+            {job.organization?.logo ? (
+              <div className="w-12 h-12 bg-white rounded-lg shadow-sm border border-gray-200 flex items-center justify-center overflow-hidden">
+                <img
+                  src={job.organization.logo}
+                  alt={`${job.organization.name} logo`}
+                  className="w-full h-full object-cover rounded-lg"
+                />
+              </div>
+            ) : (
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Building className="w-6 h-6 text-blue-600" />
+              </div>
+            )}
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-gray-900 mb-1">{job.title}</h3>
+              <div className="flex items-center gap-2 text-gray-600">
+                <span className="font-medium">{job.organization?.name || 'Company Name'}</span>
+                {job.organization?.companySize && (
+                  <>
+                    <span className="text-gray-400">•</span>
+                    <span className="text-sm">{job.organization.companySize} employees</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-            <div className="flex items-center gap-2 text-gray-600">
-              <Building className="w-4 h-4" />
-              <span>{job.organization?.name || 'Company Name'}</span>
-            </div>
             <div className="flex items-center gap-2 text-gray-600">
               <MapPin className="w-4 h-4" />
               <span>{job.location}</span>
@@ -84,6 +107,10 @@ const JobCard = ({ job, onApply }) => {
             <div className="flex items-center gap-2 text-gray-600">
               <Clock className="w-4 h-4" />
               <span>Posted: {new Date(job.createdAt).toLocaleDateString()}</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Briefcase className="w-4 h-4" />
+              <span>{job.jobType}</span>
             </div>
           </div>
 
@@ -107,9 +134,9 @@ const JobCard = ({ job, onApply }) => {
           <div className="flex items-center gap-4 text-sm text-gray-500">
             <span className="px-2 py-1 bg-green-100 text-green-800 rounded-md">{job.jobType}</span>
             <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-md">{job.workMode}</span>
-            {job.atsCriteria && (
+            {job.atsCriteria?.minimumScore && (
               <span className="px-2 py-1 bg-amber-100 text-amber-800 rounded-md">
-                ATS Score: {job.atsCriteria}+
+                ATS Score: {job.atsCriteria.minimumScore}+
               </span>
             )}
           </div>
@@ -132,24 +159,44 @@ const JobCard = ({ job, onApply }) => {
                   <span className="text-sm text-gray-600">Your Score:</span>
                   <div className="flex items-center">
                     <span className={`font-semibold ${
-                      (evaluationResult?.aiEvaluation?.score || 0) >= (job.atsCriteria || 0)
-                        ? 'text-green-600' 
-                        : 'text-red-600'
+                      (() => {
+                        const userScore = evaluationResult?.aiEvaluation?.score || 0;
+                        const requiredScore = job.atsCriteria?.minimumScore;
+
+                        // If no ATS criteria is set, show blue (neutral)
+                        if (requiredScore === undefined || requiredScore === null) {
+                          return 'text-blue-600';
+                        }
+
+                        // Compare with actual required score
+                        return userScore >= requiredScore ? 'text-green-600' : 'text-red-600';
+                      })()
                     }`}>
                       {evaluationResult?.aiEvaluation?.score || 0}/100
                     </span>
                     <span className="mx-2 text-gray-400">|</span>
-                    <span className="text-gray-600">Required: {job.atsCriteria || 0}/100</span>
+                    <span className="text-gray-600">
+                      Required: {job.atsCriteria?.minimumScore !== undefined ? `${job.atsCriteria.minimumScore}/100` : 'Not specified'}
+                    </span>
                   </div>
                 </div>
-                
+
                 {/* Progress bar */}
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div 
+                  <div
                     className={`h-2.5 rounded-full ${
-                      (evaluationResult?.aiEvaluation?.score || 0) >= (job.atsCriteria || 0)
-                        ? 'bg-green-600' 
-                        : 'bg-red-600'
+                      (() => {
+                        const userScore = evaluationResult?.aiEvaluation?.score || 0;
+                        const requiredScore = job.atsCriteria?.minimumScore;
+
+                        // If no ATS criteria is set, show blue (neutral)
+                        if (requiredScore === undefined || requiredScore === null) {
+                          return 'bg-blue-600';
+                        }
+
+                        // Compare with actual required score
+                        return userScore >= requiredScore ? 'bg-green-600' : 'bg-red-600';
+                      })()
                     }`}
                     style={{ width: `${evaluationResult?.aiEvaluation?.score || 0}%` }}
                   ></div>
@@ -202,7 +249,7 @@ const JobCard = ({ job, onApply }) => {
         <div className="flex flex-col gap-3 lg:min-w-0 lg:w-auto w-full">
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2">
             <button
-              onClick={() => navigate(`/user/job/${job._id}`)}
+              onClick={() => navigate(`/jobs/${job._id}`)}
               className="flex items-center justify-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200 font-medium text-sm"
             >
               <Eye className="w-4 h-4" />
@@ -245,8 +292,19 @@ const JobCard = ({ job, onApply }) => {
             </button>
           )}
           
-          {/* Show Apply button only if evaluation score meets the criteria */}
-          {showEvaluation && evaluationResult && (evaluationResult?.aiEvaluation?.score || 0) >= (job.atsCriteria || 0) && (
+          {/* Show Apply button based on evaluation criteria */}
+          {showEvaluation && evaluationResult && (() => {
+            const userScore = evaluationResult?.aiEvaluation?.score || 0;
+            const requiredScore = job.atsCriteria?.minimumScore;
+
+            // If no ATS criteria is set, allow application
+            if (requiredScore === undefined || requiredScore === null) {
+              return true;
+            }
+
+            // Check if user meets the required score
+            return userScore >= requiredScore;
+          })() && (
             <button
               onClick={() => onApply(job._id)}
               className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 font-semibold shadow-md hover:shadow-lg"
@@ -256,9 +314,19 @@ const JobCard = ({ job, onApply }) => {
               <ArrowRight className="w-4 h-4" />
             </button>
           )}
-          
+
           {/* Show warning if score doesn't meet criteria */}
-          {showEvaluation && evaluationResult && (evaluationResult?.aiEvaluation?.score || 0) < (job.atsCriteria || 0) && (
+          {showEvaluation && evaluationResult && (() => {
+            const userScore = evaluationResult?.aiEvaluation?.score || 0;
+            const requiredScore = job.atsCriteria?.minimumScore;
+
+            // Only show warning if ATS criteria exists and user doesn't meet it
+            if (requiredScore === undefined || requiredScore === null) {
+              return false;
+            }
+
+            return userScore < requiredScore;
+          })() && (
             <div className="text-center">
               <button
                 onClick={() => navigate('/user/upload-resume')}
@@ -635,7 +703,7 @@ export default function JobDashboard() {
                 </div>
                 <div className="mt-4 md:mt-0 md:ml-6">
                   <button
-                    onClick={() => navigate(`/user/job/${application.job._id}`)}
+                    onClick={() => navigate(`/jobs/${application.job._id}`)}
                     className="flex items-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200 font-medium"
                   >
                     <Eye className="w-4 h-4" />

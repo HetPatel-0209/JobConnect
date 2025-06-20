@@ -185,7 +185,7 @@ const Home = () => {
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Building2 className="w-8 h-8 text-blue-600" />
               </div>
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">List Your Organization</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Enist Your Organization</h2>
               <p className="text-xl text-gray-600">
                 Join thousands of companies hiring top talent through JobConnect
               </p>

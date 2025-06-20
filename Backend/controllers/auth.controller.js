@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const JobSeekerProfile = require('../models/JobSeeker');
 const Organization = require('../models/Organizations');
+const Recruiter = require('../models/Recruiter');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinaryService');
 
 // Register new user
@@ -39,19 +40,18 @@ exports.register = async (req, res) => {
                 password: hashedPassword,
                 role,
                 name,
-                organizationId: role === 'recruiter' ? organizationId : undefined,
                 ...profileData
             });
 
             await user.save();
 
-            // If recruiter, add them to the organization's recruiters list
+            // If recruiter, create recruiter profile
             if (role === 'recruiter' && organizationId) {
-                await Organization.findByIdAndUpdate(
-                    organizationId,
-                    { $addToSet: { recruiters: user._id } }, // $addToSet prevents duplicates
-                    { new: true }
-                );
+                const recruiterProfile = new Recruiter({
+                    user: user._id,
+                    organizationId: organizationId
+                });
+                await recruiterProfile.save();
             }
 
             // Generate token
@@ -68,7 +68,7 @@ exports.register = async (req, res) => {
                     email: user.email,
                     role: user.role,
                     name: user.name,
-                    organizationId: user.organizationId
+                    organizationId: role === 'recruiter' ? organizationId : undefined
                 }
             });
         } catch (err) {
@@ -106,14 +106,23 @@ exports.login = async (req, res) => {
             { userId: user._id, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
-        );        res.json({
+        );        // Get recruiter profile if user is a recruiter
+        let organizationId = null;
+        if (user.role === 'recruiter') {
+            const recruiterProfile = await Recruiter.findOne({ user: user._id });
+            if (recruiterProfile) {
+                organizationId = recruiterProfile.organizationId;
+            }
+        }
+
+        res.json({
             token,
             user: {
                 id: user._id,
                 email: user.email,
                 role: user.role,
                 name: user.name,
-                organizationId: user.organizationId
+                organizationId: organizationId
             }
         });
     } catch (error) {
@@ -135,19 +144,31 @@ exports.getProfile = async (req, res) => {
         if (user.role === 'jobseeker') {
             const jobseekerProfile = await JobSeekerProfile.findOne({ user: user._id })
                 .populate('activeResume');
-            
+
             if (jobseekerProfile) {
                 userData.jobseekerProfile = jobseekerProfile;
             }
-            
+
             // Get active resume info
-            const activeResume = await require('../models/Resume').findOne({ 
-                user: user._id, 
-                isActive: true 
+            const activeResume = await require('../models/Resume').findOne({
+                user: user._id,
+                isActive: true
             }).select('filename cloudinarySecureUrl uploadedAt fileSize mimeType');
-            
+
             if (activeResume) {
                 userData.activeResume = activeResume;
+            }
+        }
+
+        // If recruiter, include recruiter profile info
+        if (user.role === 'recruiter') {
+            const recruiterProfile = await Recruiter.findOne({ user: user._id })
+                .populate('organizationId');
+
+            if (recruiterProfile) {
+                userData.recruiterProfile = recruiterProfile;
+                // For backward compatibility, also set organizationId at user level
+                userData.organizationId = recruiterProfile.organizationId;
             }
         }
         
@@ -232,56 +253,42 @@ exports.updateProfile = async (req, res) => {
                     user,
                     jobseekerProfile
                 });
-            } 
+            }
             else if (userRole === 'recruiter') {
-                // For recruiter, we need to handle organization info
-                const orgData = updateData.organization || updateData.company;
-                
-                if (!orgData || !orgData.gstin) {
+                // Get or create recruiter profile
+                let recruiterProfile = await Recruiter.findOne({ user: userId }).session(session);
+
+                if (!recruiterProfile) {
+                    // This shouldn't happen if registration worked correctly, but handle it
                     await session.abortTransaction();
                     session.endSession();
-                    return res.status(400).json({ 
-                        message: 'Organization information required for recruiter profile' 
+                    return res.status(400).json({
+                        message: 'Recruiter profile not found. Please contact support.'
                     });
                 }
-                
-                // Find or create organization
-                let organization = await Organization.findOne({ gstin: orgData.gstin }).session(session);
-                
-                if (!organization) {
-                    organization = new Organization({
-                        gstin: orgData.gstin,
-                        name: orgData.name,
-                        companySize: orgData.companySize,
-                        website: orgData.website,
-                        description: orgData.description,
-                        contact: orgData.contact || { email: user.email },
-                        recruiters: [userId]
-                    });
-                } else {
-                    // Update existing organization if the user is associated with it
-                    if (!organization.recruiters.includes(userId)) {
-                        organization.recruiters.push(userId);
-                    }
-                    
-                    // Update org fields if provided
-                    if (orgData.name) organization.name = orgData.name;
-                    if (orgData.companySize) organization.companySize = orgData.companySize;
-                    if (orgData.website) organization.website = orgData.website;
-                    if (orgData.description) organization.description = orgData.description;
-                    if (orgData.contact) organization.contact = orgData.contact;
-                }
-                
-                await organization.save({ session });
-                
+
+                // Update recruiter profile fields
+                if (updateData.title) recruiterProfile.title = updateData.title;
+                if (updateData.bio) recruiterProfile.bio = updateData.bio;
+                if (updateData.department) recruiterProfile.department = updateData.department;
+                if (updateData.yearsOfExperience !== undefined) recruiterProfile.yearsOfExperience = updateData.yearsOfExperience;
+                if (updateData.linkedinProfile) recruiterProfile.linkedinProfile = updateData.linkedinProfile;
+                if (updateData.specializations) recruiterProfile.specializations = updateData.specializations;
+                if (updateData.skills) recruiterProfile.skills = updateData.skills;
+                if (updateData.workExperience) recruiterProfile.workExperience = updateData.workExperience;
+                if (updateData.education) recruiterProfile.education = updateData.education;
+                if (updateData.certifications) recruiterProfile.certifications = updateData.certifications;
+
+                await recruiterProfile.save({ session });
+
                 // Commit transaction
                 await session.commitTransaction();
                 session.endSession();
-                
+
                 return res.json({
                     message: 'Profile updated successfully',
                     user,
-                    organization
+                    recruiterProfile
                 });
             }
             
@@ -398,6 +405,56 @@ exports.uploadProfilePicture = async (req, res) => {
     }
 };
 
+// Get user profile by ID (for recruiters to view applicant profiles)
+exports.getUserProfile = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Validate ObjectId format
+        if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid user ID format'
+            });
+        }
+
+        // Get user profile
+        const user = await User.findById(userId).select('-password');
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // If jobseeker, include profile data
+        if (user.role === 'jobseeker') {
+            const jobseekerProfile = await JobSeekerProfile.findOne({ user: user._id });
+
+            if (jobseekerProfile) {
+                const userData = user.toObject();
+                userData.jobseekerProfile = jobseekerProfile;
+                return res.json({
+                    success: true,
+                    user: userData
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            user: user
+        });
+    } catch (error) {
+        console.error('Get user profile error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 // Initialize test users if needed
 const testUsers = async () => {
     try {
@@ -419,6 +476,76 @@ const testUsers = async () => {
 
 testUsers();
 
+// Change recruiter's organization
+exports.changeOrganization = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { organizationId } = req.body;
+
+        // Verify user is a recruiter
+        if (req.user.role !== 'recruiter') {
+            return res.status(403).json({
+                message: 'Only recruiters can change organizations'
+            });
+        }
+
+        // Verify new organization exists
+        const newOrganization = await Organization.findById(organizationId);
+        if (!newOrganization) {
+            return res.status(404).json({
+                message: 'Organization not found'
+            });
+        }
+
+        // Get current recruiter profile
+        const recruiterProfile = await Recruiter.findOne({ user: userId });
+        if (!recruiterProfile) {
+            return res.status(404).json({
+                message: 'Recruiter profile not found'
+            });
+        }
+
+        const oldOrganizationId = recruiterProfile.organizationId;
+
+        // Start transaction
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        try {
+            // Update recruiter's organizationId
+            await Recruiter.findByIdAndUpdate(
+                recruiterProfile._id,
+                { organizationId: organizationId },
+                { session }
+            );
+
+            await session.commitTransaction();
+            session.endSession();
+
+            // Get updated user with recruiter profile
+            const user = await User.findById(userId).select('-password');
+            const updatedRecruiterProfile = await Recruiter.findOne({ user: userId })
+                .populate('organizationId');
+
+            res.json({
+                message: 'Organization changed successfully',
+                user: user,
+                recruiterProfile: updatedRecruiterProfile
+            });
+        } catch (error) {
+            await session.abortTransaction();
+            session.endSession();
+            throw error;
+        }
+    } catch (error) {
+        console.error('Change organization error:', error);
+        res.status(500).json({
+            message: 'Failed to change organization',
+            error: error.message
+        });
+    }
+};
+
 // Export all controller methods
 module.exports = {
     register: exports.register,
@@ -426,5 +553,7 @@ module.exports = {
     adminLogin: exports.adminLogin,
     getProfile: exports.getProfile,
     updateProfile: exports.updateProfile,
-    uploadProfilePicture: exports.uploadProfilePicture
+    uploadProfilePicture: exports.uploadProfilePicture,
+    getUserProfile: exports.getUserProfile,
+    changeOrganization: exports.changeOrganization
 };

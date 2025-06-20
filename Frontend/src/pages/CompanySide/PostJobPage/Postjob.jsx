@@ -1,84 +1,187 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Briefcase, 
-  Building2, 
-  MapPin, 
-  DollarSign, 
-  FileText, 
-  Clock, 
-  Star, 
-  Send, 
+import { useAuth } from '../../../contexts/AuthContext';
+import { JobService } from '../../../services/job.service';
+import { OrganizationService } from '../../../services/organization.service';
+import {
+  Briefcase,
+  Building2,
+  MapPin,
+  DollarSign,
+  FileText,
+  Clock,
+  Star,
+  Send,
   X,
   CheckCircle2,
   AlertCircle,
   Plus,
-  Users
+  Users,
+  Loader2,
+  Target
 } from 'lucide-react';
 
 const Postjob = () => {
   const navigate = useNavigate();
-  const [selectedSkill, setSelectedSkill] = useState('');
+  const { user } = useAuth();
+  const [selectedSkills, setSelectedSkills] = useState([]);
   const [customSkill, setCustomSkill] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
+  const [organization, setOrganization] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
-    company: '',
     location: '',
-    type: '',
-    salary: '',
+    jobType: '',
+    workMode: '',
+    experienceLevel: '',
+    salary: {
+      min: '',
+      max: '',
+      currency: 'INR'
+    },
     description: '',
-    requirements: '',
+    requirements: [],
+    skills: [],
+    benefits: [],
+    applicationDeadline: '',
+    status: 'draft',
+    atsCriteria: {
+      minimumScore: 60,
+      keywordWeights: {
+        skills: 40,
+        experience: 30,
+        education: 20,
+        keywords: 10
+      },
+      requiredKeywords: [],
+      preferredKeywords: [],
+      experienceWeight: 1,
+      educationRequired: false
+    }
   });
 
-  const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-  const email = currentUser?.email;
+  useEffect(() => {
+    loadOrganization();
+  }, [user]);
 
-  // Load HR Profile & Company Info
-  const currentHRProfile = JSON.parse(localStorage.getItem(`orgProfile_${email}`)) || {};
-  const currentHRImage = localStorage.getItem(`orgProfileImage_${email}`) || '';
-  const registeredCompanies = JSON.parse(localStorage.getItem('registeredCompanyDetails')) || {};
-  const companyDetails = registeredCompanies[email] || null;
+  const loadOrganization = async () => {
+    const organizationId = user?.recruiterProfile?.organizationId?._id || user?.recruiterProfile?.organizationId || user?.organizationId;
+    if (!organizationId) {
+      setErrors({ organization: 'No organization found. Please register your organization first.' });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await OrganizationService.getOrganization(organizationId);
+      if (response.success) {
+        setOrganization(response.data);
+      } else {
+        setErrors({ organization: 'Failed to load organization details' });
+      }
+    } catch (err) {
+      console.error('Error loading organization:', err);
+      setErrors({ organization: 'Failed to load organization details' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const predefinedSkills = [
     'React', 'Node.js', 'JavaScript', 'Python', 'Java', 'C++', 'HTML/CSS',
-    'Angular', 'Vue.js', 'PHP', 'Ruby', 'Go', 'Kotlin', 'Swift', 'TypeScript'
+    'Angular', 'Vue.js', 'PHP', 'Ruby', 'Go', 'Kotlin', 'Swift', 'TypeScript',
+    'MongoDB', 'PostgreSQL', 'MySQL', 'AWS', 'Docker', 'Kubernetes', 'Git'
   ];
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.title?.trim()) newErrors.title = 'Job title is required';
-    if (!formData.company?.trim()) newErrors.company = 'Company name is required';
     if (!formData.description?.trim()) newErrors.description = 'Job description is required';
-    if (!formData.type) newErrors.type = 'Job type is required';
-    if (!selectedSkill) newErrors.skill = 'Required skill is needed';
-    if (selectedSkill === 'custom' && !customSkill?.trim()) newErrors.customSkill = 'Custom skill is required';
-    
+    if (!formData.jobType) newErrors.jobType = 'Job type is required';
+    if (!formData.workMode) newErrors.workMode = 'Work mode is required';
+    if (!formData.experienceLevel) newErrors.experienceLevel = 'Experience level is required';
+    if (!formData.location?.trim()) newErrors.location = 'Location is required';
+    if (formData.skills.length === 0) newErrors.skills = 'At least one skill is required';
+
+    // Salary validation
+    if (formData.salary.min && formData.salary.max) {
+      if (parseInt(formData.salary.min) >= parseInt(formData.salary.max)) {
+        newErrors.salary = 'Minimum salary should be less than maximum salary';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-    
+
+    if (name.includes('.')) {
+      const keys = name.split('.');
+      setFormData(prev => {
+        const newData = { ...prev };
+        let current = newData;
+
+        for (let i = 0; i < keys.length - 1; i++) {
+          if (!current[keys[i]]) current[keys[i]] = {};
+          current = current[keys[i]];
+        }
+
+        current[keys[keys.length - 1]] = value;
+        return newData;
+      });
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-  const handleSkillChange = (e) => {
-    const value = e.target.value;
-    setSelectedSkill(value);
-    if (value !== 'custom') setCustomSkill('');
-    
-    // Clear skill errors
-    if (errors.skill) {
-      setErrors(prev => ({ ...prev, skill: '', customSkill: '' }));
+  const handleSkillAdd = (skill) => {
+    if (skill && !formData.skills.includes(skill)) {
+      setFormData(prev => ({
+        ...prev,
+        skills: [...prev.skills, skill]
+      }));
+      setCustomSkill('');
+
+      // Clear skill errors
+      if (errors.skills) {
+        setErrors(prev => ({ ...prev, skills: '' }));
+      }
+    }
+  };
+
+  const handleSkillRemove = (skillToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      skills: prev.skills.filter(skill => skill !== skillToRemove)
+    }));
+  };
+
+  const handleRequirementAdd = (requirement) => {
+    if (requirement && !formData.requirements.includes(requirement)) {
+      setFormData(prev => ({
+        ...prev,
+        requirements: [...prev.requirements, requirement]
+      }));
+    }
+  };
+
+  const handleBenefitAdd = (benefit) => {
+    if (benefit && !formData.benefits.includes(benefit)) {
+      setFormData(prev => ({
+        ...prev,
+        benefits: [...prev.benefits, benefit]
+      }));
     }
   };
 
@@ -86,63 +189,69 @@ const Postjob = () => {
     e.preventDefault();
 
     if (!validateForm()) return;
-    
+
     setIsSubmitting(true);
     setSubmitSuccess(false);
+    setErrors({});
 
     try {
-      // Simulate API call delay for better UX
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const skillFinal = selectedSkill === 'custom' ? customSkill : selectedSkill;
-
-      const newJob = {
-        id: Date.now(),
-        title: formData.title,
-        company: formData.company,
-        location: formData.location,
-        type: formData.type,
-        salary: formData.salary ? `₹${formData.salary}` : 'Negotiable',
-        description: formData.description,
-        requirements: formData.requirements,
-        skill: skillFinal,
-        date: new Date().toLocaleDateString('en-IN', {
-          day: '2-digit', month: 'short', year: 'numeric',
-        }),
-        applicants: 0,
-        status: 'Active',
-        hrDetails: {
-          ...currentHRProfile,
-          image: currentHRImage,
-        },
-        companyDetails: companyDetails || {
-          gstin: 'N/A',
-          name: formData.company,
-          mission: '',
-          vision: '',
-          size: '',
-          website: '',
-        },
+      // Map experience level to numeric values
+      const experienceMapping = {
+        'entry': { min: 0, max: 2 },
+        'mid': { min: 2, max: 5 },
+        'senior': { min: 5, max: 10 },
+        'lead': { min: 10, max: 20 }
       };
 
-      const allUserJobs = JSON.parse(localStorage.getItem('userJobs')) || {};
-      const userJobs = allUserJobs[email] || [];
-      allUserJobs[email] = [newJob, ...userJobs];
-      localStorage.setItem('userJobs', JSON.stringify(allUserJobs));
+      const experienceRange = experienceMapping[formData.experienceLevel] || { min: 0, max: 0 };
 
-      const allJobs = JSON.parse(localStorage.getItem('jobs')) || [];
-      localStorage.setItem('jobs', JSON.stringify([newJob, ...allJobs]));
+      // Prepare job data according to backend model
+      const jobData = {
+        title: formData.title,
+        location: formData.location,
+        jobType: formData.jobType,
+        workMode: formData.workMode,
+        requirements: {
+          experience: {
+            min: experienceRange.min,
+            max: experienceRange.max
+          },
+          education: formData.requirements || [], // Use requirements array as education
+          skills: {
+            required: formData.skills || [], // Move skills to requirements.skills.required
+            preferred: [] // Empty for now, can be added later
+          }
+        },
+        ...(formData.salary.min || formData.salary.max ? {
+          salary: {
+            ...(formData.salary.min && { min: parseInt(formData.salary.min) }),
+            ...(formData.salary.max && { max: parseInt(formData.salary.max) })
+          }
+        } : {}),
+        description: formData.description,
+        applicationDeadline: formData.applicationDeadline ? new Date(formData.applicationDeadline) : null,
+        status: formData.status,
+        organization: organization._id,
+        atsCriteria: formData.atsCriteria
+      };
 
-      setSubmitSuccess(true);
-      
-      // Navigate after showing success message
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+      // Create job using API
+      const response = await JobService.postJob(jobData);
+
+      if (response.success) {
+        setSubmitSuccess(true);
+
+        // Navigate after showing success message
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 2000);
+      } else {
+        setErrors({ submit: response.message || 'Failed to post job' });
+      }
 
     } catch (err) {
-      console.error('❌ Error posting job:', err);
-      setErrors({ submit: 'Something went wrong while posting the job. Please try again.' });
+      console.error('Error posting job:', err);
+      setErrors({ submit: err.message || 'Something went wrong while posting the job. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -152,8 +261,37 @@ const Postjob = () => {
   const errorInputClasses = "w-full px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-red-50";
   const labelClasses = "block text-sm font-semibold text-gray-700 mb-2";
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <span className="text-gray-600">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (errors.organization) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Organization Required</h2>
+          <p className="text-gray-600 mb-4">{errors.organization}</p>
+          <button
+            onClick={() => navigate('/register-organization')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Register Organization
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-8 px-4 mt-20">
       <div className="max-w-4xl mx-auto mt-19">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 mb-8 p-8">
@@ -211,29 +349,21 @@ const Postjob = () => {
               )}
             </div>
 
-            {/* Company Name */}
+            {/* Organization Display */}
             <div>
               <label className={labelClasses}>
                 <div className="flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-blue-600" />
-                  Company Name <span className="text-red-500">*</span>
+                  Organization
                 </div>
               </label>
-              <input
-                type="text"
-                name="company"
-                value={formData.company}
-                onChange={handleChange}
-                placeholder="e.g. TechCorp Solutions"
-                className={errors.company ? errorInputClasses : inputClasses}
-                required
-              />
-              {errors.company && (
-                <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {errors.company}
-                </p>
-              )}
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+                <Building2 className="w-5 h-5 text-blue-600" />
+                <div>
+                  <p className="font-medium text-gray-900">{organization?.name}</p>
+                  <p className="text-sm text-gray-600">GST: {organization?.gstin}</p>
+                </div>
+              </div>
             </div>
 
             {/* Location */}
@@ -254,8 +384,8 @@ const Postjob = () => {
               />
             </div>
 
-            {/* Job Type and Salary */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Job Type, Work Mode, and Experience Level */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className={labelClasses}>
                   <div className="flex items-center gap-2">
@@ -264,23 +394,22 @@ const Postjob = () => {
                   </div>
                 </label>
                 <select
-                  name="type"
-                  value={formData.type}
+                  name="jobType"
+                  value={formData.jobType}
                   onChange={handleChange}
-                  className={errors.type ? errorInputClasses : inputClasses}
+                  className={errors.jobType ? errorInputClasses : inputClasses}
                   required
                 >
                   <option value="">Select job type</option>
-                  <option value="Full-time">Full-time</option>
-                  <option value="Part-time">Part-time</option>
-                  <option value="Internship">Internship</option>
-                  <option value="Contract">Contract</option>
-                  <option value="Freelance">Freelance</option>
+                  <option value="full-time">Full-time</option>
+                  <option value="part-time">Part-time</option>
+                  <option value="internship">Internship</option>
+                  <option value="contract">Contract</option>
                 </select>
-                {errors.type && (
+                {errors.jobType && (
                   <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="w-4 h-4" />
-                    {errors.type}
+                    {errors.jobType}
                   </p>
                 )}
               </div>
@@ -288,19 +417,107 @@ const Postjob = () => {
               <div>
                 <label className={labelClasses}>
                   <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-blue-600" />
-                    Salary Range (₹)
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                    Work Mode <span className="text-red-500">*</span>
                   </div>
                 </label>
-                <input
-                  type="text"
-                  name="salary"
-                  value={formData.salary}
+                <select
+                  name="workMode"
+                  value={formData.workMode}
                   onChange={handleChange}
-                  placeholder="e.g. 5,00,000 - 8,00,000 LPA"
-                  className={inputClasses}
-                />
+                  className={errors.workMode ? errorInputClasses : inputClasses}
+                  required
+                >
+                  <option value="">Select work mode</option>
+                  <option value="on-site">On-site</option>
+                  <option value="remote">Remote</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+                {errors.workMode && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.workMode}
+                  </p>
+                )}
               </div>
+
+              <div>
+                <label className={labelClasses}>
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-blue-600" />
+                    Experience Level <span className="text-red-500">*</span>
+                  </div>
+                </label>
+                <select
+                  name="experienceLevel"
+                  value={formData.experienceLevel}
+                  onChange={handleChange}
+                  className={errors.experienceLevel ? errorInputClasses : inputClasses}
+                  required
+                >
+                  <option value="">Select experience level</option>
+                  <option value="entry">Entry Level (0-2 years)</option>
+                  <option value="mid">Mid Level (2-5 years)</option>
+                  <option value="senior">Senior Level (5-10 years)</option>
+                  <option value="lead">Lead/Principal (10+ years)</option>
+                </select>
+                {errors.experienceLevel && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.experienceLevel}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Salary Range */}
+            <div>
+              <label className={labelClasses}>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-blue-600" />
+                  Salary Range (₹ per annum)
+                </div>
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <input
+                    type="number"
+                    name="salary.min"
+                    value={formData.salary.min}
+                    onChange={handleChange}
+                    placeholder="Minimum salary"
+                    className={inputClasses}
+                  />
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    name="salary.max"
+                    value={formData.salary.max}
+                    onChange={handleChange}
+                    placeholder="Maximum salary"
+                    className={inputClasses}
+                  />
+                </div>
+                <div>
+                  <select
+                    name="salary.currency"
+                    value={formData.salary.currency}
+                    onChange={handleChange}
+                    className={inputClasses}
+                  >
+                    <option value="INR">INR (₹)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                  </select>
+                </div>
+              </div>
+              {errors.salary && (
+                <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {errors.salary}
+                </p>
+              )}
             </div>
 
             {/* Job Description */}
@@ -328,77 +545,218 @@ const Postjob = () => {
               )}
             </div>
 
-            {/* Requirements */}
-            <div>
-              <label className={labelClasses}>
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 text-blue-600" />
-                  Requirements & Qualifications
-                </div>
-              </label>
-              <textarea
-                name="requirements"
-                value={formData.requirements}
-                onChange={handleChange}
-                rows={4}
-                placeholder="List the skills, experience, and qualifications needed for this role..."
-                className={inputClasses}
-              />
-            </div>
-
             {/* Required Skills */}
             <div>
               <label className={labelClasses}>
                 <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-blue-600" />
-                  Primary Required Skill <span className="text-red-500">*</span>
+                  <Star className="w-4 h-4 text-blue-600" />
+                  Required Skills <span className="text-red-500">*</span>
                 </div>
               </label>
-              <select
-                value={selectedSkill}
-                onChange={handleSkillChange}
-                className={errors.skill ? errorInputClasses : inputClasses}
-                required
-              >
-                <option value="">Select primary skill</option>
-                {predefinedSkills.map(skill => (
-                  <option key={skill} value={skill}>{skill}</option>
-                ))}
-                <option value="custom">Other (Custom)</option>
-              </select>
-              {errors.skill && (
+
+              {/* Selected Skills Display */}
+              {formData.skills.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {formData.skills.map((skill, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                    >
+                      {skill}
+                      <button
+                        type="button"
+                        onClick={() => handleSkillRemove(skill)}
+                        className="ml-1 text-blue-600 hover:text-blue-800"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Skill Selection */}
+              <div className="flex gap-2">
+                <select
+                  value=""
+                  onChange={(e) => e.target.value && handleSkillAdd(e.target.value)}
+                  className={inputClasses}
+                >
+                  <option value="">Select a skill to add</option>
+                  {predefinedSkills.filter(skill => !formData.skills.includes(skill)).map(skill => (
+                    <option key={skill} value={skill}>{skill}</option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customSkill}
+                    onChange={(e) => setCustomSkill(e.target.value)}
+                    placeholder="Custom skill"
+                    className={inputClasses}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSkillAdd(customSkill);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSkillAdd(customSkill)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              {errors.skills && (
                 <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
                   <AlertCircle className="w-4 h-4" />
-                  {errors.skill}
+                  {errors.skills}
                 </p>
               )}
             </div>
 
-            {/* Custom Skill Input */}
-            {selectedSkill === 'custom' && (
-              <div>
-                <label className={labelClasses}>
-                  <div className="flex items-center gap-2">
-                    <Plus className="w-4 h-4 text-blue-600" />
-                    Enter Custom Skill <span className="text-red-500">*</span>
+            {/* ATS Criteria */}
+            <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+              <label className={labelClasses}>
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-blue-600" />
+                  ATS Screening Criteria
+                </div>
+              </label>
+              <p className="text-sm text-gray-600 mb-4">Configure automatic screening criteria for applicant resumes</p>
+
+              <div className="space-y-4">
+                {/* Minimum Score */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Minimum ATS Score (0-100)
+                  </label>
+                  <input
+                    type="number"
+                    name="atsCriteria.minimumScore"
+                    value={formData.atsCriteria.minimumScore}
+                    onChange={handleChange}
+                    min="0"
+                    max="100"
+                    className={inputClasses}
+                    placeholder="60"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Applicants below this score will be automatically filtered</p>
+                </div>
+
+                {/* Keyword Weights */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Scoring Weights (%)
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Skills</label>
+                      <input
+                        type="number"
+                        name="atsCriteria.keywordWeights.skills"
+                        value={formData.atsCriteria.keywordWeights.skills}
+                        onChange={handleChange}
+                        min="0"
+                        max="100"
+                        className={inputClasses}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Experience</label>
+                      <input
+                        type="number"
+                        name="atsCriteria.keywordWeights.experience"
+                        value={formData.atsCriteria.keywordWeights.experience}
+                        onChange={handleChange}
+                        min="0"
+                        max="100"
+                        className={inputClasses}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Education</label>
+                      <input
+                        type="number"
+                        name="atsCriteria.keywordWeights.education"
+                        value={formData.atsCriteria.keywordWeights.education}
+                        onChange={handleChange}
+                        min="0"
+                        max="100"
+                        className={inputClasses}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Keywords</label>
+                      <input
+                        type="number"
+                        name="atsCriteria.keywordWeights.keywords"
+                        value={formData.atsCriteria.keywordWeights.keywords}
+                        onChange={handleChange}
+                        min="0"
+                        max="100"
+                        className={inputClasses}
+                      />
+                    </div>
                   </div>
-                </label>
-                <input
-                  type="text"
-                  value={customSkill}
-                  onChange={(e) => setCustomSkill(e.target.value)}
-                  placeholder="e.g. Machine Learning, DevOps, etc."
-                  className={errors.customSkill ? errorInputClasses : inputClasses}
-                  required
-                />
-                {errors.customSkill && (
-                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.customSkill}
-                  </p>
-                )}
+                  <p className="text-xs text-gray-500 mt-1">Total should equal 100%</p>
+                </div>
+
+                {/* Education Required */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="atsCriteria.educationRequired"
+                    checked={formData.atsCriteria.educationRequired}
+                    onChange={(e) => handleChange({ target: { name: e.target.name, value: e.target.checked } })}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label className="text-sm text-gray-700">
+                    Education qualification is mandatory
+                  </label>
+                </div>
               </div>
-            )}
+            </div>
+
+            {/* Application Deadline */}
+            <div>
+              <label className={labelClasses}>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  Application Deadline
+                </div>
+              </label>
+              <input
+                type="date"
+                name="applicationDeadline"
+                value={formData.applicationDeadline}
+                onChange={handleChange}
+                min={new Date().toISOString().split('T')[0]}
+                className={inputClasses}
+              />
+            </div>
+
+            {/* Job Status */}
+            <div>
+              <label className={labelClasses}>
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  Job Status
+                </div>
+              </label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className={inputClasses}
+              >
+                <option value="draft">Draft (Save for later)</option>
+                <option value="active">Active (Publish immediately)</option>
+              </select>
+            </div>
 
             {/* Form Actions */}
             <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">

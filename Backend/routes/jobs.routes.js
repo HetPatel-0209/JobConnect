@@ -20,9 +20,13 @@ const {
     deleteResume,
     setActiveResume,
     viewResume,
-    getUserActiveResume
+    getUserActiveResume,
+    getRecruiterJobs,
+    getRecruiterStats,
+    getJobAnalytics,
+    getRecruiterAnalytics
 } = require('../controllers/jobs.controller');
-const { authenticate, authorizeRoles } = require('../middlewares/auth.middleware');
+const { authenticate, authorizeRoles, optionalAuthenticate } = require('../middlewares/auth.middleware');
 const { jobPostValidation } = require('../middlewares/validation.middleware');
 const { uploadResume: uploadResumeMiddleware, handleUploadError } = require('../middlewares/upload.middleware');
 
@@ -50,14 +54,18 @@ router.put('/applications/:applicationId/status', authenticate, updateApplicatio
 
 // Protected routes - Recruiter only
 router.post('/', authenticate, authorizeRoles('recruiter'), jobPostValidation, postJob);
+router.get('/recruiter/posted', authenticate, authorizeRoles('recruiter'), getRecruiterJobs);
+router.get('/recruiter/stats', authenticate, authorizeRoles('recruiter'), getRecruiterStats);
+router.get('/recruiter/analytics', authenticate, authorizeRoles('recruiter'), getRecruiterAnalytics);
 
 // Company and recruiter routes - must come before /:jobId
 router.get('/company/:companyId', getCompanyById);
 router.get('/recruiter/:recruiterId', getRecruiterById);
 
 // Routes with parameters (must come after static routes)
-router.get('/:jobId', getJobById);
+router.get('/:jobId', optionalAuthenticate, getJobById);
 router.get('/:jobId/ats-score', authenticate, authorizeRoles('jobseeker'), calculateATSScore);
+router.get('/:jobId/analytics', authenticate, authorizeRoles('recruiter'), getJobAnalytics);
 router.post('/:jobId/apply', authenticate, authorizeRoles('jobseeker'), applyForJob);
 router.put('/:jobId', authenticate, authorizeRoles('recruiter'), updateJobStatus);
 router.delete('/:jobId', authenticate, authorizeRoles('recruiter'), deleteJob);

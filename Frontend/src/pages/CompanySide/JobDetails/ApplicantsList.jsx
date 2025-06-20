@@ -1,18 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Users, 
-  Mail, 
-  Phone, 
-  MapPin, 
+import { JobService } from '../../../services/job.service';
+import { ApplicationService } from '../../../services/application.service';
+import {
+  ArrowLeft,
+  Users,
+  Mail,
+  Phone,
+  MapPin,
   User,
   Briefcase,
   Search,
   Filter,
   Download,
   Eye,
-  Calendar
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Star,
+  MessageSquare,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 
 export default function ApplicantsList() {
@@ -22,38 +31,87 @@ export default function ApplicantsList() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState('all');
+  const [updatingStatus, setUpdatingStatus] = useState(null);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      // Simulate loading delay for better UX
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const jobs = JSON.parse(localStorage.getItem('jobs')) || [];
-      const job = jobs.find(j => j.id === jobId);
-      
-      if (job) {
-        setJobDetails(job);
-        setApplicants(job.applicantsList || []);
-      } else {
-        setApplicants([]);
-      }
-      
-      setIsLoading(false);
-    };
-    
     loadData();
   }, [jobId]);
 
+  const loadData = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Load job details and applicants in parallel
+      const [jobResponse, applicantsResponse] = await Promise.all([
+        JobService.getJobById(jobId),
+        JobService.getAppliedCandidates(jobId)
+      ]);
+
+      if (jobResponse.success || jobResponse.job) {
+        setJobDetails(jobResponse.job || jobResponse.data);
+      } else {
+        setError('Failed to load job details');
+      }
+
+      if (applicantsResponse.success) {
+        setApplicants(applicantsResponse.data.applications || []);
+      } else {
+        setError('Failed to load applicants');
+      }
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Failed to load job and applicant data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (applicationId, newStatus) => {
+    setUpdatingStatus(applicationId);
+    setError(null);
+
+    try {
+      const response = await ApplicationService.updateApplicationStatus(applicationId, newStatus);
+
+      if (response.success) {
+        // Update local state
+        setApplicants(prev =>
+          prev.map(app =>
+            app._id === applicationId
+              ? { ...app, status: newStatus }
+              : app
+          )
+        );
+        setSuccess(`Application status updated to ${newStatus}`);
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(response.message || 'Failed to update application status');
+      }
+    } catch (err) {
+      console.error('Error updating status:', err);
+      setError('Failed to update application status');
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
   const filteredApplicants = applicants.filter(applicant => {
-    const matchesSearch = applicant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         applicant.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         applicant.location?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const applicantData = applicant.applicant || applicant; // Handle populated vs non-populated data
+    const matchesSearch = applicantData.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         applicantData.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         applicant.status?.toLowerCase().includes(searchTerm.toLowerCase());
+
     if (filterBy === 'all') return matchesSearch;
-    if (filterBy === 'with-location') return matchesSearch && applicant.location;
-    if (filterBy === 'with-mobile') return matchesSearch && applicant.mobile;
+    if (filterBy === 'applied') return matchesSearch && applicant.status === 'applied';
+    if (filterBy === 'reviewed') return matchesSearch && applicant.status === 'reviewed';
+    if (filterBy === 'shortlisted') return matchesSearch && applicant.status === 'shortlisted';
+    if (filterBy === 'interview') return matchesSearch && applicant.status === 'interview';
+    if (filterBy === 'hired') return matchesSearch && applicant.status === 'hired';
+    if (filterBy === 'rejected') return matchesSearch && applicant.status === 'rejected';
     return matchesSearch;
   });
 
@@ -69,9 +127,63 @@ export default function ApplicantsList() {
       day: 'numeric'
     });
   };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'applied': return 'bg-blue-100 text-blue-800';
+      case 'reviewed': return 'bg-yellow-100 text-yellow-800';
+      case 'shortlisted': return 'bg-purple-100 text-purple-800';
+      case 'interview': return 'bg-orange-100 text-orange-800';
+      case 'hired': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'applied': return <Clock className="w-4 h-4" />;
+      case 'reviewed': return <Eye className="w-4 h-4" />;
+      case 'shortlisted': return <Star className="w-4 h-4" />;
+      case 'interview': return <MessageSquare className="w-4 h-4" />;
+      case 'hired': return <CheckCircle className="w-4 h-4" />;
+      case 'rejected': return <XCircle className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  const getNextStatusOptions = (currentStatus) => {
+    switch (currentStatus) {
+      case 'applied':
+        return [
+          { value: 'reviewed', label: 'Mark as Reviewed' },
+          { value: 'shortlisted', label: 'Shortlist' },
+          { value: 'rejected', label: 'Reject' }
+        ];
+      case 'reviewed':
+        return [
+          { value: 'shortlisted', label: 'Shortlist' },
+          { value: 'interview', label: 'Schedule Interview' },
+          { value: 'rejected', label: 'Reject' }
+        ];
+      case 'shortlisted':
+        return [
+          { value: 'interview', label: 'Schedule Interview' },
+          { value: 'hired', label: 'Hire' },
+          { value: 'rejected', label: 'Reject' }
+        ];
+      case 'interview':
+        return [
+          { value: 'hired', label: 'Hire' },
+          { value: 'rejected', label: 'Reject' }
+        ];
+      default:
+        return [];
+    }
+  };
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto mt-20">
         {isLoading ? (
           /* Loading State */
           <div className="flex items-center justify-center py-20">
@@ -82,6 +194,26 @@ export default function ApplicantsList() {
           </div>
         ) : (
           <>
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <p className="text-red-800">{error}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {success && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <p className="text-green-800">{success}</p>
+                </div>
+              </div>
+            )}
+
             {/* Header Section */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -156,8 +288,12 @@ export default function ApplicantsList() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="all">All Applicants</option>
-                      <option value="with-location">With Location</option>
-                      <option value="with-mobile">With Mobile</option>
+                      <option value="applied">New Applications</option>
+                      <option value="reviewed">Reviewed</option>
+                      <option value="shortlisted">Shortlisted</option>
+                      <option value="interview">Interview Scheduled</option>
+                      <option value="hired">Hired</option>
+                      <option value="rejected">Rejected</option>
                     </select>
                   </div>
                 </div>
@@ -200,72 +336,148 @@ export default function ApplicantsList() {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200">
-                  {filteredApplicants.map((applicant, index) => (
-                    <div key={index} className="p-6 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-start gap-4">
-                        {/* Avatar */}
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                          {getInitials(applicant.name)}
-                        </div>
-                        
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
-                            <h4 className="text-lg font-semibold text-gray-900 truncate">
-                              {applicant.name || 'Anonymous Applicant'}
-                            </h4>
-                            <div className="flex gap-2">
-                              <button className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                                <Eye className="w-4 h-4" />
-                                View Profile
-                              </button>
-                            </div>
-                          </div>
-                          
-                          {/* Contact Information */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {applicant.email && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                <a 
-                                  href={`mailto:${applicant.email}`}
-                                  className="text-blue-600 hover:text-blue-800 truncate"
-                                >
-                                  {applicant.email}
-                                </a>
-                              </div>
-                            )}
-                            
-                            {applicant.mobile && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                <a 
-                                  href={`tel:${applicant.mobile}`}
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  {applicant.mobile}
-                                </a>
-                              </div>
-                            )}
-                            
-                            {applicant.location && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                <span className="truncate">{applicant.location}</span>
-                              </div>
-                            )}
+                  {filteredApplicants.map((application, index) => {
+                    const applicantData = application.applicant || application;
+                    const nextStatusOptions = getNextStatusOptions(application.status);
+
+                    return (
+                      <div key={application._id || index} className="p-6 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-start gap-4">
+                          {/* Avatar */}
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                            {getInitials(applicantData.name)}
                           </div>
 
-                          {/* Additional Info */}
-                          {applicant.appliedDate && (
-                            <div className="mt-3 text-xs text-gray-500">
-                              Applied on {formatDate(applicant.appliedDate)}
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
+                              <div>
+                                <h4 className="text-lg font-semibold text-gray-900 truncate">
+                                  {applicantData.name || 'Anonymous Applicant'}
+                                </h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(application.status)}`}>
+                                    {getStatusIcon(application.status)}
+                                    {application.status?.charAt(0).toUpperCase() + application.status?.slice(1)}
+                                  </span>
+                                  {application.atsScore && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">
+                                      <Star className="w-3 h-3" />
+                                      ATS: {application.atsScore}%
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => navigate(`/applicant/${applicantData._id}`)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  View Profile
+                                </button>
+
+                                {/* Status Update Dropdown */}
+                                {nextStatusOptions.length > 0 && (
+                                  <select
+                                    value=""
+                                    onChange={(e) => e.target.value && handleStatusUpdate(application._id, e.target.value)}
+                                    disabled={updatingStatus === application._id}
+                                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                  >
+                                    <option value="">Update Status</option>
+                                    {nextStatusOptions.map(option => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+
+                                {updatingStatus === application._id && (
+                                  <div className="flex items-center">
+                                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          )}
+
+                            {/* Contact Information */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {applicantData.email && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <a
+                                    href={`mailto:${applicantData.email}`}
+                                    className="text-blue-600 hover:text-blue-800 truncate"
+                                  >
+                                    {applicantData.email}
+                                  </a>
+                                </div>
+                              )}
+
+                              {applicantData.phone && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <a
+                                    href={`tel:${applicantData.phone}`}
+                                    className="text-blue-600 hover:text-blue-800"
+                                  >
+                                    {applicantData.phone}
+                                  </a>
+                                </div>
+                              )}
+
+                              {applicantData.location && (
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <span className="truncate">{applicantData.location}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Skills */}
+                            {applicantData.skills && applicantData.skills.length > 0 && (
+                              <div className="mt-3">
+                                <div className="flex flex-wrap gap-1">
+                                  {applicantData.skills.slice(0, 5).map((skill, skillIndex) => (
+                                    <span
+                                      key={skillIndex}
+                                      className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
+                                    >
+                                      {skill}
+                                    </span>
+                                  ))}
+                                  {applicantData.skills.length > 5 && (
+                                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                                      +{applicantData.skills.length - 5} more
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Additional Info */}
+                            <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+                              <span>Applied on {formatDate(application.appliedAt)}</span>
+                              {application.resume && (
+                                <a
+                                  href={application.resume}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  View Resume
+                                </a>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -5,6 +5,7 @@ require('dotenv').config();
 // Import models
 const User = require('./models/User');
 const JobSeeker = require('./models/JobSeeker');
+const Recruiter = require('./models/Recruiter');
 const Organization = require('./models/Organizations');
 const JobPost = require('./models/JobPost');
 const Resume = require('./models/Resume');
@@ -490,6 +491,134 @@ const jobSeekerProfiles = [
     }
 ];
 
+// Sample recruiter profiles
+const recruiterProfiles = [
+    {
+        // Sarah Johnson - TechCorp
+        title: "Senior Technical Recruiter",
+        bio: "Experienced technical recruiter with 5+ years in the tech industry. Specialized in finding top talent for full-stack development, DevOps, and data science roles.",
+        department: "Human Resources",
+        yearsOfExperience: 5,
+        specializations: ["Technical Recruiting", "Full-Stack Development", "DevOps", "Data Science"],
+        linkedinProfile: "https://linkedin.com/in/sarah-johnson-recruiter",
+        skills: ["Technical Screening", "Candidate Assessment", "Interview Coordination", "Talent Sourcing"],
+        workExperience: [
+            {
+                company: "TechCorp Solutions",
+                position: "Senior Technical Recruiter",
+                startDate: new Date("2021-03-01"),
+                isCurrent: true,
+                description: "Lead technical recruitment for engineering teams, managing full recruitment lifecycle from sourcing to onboarding.",
+                location: "Gurgaon, Haryana"
+            },
+            {
+                company: "StartupHub",
+                position: "Technical Recruiter",
+                startDate: new Date("2019-06-01"),
+                endDate: new Date("2021-02-28"),
+                isCurrent: false,
+                description: "Recruited software engineers and data scientists for multiple startup clients.",
+                location: "Delhi, India"
+            }
+        ],
+        education: [
+            {
+                institution: "Delhi University",
+                degree: "Master of Business Administration",
+                fieldOfStudy: "Human Resources",
+                startYear: 2017,
+                endYear: 2019,
+                grade: "8.2 GPA"
+            },
+            {
+                institution: "Lady Shri Ram College",
+                degree: "Bachelor of Arts",
+                fieldOfStudy: "Psychology",
+                startYear: 2014,
+                endYear: 2017,
+                grade: "8.5 GPA"
+            }
+        ],
+        certifications: [
+            {
+                name: "Certified Talent Acquisition Professional",
+                issuingOrganization: "SHRM",
+                issueDate: new Date("2020-08-15"),
+                credentialId: "CTAP-2020-8945"
+            }
+        ]
+    },
+    {
+        // Raj Patel - InnovateLabs
+        title: "AI/ML Talent Acquisition Specialist",
+        bio: "Passionate about connecting AI and machine learning talent with innovative companies. Deep understanding of technical requirements in AI/ML space.",
+        department: "Talent Acquisition",
+        yearsOfExperience: 4,
+        specializations: ["AI/ML Recruiting", "Data Science", "Research Roles", "Technical Assessment"],
+        linkedinProfile: "https://linkedin.com/in/raj-patel-ai-recruiter",
+        skills: ["AI/ML Screening", "Technical Interviews", "Research Assessment", "Startup Recruiting"],
+        workExperience: [
+            {
+                company: "InnovateLabs",
+                position: "AI/ML Talent Acquisition Specialist",
+                startDate: new Date("2020-09-01"),
+                isCurrent: true,
+                description: "Specialized in recruiting AI/ML engineers, data scientists, and research professionals for cutting-edge AI projects.",
+                location: "Bangalore, Karnataka"
+            }
+        ],
+        education: [
+            {
+                institution: "IIT Bombay",
+                degree: "Bachelor of Technology",
+                fieldOfStudy: "Computer Science",
+                startYear: 2016,
+                endYear: 2020,
+                grade: "8.8 GPA"
+            }
+        ]
+    },
+    {
+        // Priya Sharma - Global Enterprises
+        title: "Executive Recruiter",
+        bio: "Senior executive recruiter with expertise in C-level and senior management positions across technology and business functions.",
+        department: "Executive Search",
+        yearsOfExperience: 8,
+        specializations: ["Executive Search", "C-Level Recruiting", "Leadership Assessment", "Global Talent"],
+        linkedinProfile: "https://linkedin.com/in/priya-sharma-executive-search",
+        skills: ["Executive Assessment", "Leadership Evaluation", "Stakeholder Management", "Global Recruiting"],
+        workExperience: [
+            {
+                company: "Global Enterprises",
+                position: "Executive Recruiter",
+                startDate: new Date("2018-01-15"),
+                isCurrent: true,
+                description: "Lead executive search for C-level and VP positions across technology, operations, and business development.",
+                location: "Mumbai, Maharashtra"
+            },
+            {
+                company: "Executive Search Partners",
+                position: "Senior Recruiter",
+                startDate: new Date("2016-03-01"),
+                endDate: new Date("2017-12-31"),
+                isCurrent: false,
+                description: "Recruited senior management positions for Fortune 500 companies.",
+                location: "Mumbai, Maharashtra"
+            }
+        ],
+        education: [
+            {
+                institution: "XLRI Jamshedpur",
+                degree: "Post Graduate Diploma in Management",
+                fieldOfStudy: "Human Resources",
+                startYear: 2014,
+                endYear: 2016,
+                grade: "9.1 GPA"
+            }
+        ]
+    }
+];
+
 // Sample job posts
 const jobPosts = [
     {
@@ -630,6 +759,7 @@ async function seedDatabase() {
         console.log('🧹 Clearing existing data...');        await Promise.all([
             User.deleteMany({}),
             JobSeeker.deleteMany({}),
+            Recruiter.deleteMany({}),
             Organization.deleteMany({}),
             JobPost.deleteMany({}),
             Resume.deleteMany({}),
@@ -658,21 +788,21 @@ async function seedDatabase() {
         // Separate users by role
         const recruiters = createdUsers.filter(user => user.role === 'recruiter');
         const jobseekers = createdUsers.filter(user => user.role === 'jobseeker');
-        const admin = createdUsers.find(user => user.role === 'admin');        // Update organizations with recruiters and link recruiters to organizations
-        console.log('🔗 Linking recruiters to organizations...');
+        const admin = createdUsers.find(user => user.role === 'admin');        // Create recruiter profiles
+        console.log('👔 Creating recruiter profiles...');
+        const recruiterProfilesWithData = [];
+
         for (let i = 0; i < recruiters.length && i < createdOrganizations.length; i++) {
-            // Add recruiter to organization's recruiters array
-            await Organization.findByIdAndUpdate(
-                createdOrganizations[i]._id,
-                { $push: { recruiters: recruiters[i]._id } }
-            );
-            
-            // Update recruiter's organizationId field
-            await User.findByIdAndUpdate(
-                recruiters[i]._id,
-                { organizationId: createdOrganizations[i]._id }
-            );
+            const baseProfile = recruiterProfiles[i % recruiterProfiles.length];
+            recruiterProfilesWithData.push({
+                ...baseProfile,
+                user: recruiters[i]._id,
+                organizationId: createdOrganizations[i]._id
+            });
         }
+
+        const createdRecruiterProfiles = await Recruiter.insertMany(recruiterProfilesWithData);
+        console.log(`✅ Created ${createdRecruiterProfiles.length} recruiter profiles`);
 
         // Create job seeker profiles
         console.log('📝 Creating job seeker profiles...');
@@ -836,6 +966,7 @@ async function seedDatabase() {
         console.log('\n🎉 Database seeded successfully!');        console.log('\n📊 Summary:');
         console.log(`  👥 Users: ${createdUsers.length} (${recruiters.length} recruiters, ${jobseekers.length} jobseekers, 1 admin)`);
         console.log(`  🏢 Organizations: ${createdOrganizations.length}`);
+        console.log(`  👔 Recruiter Profiles: ${createdRecruiterProfiles.length}`);
         console.log(`  💼 Job Posts: ${createdJobPosts.length}`);
         console.log(`  📋 Applications: ${createdApplications.length}`);
         console.log(`  📝 Job Seeker Profiles: ${createdJobSeekerProfiles.length}`);

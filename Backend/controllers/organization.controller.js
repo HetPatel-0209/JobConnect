@@ -158,9 +158,8 @@ exports.createOrganization = async (req, res) => {
 exports.getOrganization = async (req, res) => {
     try {
         const { orgId } = req.params;
-        
-        const organization = await Organization.findById(orgId)
-            .populate('recruiters', 'name email phone');
+
+        const organization = await Organization.findById(orgId);
 
         if (!organization) {
             return res.status(404).json({
@@ -169,9 +168,21 @@ exports.getOrganization = async (req, res) => {
             });
         }
 
+        // Get recruiters for this organization
+        const recruiters = await require('../models/Recruiter').find({ organizationId: orgId })
+            .populate('user', 'name email phone profilePic')
+            .select('user title department');
+
         res.json({
             success: true,
-            data: organization
+            data: {
+                ...organization.toObject(),
+                recruiters: recruiters.map(recruiter => ({
+                    ...recruiter.user.toObject(),
+                    title: recruiter.title,
+                    department: recruiter.department
+                }))
+            }
         });
 
     } catch (error) {
@@ -296,7 +307,12 @@ exports.uploadOrganizationImages = async (req, res) => {
         // Check if user is authorized to upload images
         // Ensure the user is a recruiter for this organization
         const currentUserId = req.user._id;
-        if (!organization.recruiters.includes(currentUserId)) {
+        const recruiterProfile = await require('../models/Recruiter').findOne({
+            user: currentUserId,
+            organizationId: orgId
+        });
+
+        if (!recruiterProfile) {
             return res.status(403).json({
                 success: false,
                 message: 'You are not authorized to update this organization'

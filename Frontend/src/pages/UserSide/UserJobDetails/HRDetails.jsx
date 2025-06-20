@@ -1,18 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  User, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Briefcase, 
+import {
+  ArrowLeft,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Briefcase,
   FileText,
   Loader,
   UserCircle,
   Building2,
   Calendar,
-  Clock
+  Clock,
+  Users
 } from 'lucide-react';
 import { JobService } from '../../../services/job.service';
 
@@ -237,41 +238,61 @@ export default function HRDetails() {
 
             {/* Company Information */}
             {hrProfile.organization && (
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Company Details</h2>
-                </div>
-                
-                <div className="flex items-start gap-4 p-6 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl">
-                  {hrProfile.organization.logo && (
-                    <div className="w-16 h-16 bg-white rounded-lg shadow-md flex items-center justify-center overflow-hidden">
-                      <img 
-                        src={hrProfile.organization.logo} 
-                        alt={`${hrProfile.organization.name} logo`}
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    </div>
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                {/* Organization Banner */}
+                <div className="relative h-32 bg-gradient-to-r from-indigo-600 to-blue-600">
+                  {hrProfile.organization.banner && (
+                    <img
+                      src={hrProfile.organization.banner}
+                      alt={`${hrProfile.organization.name} banner`}
+                      className="w-full h-full object-cover"
+                    />
                   )}
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">{hrProfile.organization.name}</h3>
-                    {hrProfile.organization.location && (
-                      <div className="flex items-center gap-2 text-gray-600 mb-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{hrProfile.organization.location}</span>
+                  <div className="absolute inset-0 bg-black bg-opacity-20"></div>
+                </div>
+
+                <div className="p-8">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                      <Building2 className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900">Company Details</h2>
+                  </div>
+
+                  <div className="flex items-start gap-4 p-6 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl">
+                    {hrProfile.organization.logo && (
+                      <div className="w-16 h-16 bg-white rounded-lg shadow-md flex items-center justify-center overflow-hidden">
+                        <img
+                          src={hrProfile.organization.logo}
+                          alt={`${hrProfile.organization.name} logo`}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
                       </div>
                     )}
-                    {hrProfile.organization.contact?.email && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Mail className="w-4 h-4" />
-                        <span>{hrProfile.organization.contact.email}</span>
-                      </div>
-                    )}
-                    {hrProfile.organization.description?.about && (
-                      <p className="text-gray-700 mt-3 leading-relaxed">{hrProfile.organization.description.about}</p>
-                    )}
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">{hrProfile.organization.name}</h3>
+                      {hrProfile.organization.contact?.address && (
+                        <div className="flex items-center gap-2 text-gray-600 mb-2">
+                          <MapPin className="w-4 h-4" />
+                          <span>{hrProfile.organization.contact.address.city}, {hrProfile.organization.contact.address.state}</span>
+                        </div>
+                      )}
+                      {hrProfile.organization.contact?.email && (
+                        <div className="flex items-center gap-2 text-gray-600 mb-2">
+                          <Mail className="w-4 h-4" />
+                          <span>{hrProfile.organization.contact.email}</span>
+                        </div>
+                      )}
+                      {hrProfile.organization.companySize && (
+                        <div className="flex items-center gap-2 text-gray-600 mb-2">
+                          <Users className="w-4 h-4" />
+                          <span>{hrProfile.organization.companySize} employees</span>
+                        </div>
+                      )}
+                      {hrProfile.organization.description?.about && (
+                        <p className="text-gray-700 mt-3 leading-relaxed">{hrProfile.organization.description.about}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -285,8 +306,8 @@ export default function HRDetails() {
               <h3 className="text-xl font-bold text-gray-900 mb-6">Profile Information</h3>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">User ID</span>
-                  <span className="font-semibold text-gray-900 text-sm">{hrProfile._id}</span>
+                  <span className="text-gray-600">Position</span>
+                  <span className="font-semibold text-gray-900 text-sm">{hrProfile.title}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Role</span>

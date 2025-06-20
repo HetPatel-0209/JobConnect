@@ -26,12 +26,7 @@ const userSchema = new mongoose.Schema({
     profilePic: String,
     profilePicPublicId: String, // Cloudinary public ID for profile picture
     location: String,
-      // Organization association for recruiters
-    organizationId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Organization'
-    },
-    
+
     isActive: { type: Boolean, default: true },
     profileCompleted: { type: Boolean, default: false },
     lastLogin: Date,

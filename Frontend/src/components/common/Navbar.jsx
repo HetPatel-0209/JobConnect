@@ -240,6 +240,10 @@ export default function Navbar() {
 
         <nav className="flex items-center">
           <Link to="/dashboard" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Dashboard</Link>
+          <Link to="/analytics" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Analytics</Link>
+          <Link to="/profile" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Profile</Link>
+          <Link to="/company-details" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Your Organization</Link>
+          
 
           <div className="relative ml-4 md:ml-10" ref={dropdownRef}>
             <div className="flex items-center gap-1.5 bg-gray-400/50 px-2.5 py-1.5 rounded-xl border border-black cursor-pointer transition-colors duration-200 hover:bg-gray-400/60" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
@@ -277,6 +281,7 @@ export default function Navbar() {
 
         <nav className="flex items-center">
           <Link to="/user/job-dashboard" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Dashboard</Link>
+          <Link to="/user/profile" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Profile</Link>
 
           <div className="relative ml-4 md:ml-10" ref={dropdownRef}>
             <div className="flex items-center gap-1.5 bg-gray-400/50 px-2.5 py-1.5 rounded-xl border border-black cursor-pointer transition-colors duration-200 hover:bg-gray-400/60" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>

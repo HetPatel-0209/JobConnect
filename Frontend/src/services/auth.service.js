@@ -136,5 +136,64 @@ export const AuthService = {
         } catch (error) {
             throw error;
         }
+    },
+
+    /**
+     * Get user profile by ID (for recruiters to view applicant profiles)
+     * @param {string} userId - User ID
+     * @returns {Promise<Object>} User profile
+     */
+    getUserProfile: async (userId) => {
+        try {
+            const response = await api.get(`/auth/user/${userId}`);
+            return response;
+        } catch (error) {
+            console.error('Get user profile error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Change recruiter's organization
+     * @param {string} newOrganizationId - New organization ID
+     * @returns {Promise<Object>} Updated user data
+     */
+    changeOrganization: async (newOrganizationId) => {
+        try {
+            const response = await api.put('/auth/change-organization', {
+                organizationId: newOrganizationId
+            });
+            if (response.user) {
+                localStorage.setItem('user', JSON.stringify(response.user));
+                localStorage.setItem('currentUser', JSON.stringify(response.user));
+            }
+            return response;
+        } catch (error) {
+            console.error('Change organization error:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Upload profile picture
+     * @param {FormData} formData - Form data containing the image file
+     * @returns {Promise<Object>} Updated user data
+     */
+    uploadProfilePicture: async (formData) => {
+        try {
+            const response = await api.post('/auth/profile-picture', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            if (response.user) {
+                localStorage.setItem('user', JSON.stringify(response.user));
+                localStorage.setItem('currentUser', JSON.stringify(response.user));
+            }
+            return response;
+        } catch (error) {
+            console.error('Upload profile picture error:', error);
+            throw error;
+        }
     }
 };

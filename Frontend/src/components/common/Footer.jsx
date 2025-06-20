@@ -25,12 +25,12 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">For Job Seekers</h3>
             <ul className="space-y-2">
               <li>
-                <a href="/create-account" className="text-gray-300 hover:text-white transition-colors text-sm">
+                <a href="/auth/?mode=register&type=jobseeker" className="text-gray-300 hover:text-white transition-colors text-sm">
                   Create Account
                 </a>
               </li>
               <li>
-                <a href="/browse-jobs" className="text-gray-300 hover:text-white transition-colors text-sm">
+                <a href="/auth/?mode=login" className="text-gray-300 hover:text-white transition-colors text-sm">
                   Browse Jobs
                 </a>
               </li>
@@ -42,12 +42,12 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">For Employers</h3>
             <ul className="space-y-2">
               <li>
-                <a href="/post-job" className="text-gray-300 hover:text-white transition-colors text-sm">
+                <a href="/auth/?mode=register&type=recruiter" className="text-gray-300 hover:text-white transition-colors text-sm">
                   Post a Job
                 </a>
               </li>
               <li>
-                <a href="/ai-matching" className="text-gray-300 hover:text-white transition-colors text-sm">
+                <a href="/auth/?mode=login" className="text-gray-300 hover:text-white transition-colors text-sm">
                   AI Matching
                 </a>
               </li>

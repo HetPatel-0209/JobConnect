@@ -12,13 +12,19 @@ import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
 
 import Dashboard from './pages/CompanySide/Dashboard/Dashboard';
-import Jobdetails from './pages/CompanySide/JobDetails/Jobdetails';
+import RecruiterJobDetails from './pages/CompanySide/JobDetails/RecruiterJobDetails';
 import ApplicantsList from './pages/CompanySide/JobDetails/ApplicantsList';
+import ApplicantProfile from './pages/CompanySide/ApplicantProfile/ApplicantProfile';
 import OrgProfile from './pages/CompanySide/ProfilePage/Orgprofile';
+import OrganizationProfile from './pages/CompanySide/ProfilePage/OrganizationProfile';
 import Postjob from './pages/CompanySide/PostJobPage/Postjob';
 import RegisterOrganization from './pages/CompanySide/RegisterOrg/RegisterOrganization';
 import RegistrationSuccess from './pages/CompanySide/RegisterOrg/RegistrationSuccess';
-import CompanyDetailsPage from './pages/CompanySide/CompanyDetails/CompanyDetails'; // ✅ Company Side Details Page
+import CompanyDetailsPage from './pages/CompanySide/CompanyDetails/CompanyDetails';
+import AnalyticsDashboard from './pages/CompanySide/Analytics/AnalyticsDashboard';
+import JobAnalytics from './pages/CompanySide/Analytics/JobAnalytics';
+import PublicCompanyProfile from './pages/CompanySide/PublicProfile/PublicCompanyProfile';
+import GenericJobDetails from './components/common/GenericJobDetails';
 
 import Home from './pages/Home/Home';
 import AuthPage from './pages/Auth/AuthPage';
@@ -65,6 +71,13 @@ function App() {
                   <Route path="/register-organization" element={<RegisterOrganization />} />
                   <Route path="/registration-success" element={<RegistrationSuccess />} />
 
+                  {/* ✅ Generic Job Details Route - Redirects based on user role */}
+                  <Route path="/jobs/:id" element={
+                    <ProtectedRoute allowedRoles={['jobseeker', 'recruiter']}>
+                      <GenericJobDetails />
+                    </ProtectedRoute>
+                  } />
+
                   {/* ✅ Company Routes - Protected for recruiter users */}
                   <Route path="/dashboard" element={
                     <ProtectedRoute allowedRoles={['recruiter']}>
@@ -73,7 +86,7 @@ function App() {
                   } />
                   <Route path="/job/:id" element={
                     <ProtectedRoute allowedRoles={['recruiter']}>
-                      <Jobdetails />
+                      <RecruiterJobDetails />
                     </ProtectedRoute>
                   } />
                   <Route path="/profile" element={
@@ -86,6 +99,11 @@ function App() {
                       <ApplicantsList />
                     </ProtectedRoute>
                   } />
+                  <Route path="/applicant/:applicantId" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <ApplicantProfile />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/postjob" element={
                     <ProtectedRoute allowedRoles={['recruiter']}>
                       <Postjob />
@@ -96,6 +114,21 @@ function App() {
                   <Route path="/company-details" element={
                     <ProtectedRoute allowedRoles={['recruiter']}>
                       <CompanyDetailsPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/organization/profile" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <OrganizationProfile />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/analytics" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <AnalyticsDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/job/:jobId/analytics" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <JobAnalytics />
                     </ProtectedRoute>
                   } />
 
@@ -137,6 +170,13 @@ function App() {
                   <Route path="/company-details/:id" element={
                     <ProtectedRoute allowedRoles={['jobseeker']}>
                       <CompanyDetails />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* Public Company Profile - accessible to all authenticated users */}
+                  <Route path="/company/:companyId" element={
+                    <ProtectedRoute allowedRoles={['jobseeker', 'recruiter']}>
+                      <PublicCompanyProfile />
                     </ProtectedRoute>
                   } />
                 </Routes>
