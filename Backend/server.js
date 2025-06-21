@@ -23,7 +23,7 @@ const app = express();
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production'
         ? process.env.FRONTEND_URL
-        : ['https://jobconnect-xi-snowy.vercel.app/', 'http://localhost:3000'],
+        : ['https://job-connect-ecru.vercel.app/home', 'https://job-connect-ecru.vercel.app/', 'http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
