@@ -2,7 +2,7 @@ import axios from 'axios';
 import { handleApiError } from '../utils/apiErrorHandler';
 
 // Use environment variable or default to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://jobconnect-xwh3.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api';
 
 /**
  * Standard API response format

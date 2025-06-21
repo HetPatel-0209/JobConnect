@@ -37,7 +37,7 @@ class SocketService {
             localStorage.setItem('socketToken', token);
         }
 
-        const serverUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'https://jobconnect-xwh3.onrender.com';
+        const serverUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://127.0.0.1:3000';
 
         this.socket = io(serverUrl, {
             transports: ['polling', 'websocket'],

@@ -6,7 +6,7 @@
 // Check if we're in development mode
 if (import.meta.env.DEV) {
   // Make API base URL available globally for debugging
-  window.API_BASE_URL = import.meta.env.BACKEND_API_BASE_URL || 'https://jobconnect-xwh3.onrender.com/api';
+  window.API_BASE_URL = import.meta.env.BACKEND_API_BASE_URL || 'http://127.0.0.1:3000/api';
 
   // Debug helper to test API endpoints
   window.debugAPI = {
