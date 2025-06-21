@@ -25,7 +25,7 @@ export default function LoginForm() {
       } else if (response.user.role === 'recruiter') {
         navigate('/dashboard');
       } else {
-        navigate('/home');
+        navigate('/');
       }
     } catch (error) {
       setError(error.response?.data?.message || 'Login failed. Please check your credentials.');

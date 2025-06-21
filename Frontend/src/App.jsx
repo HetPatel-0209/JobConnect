@@ -53,7 +53,7 @@ function App() {
   const path = location.pathname;
 
   const isAuthPage = path === '/auth';
-  const isHomePage = path === '/home';
+  const isHomePage = path === '/';
   const isUploadPage = path === '/user/upload-resume';
 
   // Use our custom hook to prevent Alt + Arrow key navigation

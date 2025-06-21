@@ -148,11 +148,11 @@ export default function Navbar() {
       setIsDropdownOpen(false);
 
       // Navigate to home immediately
-      navigate('/home', { replace: true });
+      navigate('/', { replace: true });
 
     } catch (error) {
       // Force navigation even if cleanup fails
-      navigate('/home', { replace: true });
+      navigate('/', { replace: true });
     }
   }, [clearProfile, setProfileImage, navigate]);
 
@@ -239,7 +239,7 @@ export default function Navbar() {
         </div>
 
         <nav className="flex items-center">
-          <Link to="/home" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Home</Link>
+          <Link to="/" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Home</Link>
         </nav>
       </header>
     );

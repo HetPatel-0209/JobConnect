@@ -30,7 +30,7 @@ const GenericJobDetails = () => {
     return <Navigate to={`/job/${id}`} replace />;
   } else {
     // If no user or unknown role, redirect to home
-    return <Navigate to="/home" replace />;
+    return <Navigate to="/" replace />;
   }
 };
 
