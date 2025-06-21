@@ -10,7 +10,14 @@ const connectDB = async () => {
             throw new Error('MongoDB URI is not defined in environment variables');
         }
 
-        const connect = await mongoose.connect(uri);
+        console.log('MongoDB URI:', uri.replace(/\/\/.*:.*@/, '//***:***@')); // Log URI without credentials
+
+        const connect = await mongoose.connect(uri, {
+            serverSelectionTimeoutMS: 10000, // 10 seconds timeout
+            socketTimeoutMS: 45000, // 45 seconds socket timeout
+        });
+
+        console.log('✅ MongoDB connected successfully!');
 
         mongoose.connection.on('error', err => {
             console.error('MongoDB connection error: ', err);

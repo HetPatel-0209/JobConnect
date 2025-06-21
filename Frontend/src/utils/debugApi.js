@@ -6,12 +6,12 @@
 // Check if we're in development mode
 if (import.meta.env.DEV) {
   // Make API base URL available globally for debugging
-  window.API_BASE_URL = import.meta.env.BACKEND_API_URL || 'https://jobconnect-xwh3.onrender.com/api';
-  
+  window.API_BASE_URL = import.meta.env.BACKEND_API_BASE_URL || 'https://jobconnect-xwh3.onrender.com/api';
+
   // Debug helper to test API endpoints
   window.debugAPI = {
     baseURL: window.API_BASE_URL,
-    
+
     // Quick test function for API endpoints
     test: async (endpoint) => {
       try {
@@ -24,17 +24,17 @@ if (import.meta.env.DEV) {
         return null;
       }
     },
-    
+
     // Test all job endpoints
     testJobs: async () => {
       await window.debugAPI.test('/jobs');
     },
-    
+
     // Test company endpoint with ID
     testCompany: async (companyId = '68543cfbd725ad3520baa95d') => {
       await window.debugAPI.test(`/jobs/company/${companyId}`);
     },
-    
+
     // Test recruiter endpoint with ID
     testRecruiter: async (recruiterId = '68543cfed725ad3520baa967') => {
       await window.debugAPI.test(`/jobs/recruiter/${recruiterId}`);

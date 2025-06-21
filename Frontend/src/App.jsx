@@ -53,7 +53,7 @@ function App() {
   const path = location.pathname;
 
   const isAuthPage = path === '/auth';
-  const isHomePage = path === '/';
+  const isHomePage = path === '/' || path === '/home';
   const isUploadPage = path === '/user/upload-resume';
 
   // Use our custom hook to prevent Alt + Arrow key navigation
@@ -76,8 +76,8 @@ function App() {
               <main className="main-content">
                 <Routes>
                   {/* Public Routes */}
-                  <Route path="/" element={<Navigate to="/" replace />} />
                   <Route path="/" element={<Home />} />
+                  <Route path="/home" element={<Home />} />
                   <Route path="/auth" element={<AuthPage />} />
                   <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                   <Route path="/auth/reset-password" element={<ResetPassword />} />
@@ -224,8 +224,11 @@ function App() {
                       <PublicCompanyProfile />
                     </ProtectedRoute>
                   } />
+
+                  {/* Catch-all route - redirect to home for undefined routes */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
-              </main>        
+              </main>
               {isHomePage && <Footer />}
             </div>
           </OrganizationProvider>
