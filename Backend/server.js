@@ -23,7 +23,7 @@ const app = express();
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production'
         ? process.env.FRONTEND_URL
-        : ['http://localhost:5173', 'http://localhost:3000'],
+        : ['https://jobconnect-xi-snowy.vercel.app/', 'http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -476,6 +476,4 @@ io.on('connection', (socket) => {
 
 // Start server
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server running on http://127.0.0.1:${PORT}`);
-});
+server.listen(PORT);
