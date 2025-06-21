@@ -76,8 +76,8 @@ function App() {
               <main className="main-content">
                 <Routes>
                   {/* Public Routes */}
-                  <Route path="/" element={<Navigate to="/home" replace />} />
-                  <Route path="/home" element={<Home />} />
+                  <Route path="/" element={<Navigate to="/" replace />} />
+                  <Route path="/" element={<Home />} />
                   <Route path="/auth" element={<AuthPage />} />
                   <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                   <Route path="/auth/reset-password" element={<ResetPassword />} />
