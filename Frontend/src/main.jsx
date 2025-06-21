@@ -10,7 +10,6 @@ import { ChatProvider } from './contexts/ChatContext';
 // Import debug utilities in development
 if (import.meta.env.DEV) {
   import('./utils/debugApi.js');
-  import('./utils/envCheck.js');
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

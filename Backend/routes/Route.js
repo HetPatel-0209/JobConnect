@@ -16,17 +16,6 @@ router.get('/api', (req, res) => {
   res.json({
     status: 'success',
     message: 'JobConnect API is running',
-    timestamp: new Date(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
-
-// Test route to verify CORS and routing
-router.get('/api/test', (req, res) => {
-  res.json({
-    status: 'success',
-    message: 'Test endpoint working',
-    origin: req.get('Origin'),
     timestamp: new Date()
   });
 });

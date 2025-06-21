@@ -28,24 +28,11 @@ const corsOptions = {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 };
-
-// Debug: Log CORS configuration
-console.log('🔧 CORS Configuration:');
-console.log('   NODE_ENV:', process.env.NODE_ENV);
-console.log('   FRONTEND_URL:', process.env.FRONTEND_URL);
-console.log('   Allowed Origins:', corsOptions.origin);
-
 app.use(cors(corsOptions));
 
 // Body parser middleware
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-
-// Debug middleware to log all requests
-app.use((req, res, next) => {
-    console.log(`📥 ${req.method} ${req.originalUrl} - Origin: ${req.get('Origin') || 'none'}`);
-    next();
-});
 
 // Connect to Database
 connectDB();
