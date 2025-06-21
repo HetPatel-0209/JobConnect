@@ -4,13 +4,32 @@ const resumeSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     filename: String,
     fileUrl: String,
+    cloudinaryPublicId: String,
+    cloudinaryUrl: String,
+    cloudinarySecureUrl: String,
+    downloadUrl: String,
     fileSize: Number,
-    mimeType: {
+    originalSize: Number,    mimeType: {
         type: String,
-        enum: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        enum: [
+            'application/pdf', 
+            'application/msword', 
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ],
         required: true
     },
     parsedText: String,
+    parsedData: {
+        skills: [String],
+        education: [{
+            degree: String,
+            year: String
+        }],
+        experience: [{
+            title: String,
+            duration: String
+        }]
+    },
     uploadedAt: { type: Date, default: Date.now },
     isActive: { type: Boolean, default: true }
 });

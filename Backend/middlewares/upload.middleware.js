@@ -1,74 +1,90 @@
 const multer = require('multer');
 const path = require('path');
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        let uploadPath = 'uploads/';
-        
-        // Determine upload directory based on file type
-        if (file.fieldname === 'resume') {
-            uploadPath += 'resumes/';
-        } else if (file.fieldname === 'logo' || file.fieldname === 'banner') {
-            uploadPath += 'organizations/';
-        } else if (file.fieldname === 'profilePic') {
-            uploadPath += 'profiles/';
-        }
-        
-        cb(null, uploadPath);
-    },
-    filename: (req, file, cb) => {
-        // Create unique filename with timestamp
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
+// For all uploads, we use memory storage since we'll upload to Cloudinary
+const memoryStorage = multer.memoryStorage();
 
-// File filter function
 const fileFilter = (req, file, cb) => {
     if (file.fieldname === 'resume') {
-        // Allow only PDF files for resumes
-        if (file.mimetype === 'application/pdf') {
+        if (file.mimetype === 'application/pdf' || 
+            file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+            file.mimetype === 'application/msword') {
             cb(null, true);
         } else {
-            cb(new Error('Only PDF files are allowed for resumes!'), false);
+            cb(new Error('Only PDF, DOC, and DOCX files are allowed for resumes!'), false);
         }
-    } else if (file.fieldname === 'logo' || file.fieldname === 'banner' || file.fieldname === 'profilePic') {
-        // Allow only images for logos, banners, and profile pictures
-        if (file.mimetype.startsWith('image/')) {
+    } else if (file.fieldname === 'profilePic') {
+        // Allow only jpg, jpeg, and png for profile pictures
+        if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg' || file.mimetype === 'image/png') {
             cb(null, true);
         } else {
-            cb(new Error('Only image files are allowed!'), false);
+            cb(new Error('Only JPG, JPEG, and PNG files are allowed for profile pictures!'), false);
+        }    } else if (file.fieldname === 'logo' || file.fieldname === 'banner') {
+        // Allow only jpg, jpeg, and png for organization images
+        if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg' || file.mimetype === 'image/png') {
+            cb(null, true);
+        } else {
+            cb(new Error('Only JPG, JPEG, and PNG files are allowed for organization images!'), false);
         }
     } else {
         cb(new Error('Invalid file field!'), false);
     }
 };
 
-// Create multer upload instance
-const upload = multer({
-    storage: storage,
+// For resume uploads
+const resumeUpload = multer({
+    storage: memoryStorage,
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB limit
+    }
+});
+
+// For other file uploads
+const otherUploads = multer({
+    storage: memoryStorage,
     fileFilter: fileFilter,
     limits: {
         fileSize: 5 * 1024 * 1024 // 5MB limit
     }
 });
 
-// Export middleware functions for different upload scenarios
-exports.uploadResume = upload.single('resume');
-exports.uploadProfilePic = upload.single('profilePic');
-exports.uploadOrganizationFiles = upload.fields([
+exports.uploadResume = resumeUpload.single('resume');
+exports.uploadProfilePic = multer({
+    storage: memoryStorage,
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB limit
+    }
+}).single('profilePic');
+exports.uploadOrganizationFiles = multer({
+    storage: memoryStorage,
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB limit for organization images
+    }
+}).fields([
     { name: 'logo', maxCount: 1 },
     { name: 'banner', maxCount: 1 }
 ]);
 
-// Error handling middleware
 exports.handleUploadError = (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({
-                message: 'File is too large. Maximum size is 5MB'
-            });
+            // Check which file field triggered the error to provide the correct message
+            if (req.route && req.route.path === '/auth/profile-picture') {
+                return res.status(400).json({
+                    message: 'Profile picture is too large. Maximum size is 10MB'
+                });
+            } else if (req.route && req.route.path.includes('/organization')) {
+                return res.status(400).json({
+                    message: 'Organization image is too large. Maximum size is 10MB'
+                });
+            } else {
+                return res.status(400).json({
+                    message: 'File is too large. Maximum size is 5MB'
+                });
+            }
         }
         return res.status(400).json({
             message: 'File upload error: ' + err.message

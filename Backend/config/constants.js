@@ -12,11 +12,13 @@ module.exports = {
     FILE_LIMITS: {
         RESUME: 5 * 1024 * 1024, // 5MB
         IMAGE: 2 * 1024 * 1024   // 2MB
-    },
-
-    // Allowed file types
+    },    // Allowed file types
     ALLOWED_FILE_TYPES: {
-        RESUME: ['application/pdf'],
+        RESUME: [
+            'application/pdf', 
+            'application/msword', 
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ],
         IMAGE: ['image/jpeg', 'image/png', 'image/gif']
     },
 
