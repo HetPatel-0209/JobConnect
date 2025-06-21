@@ -2,7 +2,7 @@ import axios from 'axios';
 import { handleApiError } from '../utils/apiErrorHandler';
 
 // Use environment variable or default to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://jobconnect-xwh3.onrender.com/api';
 
 /**
  * Standard API response format
@@ -71,13 +71,11 @@ const apiService = {
      */
     get: async (url, params = {}) => {
         try {
-            console.log(`API GET: ${url}`, params);
             const response = await api.get(url, { params });
-            console.log(`API GET Response: ${url}`, response.data);
             return response.data;
         } catch (error) {
             const formattedError = handleApiError(error, false);
-            console.error(`GET ${url} error:`, formattedError);
+            console.error(`GET error:`, formattedError);
             throw formattedError;
         }
     },
@@ -91,13 +89,12 @@ const apiService = {
      */
     post: async (url, data = {}, config = {}) => {
         try {
-            console.log(`API POST: ${url}`, data);
+            console.log(`API POST: `, data);
             const response = await api.post(url, data, config);
-            console.log(`API POST Response: ${url}`, response.data);
             return response.data;
         } catch (error) {
             const formattedError = handleApiError(error, false);
-            console.error(`POST ${url} error:`, formattedError);
+            console.error(`POST error:`, formattedError);
             throw formattedError;
         }
     },
@@ -114,7 +111,7 @@ const apiService = {
             return response.data;
         } catch (error) {
             const formattedError = handleApiError(error, false);
-            console.error(`PUT ${url} error:`, formattedError);
+            console.error(`PUT error:`, formattedError);
             throw formattedError;
         }
     },
@@ -130,7 +127,7 @@ const apiService = {
             return response.data;
         } catch (error) {
             const formattedError = handleApiError(error, false);
-            console.error(`DELETE ${url} error:`, formattedError);
+            console.error(formattedError);
             throw formattedError;
         }
     },

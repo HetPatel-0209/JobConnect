@@ -106,7 +106,7 @@ export const AuthService = {
             }
             return response;
         } catch (error) {
-            console.error('Update profile error:', error);
+            console.error(error);
             throw error;
         }
     },
@@ -142,7 +142,7 @@ export const AuthService = {
             const response = await api.get(`/auth/user/${userId}`);
             return response;
         } catch (error) {
-            console.error('Get user profile error:', error);
+            console.error(error);
             throw error;
         }
     },
@@ -163,7 +163,7 @@ export const AuthService = {
             }
             return response;
         } catch (error) {
-            console.error('Change organization error:', error);
+            console.error(error);
             throw error;
         }
     },

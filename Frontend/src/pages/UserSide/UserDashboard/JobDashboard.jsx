@@ -45,7 +45,7 @@ const JobCard = ({ job, onApply }) => {
       setEvaluationResult(result);
       setShowEvaluation(true);
     } catch (error) {
-      console.error('Error evaluating resume:', error);
+      console.error(error);
       if (error.message?.includes('No active resume found')) {
         alert('You need to upload a resume before you can evaluate it. Please upload a resume first.');
         navigate('/user/upload-resume');
@@ -400,7 +400,6 @@ export default function JobDashboard() {
           } else {
             try {
               const resumeResponse = await ResumeService.getUserActiveResume();
-              console.log('Resume response:', resumeResponse);
               // Check if the response indicates an active resume exists
               if (resumeResponse.hasActiveResume && resumeResponse.activeResume) {
                 setHasResume(true);
@@ -408,17 +407,15 @@ export default function JobDashboard() {
                 setHasResume(false);
               }
             } catch (error) {
-              console.log('No active resume found:', error.message);
+              console.log(error.message);
               setHasResume(false);
             }
           }// Get dashboard stats
           try {
-            console.log('Fetching dashboard stats...');
             const statsResponse = await JobService.getJobseekerStats();
-            console.log('Stats response:', statsResponse);
             setDashboardStats(statsResponse);
           } catch (error) {
-            console.error('Error fetching stats:', error);
+            console.error(error);
             // Use fallback values
             setDashboardStats({
               appliedJobs: 0,
@@ -434,12 +431,12 @@ export default function JobDashboard() {
             setAppliedJobs(appliedResponse.applications || []);
             setAppliedJobsPagination(appliedResponse.pagination || {});
           } catch (error) {
-            console.error('Error fetching applied jobs:', error);
+            console.error(error);
             setAppliedJobs([]);
           }
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error(error);
         // Fallback to localStorage
         const storedUser = JSON.parse(localStorage.getItem('currentUser'));
         if (storedUser) {
@@ -464,8 +461,7 @@ export default function JobDashboard() {
         setRecommendedJobs(recommendedResponse.jobs || []);
         setRecommendedJobsPagination(recommendedResponse.pagination || {});
       } catch (error) {
-        console.error('Error fetching jobs:', error);
-        // Fallback to localStorage
+        console.error(error);
         const jobs = JSON.parse(localStorage.getItem('jobs')) || [];
         setAllJobs(jobs);
         setRecommendedJobs(jobs);
@@ -538,13 +534,11 @@ export default function JobDashboard() {
       const appliedResponse = await JobService.getAppliedJobs({ page: appliedJobsPage });
       setAppliedJobs(appliedResponse.applications || []);
 
-      // Refresh stats
-      console.log('Refreshing stats after job application...');
       const statsResponse = await JobService.getJobseekerStats();
       setDashboardStats(statsResponse.stats || {});
     } catch (error) {
       console.error('Error applying for job:', error);
-      alert('Failed to apply for job. ' + (error.response?.data?.message || error.message));
+      alert('Failed to apply for job. ' + (error.message));
     }
   };
 

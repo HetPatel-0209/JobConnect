@@ -44,7 +44,7 @@ export default function PublicOrganizationDetails() {
         setError('Organization not found');
       }
     } catch (err) {
-      console.error('Error loading organization data:', err);
+      console.error(err);
       setError('Failed to load organization information');
     } finally {
       setLoading(false);

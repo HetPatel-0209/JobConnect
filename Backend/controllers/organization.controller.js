@@ -2,14 +2,10 @@ const Organization = require('../models/Organizations');
 const { fetchGSTData, validateGSTFormat } = require('../utils/gstService');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinaryService');
 
-/**
- * Fetch organization data by GST number
- */
+// organization data by gst number
 exports.fetchOrganizationByGST = async (req, res) => {
     try {
         const { gstNumber } = req.params;
-
-        // Validate GST number format
         if (!validateGSTFormat(gstNumber)) {
             return res.status(400).json({
                 success: false,
@@ -17,7 +13,6 @@ exports.fetchOrganizationByGST = async (req, res) => {
             });
         }
 
-        // Check if organization already exists in our database
         const existingOrg = await Organization.findOne({ gstin: gstNumber });
         if (existingOrg) {
             return res.json({
@@ -28,7 +23,6 @@ exports.fetchOrganizationByGST = async (req, res) => {
             });
         }
 
-        // Fetch from GST API
         const gstResult = await fetchGSTData(gstNumber);
 
         if (!gstResult.success) {
@@ -54,22 +48,16 @@ exports.fetchOrganizationByGST = async (req, res) => {
     }
 };
 
-/**
- * Create or register a new organization
- */
+// new organization
 exports.createOrganization = async (req, res) => {
     try {
         const { gstin, autoFetch = true } = req.body;
-
-        // Validate required fields
         if (!gstin) {
             return res.status(400).json({
                 success: false,
                 message: 'GST number is required'
             });
         }
-
-        // Validate GST number format
         if (!validateGSTFormat(gstin)) {
             return res.status(400).json({
                 success: false,
@@ -77,7 +65,6 @@ exports.createOrganization = async (req, res) => {
             });
         }
 
-        // Check if organization already exists
         const existingOrg = await Organization.findOne({ gstin });
         if (existingOrg) {
             return res.status(409).json({
@@ -88,8 +75,6 @@ exports.createOrganization = async (req, res) => {
         }
 
         let organizationData = { gstin };
-
-        // Auto-fetch data from GST API if requested
         if (autoFetch) {
             try {
                 const gstResult = await fetchGSTData(gstin);
@@ -98,27 +83,24 @@ exports.createOrganization = async (req, res) => {
                         gstin: gstResult.data.gstin,
                         name: gstResult.data.name,
                         contact: {
-                            email: req.body.email || '', // Email needs to be provided by user
+                            email: req.body.email || '',
                             address: gstResult.data.address
                         },
                         description: {
                             about: `${gstResult.data.businessType} business established on ${gstResult.data.registrationDate}`
                         },
-                        // Merge with any additional data provided in request body
                         ...req.body
                     };
                 }
-            } catch (gstError) {
+            } 
+            catch (gstError) {
                 console.warn('GST API fetch failed, creating with provided data:', gstError.message);
-                // Continue with manual data entry
                 organizationData = { ...req.body, gstin };
             }
-        } else {
-            // Use only provided data
+        } 
+        else {
             organizationData = { ...req.body, gstin };
         }
-
-        // Ensure required fields are present
         if (!organizationData.name) {
             return res.status(400).json({
                 success: false,
@@ -133,7 +115,6 @@ exports.createOrganization = async (req, res) => {
             });
         }
 
-        // Create organization
         const organization = new Organization(organizationData);
         await organization.save();
 
@@ -152,9 +133,7 @@ exports.createOrganization = async (req, res) => {
     }
 };
 
-/**
- * Get organization by ID
- */
+// organization by ID
 exports.getOrganization = async (req, res) => {
     try {
         const { orgId } = req.params;
@@ -168,7 +147,6 @@ exports.getOrganization = async (req, res) => {
             });
         }
 
-        // Get recruiters for this organization
         const recruiters = await require('../models/Recruiter').find({ organizationId: orgId })
             .populate('user', 'name email phone profilePic')
             .select('user title department');
@@ -194,19 +172,12 @@ exports.getOrganization = async (req, res) => {
     }
 };
 
-/**
- * Update organization
- */
 exports.updateOrganization = async (req, res) => {
     try {
         const { orgId } = req.params;
         const updates = req.body;
 
-        // Don't allow updating GST number
         delete updates.gstin;
-        
-        // Don't allow updating logo and banner via this endpoint
-        // These should be updated using the dedicated uploadOrganizationImages endpoint
         delete updates.logo;
         delete updates.logoPublicId;
         delete updates.banner;
@@ -240,9 +211,7 @@ exports.updateOrganization = async (req, res) => {
     }
 };
 
-/**
- * Get all organizations (with pagination)
- */
+// all organizations (with pagination)
 exports.getAllOrganizations = async (req, res) => {
     try {
         const { page = 1, limit = 10, search } = req.query;
@@ -288,9 +257,7 @@ exports.getAllOrganizations = async (req, res) => {
     }
 };
 
-/**
- * Upload organization logo and/or banner
- */
+// organization logo and banner
 exports.uploadOrganizationImages = async (req, res) => {
     try {
         const { orgId } = req.params;
@@ -303,9 +270,7 @@ exports.uploadOrganizationImages = async (req, res) => {
                 message: 'Organization not found'
             });
         }
-        
-        // Check if user is authorized to upload images
-        // Ensure the user is a recruiter for this organization
+
         const currentUserId = req.user._id;
         const recruiterProfile = await require('../models/Recruiter').findOne({
             user: currentUserId,
@@ -319,7 +284,7 @@ exports.uploadOrganizationImages = async (req, res) => {
             });
         }
         
-        // Check if files were uploaded
+        // if files were uploaded
         if (!req.files || (Object.keys(req.files).length === 0)) {
             return res.status(400).json({
                 success: false,
@@ -328,25 +293,21 @@ exports.uploadOrganizationImages = async (req, res) => {
         }
         
         const updates = {};
-        
-        // Handle logo upload
         if (req.files.logo && req.files.logo.length > 0) {
-            // Delete old logo if exists
             if (organization.logoPublicId) {
                 await deleteFromCloudinary(organization.logoPublicId);
             }
             
-            // Upload new logo to Cloudinary
             const logoFile = req.files.logo[0];
-            const logoFormat = logoFile.mimetype.split('/')[1]; // Extract format from mimetype
+            const logoFormat = logoFile.mimetype.split('/')[1];
             
             const logoResult = await uploadToCloudinary(logoFile.buffer, {
                 folder: 'organizations/logos',
                 resourceType: 'image',
                 format: logoFormat,
                 transformation: [
-                    { width: 800, height: 800, crop: 'limit' }, // Resize for optimization
-                    { quality: 'auto:good' } // Optimize quality
+                    { width: 800, height: 800, crop: 'limit' },
+                    { quality: 'auto:good' }
                 ]
             });
             
@@ -354,24 +315,22 @@ exports.uploadOrganizationImages = async (req, res) => {
             updates.logoPublicId = logoResult.public_id;
         }
         
-        // Handle banner upload
         if (req.files.banner && req.files.banner.length > 0) {
-            // Delete old banner if exists
             if (organization.bannerPublicId) {
                 await deleteFromCloudinary(organization.bannerPublicId);
             }
             
             // Upload new banner to Cloudinary
             const bannerFile = req.files.banner[0];
-            const bannerFormat = bannerFile.mimetype.split('/')[1]; // Extract format from mimetype
+            const bannerFormat = bannerFile.mimetype.split('/')[1];
             
             const bannerResult = await uploadToCloudinary(bannerFile.buffer, {
                 folder: 'organizations/banners',
                 resourceType: 'image',
                 format: bannerFormat,
                 transformation: [
-                    { width: 1600, height: 500, crop: 'limit' }, // Banner dimensions
-                    { quality: 'auto:good' } // Optimize quality
+                    { width: 1600, height: 500, crop: 'limit' },
+                    { quality: 'auto:good' }
                 ]
             });
             
@@ -379,7 +338,7 @@ exports.uploadOrganizationImages = async (req, res) => {
             updates.bannerPublicId = bannerResult.public_id;
         }
         
-        // Update organization with new image URLs
+        // new image URLs
         const updatedOrganization = await Organization.findByIdAndUpdate(
             orgId,
             updates,

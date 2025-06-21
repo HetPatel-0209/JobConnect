@@ -25,25 +25,19 @@ export const ChatProvider = ({ children }) => {
 
     // Helper function to check if we're on a chat page
     const isOnChatPage = useCallback(() => {
-        const chatPaths = ['/chat', '/user/chat', '/chat-debug', '/user/chat-debug', '/chat-test', '/user/chat-test'];
+        const chatPaths = ['/chat', '/user/chat'];
         return chatPaths.includes(location.pathname);
     }, [location.pathname]);    // Initialize socket connection when user changes
     useEffect(() => {
-        console.log('ChatContext: User changed:', user, 'Auth loading:', authLoading);
-
         // Don't do anything while auth is still loading
         if (authLoading) {
-            console.log('ChatContext: Auth still loading, waiting...');
             return;
         }
 
         if (user) {
             const token = localStorage.getItem('token');
-            console.log('ChatContext: Token found:', !!token);
             if (token) {
-                // Connect socket immediately only if not already connected
                 if (!socketService.isSocketConnected()) {
-                    console.log('ChatContext: Connecting socket...');
                     socketService.connect(token);
                 }
 
@@ -56,12 +50,11 @@ export const ChatProvider = ({ children }) => {
                         fetchChats(true);
                         fetchChatStats();
                     } else {
-                        console.log('ChatContext: Skipping data refresh - loading:', loading, 'active:', isActive, 'onChatPage:', onChatPage);
+                        console.log('ChatContext: Skipping data refresh');
                     }
                 };
 
                 const handleAuthenticated = (data) => {
-                    console.log('ChatContext: Socket authenticated, checking if should initialize...');
                     setIsSocketConnected(true);
 
                     // Set online users from authentication response
@@ -73,12 +66,11 @@ export const ChatProvider = ({ children }) => {
                     // Fetch initial data after authentication (only once, if context is active, and on chat page)
                     const onChatPage = isOnChatPage();
                     if (!initialized && isActive && onChatPage) {
-                        console.log('ChatContext: Initializing data after authentication');
                         fetchChats(true);
                         fetchChatStats();
                         setInitialized(true);
                     } else {
-                        console.log('ChatContext: Skipping initialization - initialized:', initialized, 'active:', isActive, 'onChatPage:', onChatPage);
+                        console.log('Skipping data initialization');
                     }
                 };
 
@@ -87,7 +79,6 @@ export const ChatProvider = ({ children }) => {
 
                 // If already connected and authenticated, just fetch data once
                 if (socketService.isSocketConnected() && !initialized && isActive && isOnChatPage()) {
-                    console.log('ChatContext: Socket already connected, fetching data...');
                     fetchChats(true);
                     fetchChatStats();
                     setInitialized(true);
@@ -169,13 +160,10 @@ export const ChatProvider = ({ children }) => {
     // Set up socket event listeners
     useEffect(() => {
         const handleNewMessage = (message) => {
-            console.log('Received new message:', message);
-
             // Add message to current chat if it matches
             if (activeChat && message.chat === activeChat._id) {
                 // Check if message is from current user (to avoid duplicates from optimistic updates)
                 const isFromCurrentUser = message.sender._id === user?.id || message.sender._id === user?._id;
-                console.log('Message from current user:', isFromCurrentUser);
 
                 if (!isFromCurrentUser) {
                     // Only add messages from other users (avoid duplicating our own optimistic messages)
@@ -183,10 +171,8 @@ export const ChatProvider = ({ children }) => {
                         // Check if message already exists to prevent duplicates
                         const messageExists = prev.some(msg => msg._id === message._id);
                         if (messageExists) {
-                            console.log('Message already exists, skipping:', message._id);
                             return prev;
                         }
-                        console.log('Adding new message from other user:', message._id);
                         return [...prev, message];
                     });
 
@@ -230,20 +216,16 @@ export const ChatProvider = ({ children }) => {
                 setUnreadCount(prev => prev + 1);
             }
         };        const handleMessageNotification = (notification) => {
-            console.log('Message notification received:', notification);
 
             // Update unread count with the total from notification if available
             if (notification.totalUnreadCount !== undefined) {
-                console.log('Setting total unread count from notification:', notification.totalUnreadCount);
                 setUnreadCount(notification.totalUnreadCount);
             } else if (notification.unreadCount !== undefined) {
-                console.log('Setting unread count from notification:', notification.unreadCount);
                 setUnreadCount(notification.unreadCount);
             } else {
                 console.log('Incrementing unread count');
                 setUnreadCount(prev => {
                     const newCount = prev + 1;
-                    console.log('New unread count:', newCount);
                     return newCount;
                 });
             }
@@ -303,40 +285,33 @@ export const ChatProvider = ({ children }) => {
         };
 
         const handleUserOnline = (data) => {
-            console.log('User came online:', data);
             if (data.userId) {
                 setOnlineUsers(prev => {
                     const newSet = new Set(prev);
                     newSet.add(data.userId);
-                    console.log('Updated online users (add):', Array.from(newSet));
                     return newSet;
                 });
             }
         };
 
         const handleUserOffline = (data) => {
-            console.log('User went offline:', data);
             if (data.userId) {
                 setOnlineUsers(prev => {
                     const newSet = new Set(prev);
                     newSet.delete(data.userId);
-                    console.log('Updated online users (remove):', Array.from(newSet));
                     return newSet;
                 });
             }
         };
 
         const handleOnlineUsersList = (data) => {
-            console.log('Online users list received:', data);
             if (Array.isArray(data)) {
                 const userIds = data.map(u => u.userId).filter(Boolean);
                 setOnlineUsers(new Set(userIds));
-                console.log('Set online users from list:', userIds);
             }
         };
 
         const handleMessageDelivered = (data) => {
-            console.log('Message delivered:', data);
             setMessageStatuses(prev => {
                 const newMap = new Map(prev);
                 const currentStatus = newMap.get(data.messageId) || { sent: true };
@@ -345,13 +320,11 @@ export const ChatProvider = ({ children }) => {
                     delivered: true,
                     deliveredAt: data.deliveredAt
                 });
-                console.log('Updated message status (delivered):', data.messageId, newMap.get(data.messageId));
                 return newMap;
             });
         };
 
         const handleMessageRead = (data) => {
-            console.log('Message read:', data);
             setMessageStatuses(prev => {
                 const newMap = new Map(prev);
                 const currentStatus = newMap.get(data.messageId) || { sent: true, delivered: true };
@@ -360,14 +333,11 @@ export const ChatProvider = ({ children }) => {
                     read: true,
                     readAt: data.readAt
                 });
-                console.log('Updated message status (read):', data.messageId, newMap.get(data.messageId));
                 return newMap;
             });
         };
 
         const handleMessageSent = (data) => {
-            console.log('Message sent confirmation:', data);
-
             // Replace optimistic message with real message
             if (data.tempId) {
                 setMessages(prev => prev.map(msg =>
@@ -407,14 +377,12 @@ export const ChatProvider = ({ children }) => {
                 })));
             }
         };        const handleAuthenticated = (data) => {
-            console.log('Socket authenticated in ChatContext:', data);
             setIsSocketConnected(true);
             
             // Set online users from authentication response
             if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
                 const userIds = data.onlineUsers.map(u => u.userId).filter(Boolean);
                 setOnlineUsers(new Set(userIds));
-                console.log('Set online users from auth response:', userIds);
             }
             
             // Request online users list after authentication
@@ -429,12 +397,10 @@ export const ChatProvider = ({ children }) => {
         };
 
         const handleConnect = () => {
-            console.log('Socket connected in ChatContext');
             setIsSocketConnected(true);
         };
 
         const handleDisconnect = (reason) => {
-            console.log('Socket disconnected in ChatContext:', reason);
             setIsSocketConnected(false);
         };
 
@@ -444,7 +410,6 @@ export const ChatProvider = ({ children }) => {
         };
 
         const handleUnreadCountUpdated = (data) => {
-            console.log('Unread count updated from server:', data);
             if (data.totalUnreadCount !== undefined) {
                 setUnreadCount(data.totalUnreadCount);
             }
@@ -487,7 +452,6 @@ export const ChatProvider = ({ children }) => {
     }, [activeChat]);    // Join chat room when active chat changes
     useEffect(() => {
         if (activeChat && socketService.isSocketConnected()) {
-            console.log('ChatContext: Joining chat room:', activeChat._id);
             socketService.joinChat(activeChat._id);
             fetchMessages(activeChat._id);
 
@@ -497,7 +461,6 @@ export const ChatProvider = ({ children }) => {
 
         return () => {
             if (activeChat && socketService.isSocketConnected()) {
-                console.log('ChatContext: Leaving chat room:', activeChat._id);
                 socketService.leaveChat(activeChat._id);
             }
         };
@@ -510,7 +473,6 @@ export const ChatProvider = ({ children }) => {
             return;
         }
 
-        console.log('fetchChats called, user:', user, 'force:', force, 'current chats:', chats.length);
         if (!user) {
             console.log('fetchChats: No user, returning');
             return;
@@ -534,11 +496,9 @@ export const ChatProvider = ({ children }) => {
         try {
             console.log('fetchChats: Making API call...');
             const response = await ChatService.getChats();
-            console.log('fetchChats: Response received:', response);
 
             if (response && response.data) {
                 setChats(response.data);
-                console.log('fetchChats: Chats set successfully:', response.data.length, 'chats');
             } else {
                 console.log('fetchChats: No data in response');
                 setChats([]);
@@ -565,7 +525,7 @@ export const ChatProvider = ({ children }) => {
 
             setMessages(uniqueMessages);
         } catch (err) {
-            console.error(`Error fetching messages for chat ${chatId}:`, err);
+            console.error(`Error fetching messages for chat:`, err);
             setError('Failed to load messages');
         } finally {
             setLoading(false);
@@ -678,7 +638,7 @@ export const ChatProvider = ({ children }) => {
 
             return response.data;
         } catch (err) {
-            console.error(`Error initiating chat with user ${recipientId}:`, err);
+            console.error(`Error initiating chat with user:`, err);
             setError('Failed to create chat');
             throw err;
         } finally {
@@ -692,8 +652,6 @@ export const ChatProvider = ({ children }) => {
             const chat = chats.find(c => c._id === chatId);
             const chatUnreadCount = chat?.unreadCount || 0;
 
-            console.log('Marking chat as read:', chatId, 'unread count:', chatUnreadCount);
-
             await ChatService.markChatAsRead(chatId);
 
             if (isSocketConnected) {
@@ -704,7 +662,7 @@ export const ChatProvider = ({ children }) => {
             if (chatUnreadCount > 0) {
                 setUnreadCount(prev => {
                     const newCount = Math.max(0, prev - chatUnreadCount);
-                    console.log('Updated global unread count:', prev, '->', newCount);
+                    console.log('Updated global unread coun');
                     return newCount;
                 });
             }
@@ -727,7 +685,7 @@ export const ChatProvider = ({ children }) => {
                 fetchChatStats();
             }
         } catch (err) {
-            console.error(`Error marking chat ${chatId} as read:`, err);
+            console.error(`Error marking chat as read:`, err);
         }
     };
 
@@ -741,9 +699,8 @@ export const ChatProvider = ({ children }) => {
             console.log('fetchChatStats: Making API call...');
             const response = await ChatService.getChatStats();
             setUnreadCount(response.data?.totalUnreadMessages || 0);
-            console.log('fetchChatStats: Updated unread count:', response.data?.totalUnreadMessages || 0);
         } catch (err) {
-            console.error('Error fetching chat stats:', err);
+            console.error(err);
         }
     }, [user]);
 
@@ -757,7 +714,7 @@ export const ChatProvider = ({ children }) => {
                 setMessages([]);
             }
         } catch (err) {
-            console.error('Error deleting chat:', err);
+            console.error(err);
             setError('Failed to delete chat');
             throw err;
         }

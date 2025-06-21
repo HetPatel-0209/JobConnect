@@ -140,12 +140,12 @@ export default function OrgProfile() {
             setSelectedOrganization(orgData);
             setOrgSearchQuery(orgData.name);
           } catch (error) {
-            console.error('Error fetching organization:', error);
+            console.error(error);
           }
         }
       }
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error(error);
       setErrors({ general: 'Failed to load profile data' });
     } finally {
       setLoading(false);
@@ -229,7 +229,7 @@ export default function OrgProfile() {
           setTimeout(() => setSaveSuccess(false), 3000);
         }
       } catch (error) {
-        console.error('Error uploading image:', error);
+        console.error(error);
         setErrors({ image: 'Failed to upload image. Please try again.' });
       } finally {
         setUploadingImage(false);
@@ -289,7 +289,7 @@ export default function OrgProfile() {
         await loadProfileData();
       }
     } catch (error) {
-      console.error('Error saving profile:', error);
+      console.error(error);
       setErrors({
         general: error.response?.data?.message || 'Failed to save profile. Please try again.'
       });

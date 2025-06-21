@@ -13,9 +13,9 @@ const { organizationValidation } = require('../middlewares/validation.middleware
 const { uploadOrganizationFiles, handleUploadError } = require('../middlewares/upload.middleware');
 
 // Public routes
-router.get('/gst/:gstNumber', fetchOrganizationByGST); // Fetch organization data by GST number
-router.get('/', getAllOrganizations); // Get all organizations (with search/pagination)
-router.get('/:orgId', getOrganization); // Get specific organization
+router.get('/gst/:gstNumber', fetchOrganizationByGST);
+router.get('/', getAllOrganizations);
+router.get('/:orgId', getOrganization);
 
 // Protected routes - Recruiter only
 router.post('/', authenticate, authorizeRoles('recruiter'), organizationValidation, createOrganization);

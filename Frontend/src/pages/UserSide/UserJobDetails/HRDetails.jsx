@@ -33,7 +33,7 @@ export default function HRDetails() {
         const response = await JobService.getRecruiterById(id);
         setHrProfile(response.recruiter);
       } catch (err) {
-        console.error('Error fetching recruiter details:', err);
+        console.error(err);
         setError(err.response?.data?.message || 'Failed to load recruiter details');
       } finally {
         setLoading(false);

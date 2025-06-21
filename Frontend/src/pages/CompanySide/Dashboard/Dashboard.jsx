@@ -52,7 +52,7 @@ const Dashboard = () => {
         setJobs(jobsResponse.jobs || []);
         setStats(statsResponse);
       } catch (err) {
-        console.error('Error loading dashboard data:', err);
+        console.error(err);
         setError(err.message || 'Failed to load dashboard data');
       } finally {
         setIsLoading(false);
@@ -80,7 +80,7 @@ const Dashboard = () => {
       setSuccessMessage('Job deleted successfully');
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
-      console.error('Error deleting job:', err);
+      console.error(err);
       setError('Failed to delete job');
       setTimeout(() => setError(null), 5000);
     }
@@ -105,7 +105,7 @@ const Dashboard = () => {
       setSuccessMessage(`Job status updated to ${newStatus}`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
-      console.error('Error updating job status:', err);
+      console.error(err);
       setError('Failed to update job status');
       setTimeout(() => setError(null), 5000);
     } finally {

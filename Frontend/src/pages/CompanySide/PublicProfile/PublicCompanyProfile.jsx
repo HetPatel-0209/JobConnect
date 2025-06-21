@@ -57,7 +57,7 @@ export default function PublicCompanyProfile() {
         setJobs(jobsResponse.data || []);
       }
     } catch (err) {
-      console.error('Error loading company data:', err);
+      console.error(err);
       setError('Failed to load company information');
     } finally {
       setLoading(false);

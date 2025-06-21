@@ -7,8 +7,8 @@ const ChatButton = ({
   recipientId,
   recipientName,
   recipientRole,
-  variant = 'primary', // 'primary', 'secondary', 'icon'
-  size = 'medium', // 'small', 'medium', 'large'
+  variant = 'primary',
+  size = 'medium',
   className = '',
   disabled = false,
   initialMessage = 'Hello! I would like to connect with you.'
@@ -18,10 +18,6 @@ const ChatButton = ({
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Debug logging
-  console.log('ChatButton rendered with:', { recipientId, recipientName, recipientRole, user });
-
-  // Don't render if no recipient ID
   if (!recipientId) {
     console.log('ChatButton: No recipientId provided');
     return null;
@@ -43,11 +39,8 @@ const ChatButton = ({
     setError(null);
 
     try {
-      // Send initial message to create/find chat
       const response = await ChatService.initiateChat(recipientId, initialMessage);
       console.log('Chat initiated successfully:', response);
-
-      // Navigate to chat page based on user role
       if (user.role === 'recruiter') {
         navigate('/chat');
       } else {
@@ -61,14 +54,12 @@ const ChatButton = ({
     }
   };
 
-  // Button size classes
   const sizeClasses = {
     small: 'px-3 py-1.5 text-sm',
     medium: 'px-4 py-2 text-sm',
     large: 'px-6 py-3 text-base'
   };
 
-  // Button variant classes
   const variantClasses = {
     primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
     secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500',
@@ -79,7 +70,6 @@ const ChatButton = ({
 
   const buttonClasses = `${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`;
 
-  // Icon-only variant
   if (variant === 'icon') {
     return (
       <div className="relative">
@@ -107,7 +97,6 @@ const ChatButton = ({
     );
   }
 
-  // Text button variants
   return (
     <div className="relative">
       <button

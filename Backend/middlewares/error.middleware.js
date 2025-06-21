@@ -23,15 +23,12 @@ exports.errorMiddleware = (err, req, res, next) => {
             stack: err.stack
         });
     } else {
-        // Production error response
         if (err.isOperational) {
-            // Operational, trusted error: send message to client
             res.status(err.statusCode).json({
                 status: err.status,
                 message: err.message
             });
         } else {
-            // Programming or other unknown error: don't leak error details
             console.error('ERROR 💥', err);
             res.status(500).json({
                 status: 'error',
@@ -41,7 +38,6 @@ exports.errorMiddleware = (err, req, res, next) => {
     }
 };
 
-// Handle specific types of errors
 exports.handleCastErrorDB = err => {
     const message = `Invalid ${err.path}: ${err.value}`;
     return new AppError(message, 400);

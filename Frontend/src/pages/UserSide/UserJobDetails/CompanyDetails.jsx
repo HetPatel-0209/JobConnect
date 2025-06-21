@@ -36,7 +36,7 @@ export default function CompanyDetails() {
         const response = await JobService.getCompanyById(id);
         setCompanyData(response.company);
       } catch (err) {
-        console.error('Error fetching company details:', err);
+        console.error(err);
         setError(err.response?.data?.message || 'Failed to load company details');
       } finally {
         setLoading(false);

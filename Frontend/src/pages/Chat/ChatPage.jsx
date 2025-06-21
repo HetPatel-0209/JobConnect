@@ -26,11 +26,6 @@ const ChatPage = () => {
 
   const [messagesLoading, setMessagesLoading] = useState(false);
 
-  // Debug logging (reduced to prevent console spam)
-  // console.log('ChatPage rendered with user:', user);
-  // console.log('Current chats:', chats);
-  // console.log('Active chat:', activeChat);
-
   // Fetch messages when active chat changes
   useEffect(() => {
     if (activeChat) {
@@ -71,7 +66,7 @@ const ChatPage = () => {
     try {
       await sendMessage(recipientId, content);
     } catch (err) {
-      console.error('Error sending message:', err);
+      console.error(err);
     }
   };
 
@@ -79,7 +74,7 @@ const ChatPage = () => {
     try {
       await markChatAsRead(chatId);
     } catch (err) {
-      console.error('Error marking messages as read:', err);
+      console.error(err);
     }
   };
 
@@ -92,7 +87,7 @@ const ChatPage = () => {
       try {
         await deleteChat(chatId);
       } catch (err) {
-        console.error('Error deleting chat:', err);
+        console.error(err);
       }
     }
   };
@@ -100,7 +95,7 @@ const ChatPage = () => {
   // Add a manual refresh button for debugging
   const handleRefreshChats = () => {
     console.log('Manual refresh triggered');
-    fetchChats(true); // Force refresh
+    fetchChats(true);
   };
 
   if (authLoading || loading) {

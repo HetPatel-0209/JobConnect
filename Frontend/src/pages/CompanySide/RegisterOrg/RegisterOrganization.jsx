@@ -74,7 +74,6 @@ export default function RegisterOrganization() {
 
       if (response.success) {
         const gstData = response.data;
-        console.log('GST API Response:', gstData); // Debug log
 
         // Map processed GST API response to our company state
         const companyData = {
@@ -97,7 +96,6 @@ export default function RegisterOrganization() {
           }
         };
 
-        console.log('Mapped Company Data:', companyData); // Debug log
         setCompany(companyData);
 
         // Pre-fill form with processed GST data
@@ -117,7 +115,7 @@ export default function RegisterOrganization() {
         setCompany(null);
       }
     } catch (err) {
-      console.error('GST verification error:', err);
+      console.error(err);
       setError(err.message || 'Failed to verify GSTIN. Please try again.');
       setCompany(null);
     } finally {
@@ -273,7 +271,7 @@ export default function RegisterOrganization() {
           try {
             await OrganizationService.uploadImages(response.data._id, formData);
           } catch (uploadError) {
-            console.warn('Image upload failed:', uploadError);
+            console.warn(uploadError);
             // Continue anyway, organization is created
           }
         }
@@ -300,7 +298,7 @@ export default function RegisterOrganization() {
         setError(response.message || 'Failed to register organization');
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error(error);
       setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setSubmitLoading(false);

@@ -16,7 +16,7 @@ export default function Navbar() {
     const chatContext = useChat();
     unreadCount = chatContext?.unreadCount || 0;
   } catch (error) {
-    console.log('Chat context not available in navbar');
+    console.log(error);
   }
 
   const [localOrgImage, setLocalOrgImage] = useState(null);

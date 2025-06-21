@@ -1,6 +1,5 @@
 const { body, validationResult } = require('express-validator');
 
-// Validation middleware
 const validate = validations => {
     return async (req, res, next) => {
         await Promise.all(validations.map(validation => validation.run(req)));
@@ -13,11 +12,10 @@ const validate = validations => {
     };
 };
 
-// Auth validations
 exports.registerValidation = validate([
     body('email')
         .isEmail().withMessage('Please provide a valid email')
-        .normalizeEmail(), // Normalize email to prevent duplicates with different casing
+        .normalizeEmail(),
     body('password')
         .isLength({ min: 6 })
         .withMessage('Password must be at least 6 characters long'),
@@ -32,7 +30,6 @@ exports.loginValidation = validate([
     body('password').notEmpty().withMessage('Password is required')
 ]);
 
-// Job Post validations
 exports.jobPostValidation = validate([
     body('title').notEmpty().withMessage('Job title is required'),
     body('description').notEmpty().withMessage('Job description is required'),
@@ -49,7 +46,6 @@ exports.jobPostValidation = validate([
     body('organization').notEmpty().withMessage('Organization ID is required')
 ]);
 
-// Profile validations
 exports.jobseekerProfileValidation = validate([
     body('name').optional().notEmpty().withMessage('Name cannot be empty'),
     body('phone').optional().notEmpty().withMessage('Phone cannot be empty'),
@@ -71,24 +67,17 @@ exports.recruiterProfileValidation = validate([
     body('organization.contact.email').optional().isEmail().withMessage('Please provide a valid email address')
 ]);
 
-// Chat validation
+
 exports.messageValidation = validate([
     body('content').notEmpty().withMessage('Message content cannot be empty'),
     body('recipientId').notEmpty().withMessage('Recipient ID is required')
 ]);
 
-// Resume upload validation
-exports.resumeUploadValidation = validate([
-    // File validation will be handled by multer middleware
-]);
-
-// ATS calculation validation
 exports.atsCalculationValidation = validate([
     body('jobIds').optional().isArray().withMessage('Job IDs must be an array'),
     body('useAI').optional().isBoolean().withMessage('useAI must be a boolean')
 ]);
 
-// Organization validation
 exports.organizationValidation = validate([
     body('gstin')
         .notEmpty()
@@ -111,10 +100,4 @@ exports.organizationValidation = validate([
         .optional()
         .isURL()
         .withMessage('Please provide a valid website URL')
-]);
-
-// Profile picture upload validation
-exports.profilePictureValidation = validate([
-    // File validation will be handled by multer middleware
-    // Additional validation can be added here if needed
 ]);

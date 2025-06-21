@@ -57,7 +57,7 @@ export default function ApplicantProfile() {
         setResume(resumeResponse.resume);
       }
     } catch (err) {
-      console.error('Error loading applicant profile:', err);
+      console.error(err);
       setError('Failed to load applicant profile');
     } finally {
       setLoading(false);

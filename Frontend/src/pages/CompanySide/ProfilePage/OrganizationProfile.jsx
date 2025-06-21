@@ -108,7 +108,7 @@ export default function OrganizationProfile() {
         setError('Failed to load organization details');
       }
     } catch (err) {
-      console.error('Error loading organization:', err);
+      console.error(err);
       setError('Failed to load organization details');
     } finally {
       setLoading(false);
@@ -164,7 +164,7 @@ export default function OrganizationProfile() {
         setError(response.message || 'Failed to update organization');
       }
     } catch (err) {
-      console.error('Error updating organization:', err);
+      console.error(err);
       setError('Failed to update organization profile');
     } finally {
       setSaving(false);

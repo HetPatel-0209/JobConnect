@@ -23,7 +23,7 @@ export const useOrganizationSearch = () => {
             setOrganizations(orgsData);
             return orgsData;
         } catch (err) {
-            console.error('Error searching organizations:', err);
+            console.error(err);
             setError(err.response?.data?.message || 'Failed to search organizations');
             setOrganizations([]);
             return [];

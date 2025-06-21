@@ -37,7 +37,6 @@ const Postjob = () => {
   const editJobId = searchParams.get('edit');
   const isEditMode = !!editJobId;
 
-  console.log('PostJob component loaded:', { editJobId, isEditMode, searchParams: Object.fromEntries(searchParams) });
   const [formData, setFormData] = useState({
     title: '',
     location: '',
@@ -76,10 +75,7 @@ const Postjob = () => {
 
   useEffect(() => {
     if (isEditMode && editJobId) {
-      console.log('Edit mode detected, loading job...', { isEditMode, editJobId, organization });
       loadJobForEdit();
-    } else {
-      console.log('Not in edit mode or no job ID:', { isEditMode, editJobId });
     }
   }, [isEditMode, editJobId]);
 
@@ -111,13 +107,10 @@ const Postjob = () => {
   const loadJobForEdit = async () => {
     try {
       setLoading(true);
-      console.log('Loading job for edit, jobId:', editJobId);
       const response = await JobService.getJobById(editJobId);
-      console.log('Job API response:', response);
 
       // Handle different response formats
       const job = response.job || response.data || response;
-      console.log('Job data received:', job);
 
       if (job && job._id) {
 
@@ -177,7 +170,6 @@ const Postjob = () => {
         // Set selected skills for the skills component
         setSelectedSkills(jobSkills);
       } else {
-        console.error('No job data in response:', response);
         setErrors({ submit: 'Job not found or invalid job ID' });
       }
     } catch (err) {
@@ -338,8 +330,6 @@ const Postjob = () => {
         ? await JobService.updateJob(editJobId, jobData)
         : await JobService.postJob(jobData);
 
-      console.log('Job submission response:', response);
-
       // Handle different response formats
       const isSuccess = response.success !== undefined ? response.success : !!response.data || !!response._id;
 
@@ -355,7 +345,6 @@ const Postjob = () => {
       }
 
     } catch (err) {
-      console.error(`Error ${isEditMode ? 'updating' : 'posting'} job:`, err);
       setErrors({ submit: err.message || `Something went wrong while ${isEditMode ? 'updating' : 'posting'} the job. Please try again.` });
     } finally {
       setIsSubmitting(false);
@@ -886,7 +875,7 @@ const Postjob = () => {
                 <X className="w-4 h-4" />
                 Cancel
               </button>
-              
+
               <button
                 type="submit"
                 disabled={isSubmitting || submitSuccess}

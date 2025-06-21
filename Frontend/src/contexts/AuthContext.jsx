@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
                 const currentUser = AuthService.getCurrentUser();
                 setUser(currentUser);
             } catch (error) {
-                console.error('Error initializing auth:', error);
+                console.error(error);
                 setUser(null);
             } finally {
                 setLoading(false);
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
             setUser(data.user);
             return data;
         } catch (error) {
-            console.error('Login error:', error);
+            console.error(error);
             throw error;
         }
     };
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
             setUser(data.user);
             return data;
         } catch (error) {
-            console.error('Registration error:', error);
+            console.error(error);
             throw error;
         }
     };
@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }) => {
             AuthService.logout();
             setUser(null);
         } catch (error) {
-            console.error('Logout error:', error);
+            console.error(error);
             // Still set user to null even if cleanup fails
             setUser(null);
         }

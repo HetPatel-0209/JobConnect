@@ -64,7 +64,7 @@ export default function ApplicantsList() {
         setError('Failed to load applicants');
       }
     } catch (err) {
-      console.error('Error loading data:', err);
+      console.error(err);
       setError('Failed to load job and applicant data');
     } finally {
       setIsLoading(false);
@@ -93,7 +93,7 @@ export default function ApplicantsList() {
         setError(response.message || 'Failed to update application status');
       }
     } catch (err) {
-      console.error('Error updating status:', err);
+      console.error(err);
       setError('Failed to update application status');
     } finally {
       setUpdatingStatus(null);

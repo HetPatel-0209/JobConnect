@@ -6,9 +6,7 @@ export const ChatService = {
      * @returns {Promise<Object>} User's chats
      */
     getChats: async () => {
-        console.log('ChatService: Getting chats...');
         const result = await api.get('/chat/chats');
-        console.log('ChatService: Chats result:', result);
         return result;
     },
 
@@ -84,9 +82,7 @@ export const ChatService = {
      * @returns {Promise<Object>} Created message and chat
      */
     initiateChat: async (recipientId, content = 'Hello!') => {
-        console.log('ChatService: Initiating chat with:', { recipientId, content });
         const result = await api.post('/chat/messages', { recipientId, content });
-        console.log('ChatService: Chat initiation result:', result);
         return result;
     }
 };

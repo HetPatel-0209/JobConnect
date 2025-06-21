@@ -15,7 +15,6 @@ class SocketService {
     }    // Initialize socket connection
     connect(token) {
         if (this.socket && this.socket.connected && this.isAuthenticated) {
-            console.log('Socket already connected and authenticated');
             return this.socket;
         }
 
@@ -38,7 +37,7 @@ class SocketService {
             localStorage.setItem('socketToken', token);
         }
 
-        const serverUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:3000';
+        const serverUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'https://jobconnect-xwh3.onrender.com';
 
         this.socket = io(serverUrl, {
             transports: ['polling', 'websocket'],
@@ -62,7 +61,6 @@ class SocketService {
 
     setupEventHandlers() {        // Handle connection events
         this.socket.on('connect', () => {
-            console.log('Socket connected:', this.socket.id);
             this.isConnected = true;
             this.isConnecting = false;
             this.reconnectAttempts = 0;
@@ -73,8 +71,7 @@ class SocketService {
             }
 
             this.triggerHandler('connect');
-        });        this.socket.on('disconnect', (reason) => {
-            console.log('Socket disconnected:', reason);
+        }); this.socket.on('disconnect', (reason) => {
             this.isConnected = false;
             this.isAuthenticated = false;
             this.isConnecting = false;
@@ -84,13 +81,12 @@ class SocketService {
             if (reason !== 'io client disconnect' && this.reconnectAttempts < this.maxReconnectAttempts) {
                 setTimeout(() => {
                     if (this.socket && this.token && !this.isConnected && !this.isConnecting) {
-                        console.log(`Attempting to reconnect... (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
                         this.reconnectAttempts++;
                         this.socket.connect();
                     }
                 }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts)); // Exponential backoff
             }
-        });        this.socket.on('reconnect', (attemptNumber) => {
+        }); this.socket.on('reconnect', (attemptNumber) => {
             console.log('Socket reconnected after', attemptNumber, 'attempts');
             this.isConnected = true;
             this.isConnecting = false;
@@ -113,10 +109,9 @@ class SocketService {
         });
 
         this.socket.on('reconnect_failed', () => {
-            console.error('Socket reconnection failed after all attempts');
             this.isConnected = false;
             this.isAuthenticated = false;
-        });        this.socket.on('connect_error', (error) => {
+        }); this.socket.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
             this.isConnected = false;
             this.isAuthenticated = false;
@@ -127,7 +122,6 @@ class SocketService {
             if (!this.socket.connected && this.reconnectAttempts < this.maxReconnectAttempts) {
                 setTimeout(() => {
                     if (!this.isConnected && this.socket && this.token && !this.isConnecting) {
-                        console.log(`Attempting to reconnect after error... (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
                         this.reconnectAttempts++;
                         this.socket.connect();
                     }
@@ -137,7 +131,6 @@ class SocketService {
 
         // Handle authentication responses
         this.socket.on('authenticated', (data) => {
-            console.log('Socket authenticated:', data);
             this.userId = data.user?.id || data.user?._id;
             this.isConnected = true;
             this.isAuthenticated = true;
@@ -176,17 +169,14 @@ class SocketService {
     setupMessageHandlers() {
         // Handle chat events
         this.socket.on('receive_message', (message) => {
-            console.log('New message received:', message);
             this.triggerHandler('receive_message', message);
         });
 
         this.socket.on('message_sent', (data) => {
-            console.log('Message sent confirmation:', data);
             this.triggerHandler('message_sent', data);
         });
 
         this.socket.on('new_message_notification', (notification) => {
-            console.log('New message notification:', notification);
             this.triggerHandler('new_message_notification', notification);
         });
 
@@ -199,7 +189,6 @@ class SocketService {
         });
 
         this.socket.on('joined_chat', (data) => {
-            console.log('Joined chat:', data);
             this.triggerHandler('joined_chat', data);
         });
 
@@ -210,17 +199,14 @@ class SocketService {
 
         // Handle message delivery and read status
         this.socket.on('message_delivered', (data) => {
-            console.log('Message delivered:', data);
             this.triggerHandler('message_delivered', data);
         });
 
         this.socket.on('message_read', (data) => {
-            console.log('Message read:', data);
             this.triggerHandler('message_read', data);
         });
 
         this.socket.on('unread_count_updated', (data) => {
-            console.log('Unread count updated:', data);
             this.triggerHandler('unread_count_updated', data);
         });
     }
@@ -228,17 +214,14 @@ class SocketService {
     setupStatusHandlers() {
         // Handle online/offline status updates
         this.socket.on('user_online', (data) => {
-            console.log('User came online:', data);
             this.triggerHandler('user_online', data);
         });
 
         this.socket.on('user_offline', (data) => {
-            console.log('User went offline:', data);
             this.triggerHandler('user_offline', data);
         });
 
         this.socket.on('online_users_list', (data) => {
-            console.log('Online users list received:', data);
             this.triggerHandler('online_users', data);
         });
     }    // Authenticate socket connection
@@ -282,7 +265,6 @@ class SocketService {
     }    // Join a chat room
     joinChat(chatId) {
         if (this.socket && this.isSocketConnected()) {
-            console.log('Joining chat:', chatId);
             this.socket.emit('join_chat', chatId);
         }
     }
@@ -290,7 +272,6 @@ class SocketService {
     // Leave a chat room
     leaveChat(chatId) {
         if (this.socket && this.isSocketConnected()) {
-            console.log('Leaving chat:', chatId);
             this.socket.emit('leave_chat', chatId);
         }
     }
@@ -298,7 +279,6 @@ class SocketService {
     // Send a message
     sendMessage(chatId, content, messageType = 'text', tempId = null) {
         if (this.socket && this.isSocketConnected()) {
-            console.log('Sending message to chat:', chatId);
             this.socket.emit('send_message', {
                 chatId,
                 content,
@@ -323,7 +303,6 @@ class SocketService {
     // Mark messages as read
     markMessagesAsRead(chatId, messageIds = null) {
         if (this.socket && this.isSocketConnected()) {
-            console.log('Marking messages as read for chat:', chatId);
             this.socket.emit('mark_read', {
                 chatId,
                 messageIds
@@ -356,7 +335,7 @@ class SocketService {
                 try {
                     handler(data);
                 } catch (error) {
-                    console.error(`Error in ${event} handler:`, error);
+                    console.error(`Error handler:`, error);
                 }
             });
         }
@@ -398,7 +377,7 @@ class SocketService {
         if (this.socket) {
             this.disconnect();
         }
-        
+
         const token = localStorage.getItem('token');
         if (token) {
             setTimeout(() => {

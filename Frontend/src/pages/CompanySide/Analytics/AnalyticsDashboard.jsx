@@ -35,19 +35,14 @@ export default function AnalyticsDashboard() {
     setError(null);
 
     try {
-      console.log('Loading analytics with date range:', dateRange);
       const response = await JobService.getRecruiterAnalytics(dateRange);
-      console.log('Analytics response:', response);
-
       if (response.success) {
         setAnalytics(response.data);
-        console.log('Analytics data set:', response.data);
       } else {
-        console.error('Analytics response not successful:', response);
         setError(response.message || 'Failed to load analytics data');
       }
     } catch (err) {
-      console.error('Error loading analytics:', err);
+      console.error(err);
       setError(err.message || 'Failed to load analytics data');
     } finally {
       setLoading(false);

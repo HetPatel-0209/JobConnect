@@ -1,7 +1,5 @@
 const multer = require('multer');
 const path = require('path');
-
-// For all uploads, we use memory storage since we'll upload to Cloudinary
 const memoryStorage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
@@ -14,13 +12,11 @@ const fileFilter = (req, file, cb) => {
             cb(new Error('Only PDF, DOC, and DOCX files are allowed for resumes!'), false);
         }
     } else if (file.fieldname === 'profilePic') {
-        // Allow only jpg, jpeg, and png for profile pictures
         if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg' || file.mimetype === 'image/png') {
             cb(null, true);
         } else {
             cb(new Error('Only JPG, JPEG, and PNG files are allowed for profile pictures!'), false);
         }    } else if (file.fieldname === 'logo' || file.fieldname === 'banner') {
-        // Allow only jpg, jpeg, and png for organization images
         if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg' || file.mimetype === 'image/png') {
             cb(null, true);
         } else {
@@ -31,21 +27,11 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-// For resume uploads
 const resumeUpload = multer({
     storage: memoryStorage,
     fileFilter: fileFilter,
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB limit
-    }
-});
-
-// For other file uploads
-const otherUploads = multer({
-    storage: memoryStorage,
-    fileFilter: fileFilter,
-    limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB limit
+        fileSize: 10 * 1024 * 1024
     }
 });
 
@@ -54,14 +40,14 @@ exports.uploadProfilePic = multer({
     storage: memoryStorage,
     fileFilter: fileFilter,
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB limit
+        fileSize: 10 * 1024 * 1024
     }
 }).single('profilePic');
 exports.uploadOrganizationFiles = multer({
     storage: memoryStorage,
     fileFilter: fileFilter,
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB limit for organization images
+        fileSize: 10 * 1024 * 1024
     }
 }).fields([
     { name: 'logo', maxCount: 1 },
@@ -71,7 +57,6 @@ exports.uploadOrganizationFiles = multer({
 exports.handleUploadError = (err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
-            // Check which file field triggered the error to provide the correct message
             if (req.route && req.route.path === '/auth/profile-picture') {
                 return res.status(400).json({
                     message: 'Profile picture is too large. Maximum size is 10MB'

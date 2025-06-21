@@ -36,7 +36,7 @@ export default function JobAnalytics() {
         setError('Failed to load job analytics');
       }
     } catch (err) {
-      console.error('Error loading job analytics:', err);
+      console.error(err);
       setError('Failed to load job analytics');
     } finally {
       setLoading(false);

@@ -15,17 +15,14 @@ exports.register = async (req, res) => {
     try {
         const { email, password, role, name, organizationId, ...profileData } = req.body;
 
-        // Check if role is valid
         if (!['recruiter', 'jobseeker'].includes(role)) {
             return res.status(400).json({ message: 'Invalid role' });
         }
 
-        // For recruiters, organizationId is required
         if (role === 'recruiter' && !organizationId) {
             return res.status(400).json({ message: 'Organization selection is required for recruiters' });
         }
 
-        // If recruiter, verify organization exists
         if (role === 'recruiter' && organizationId) {
             const organization = await Organization.findById(organizationId);
             if (!organization) {
@@ -33,10 +30,8 @@ exports.register = async (req, res) => {
             }
         }
 
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user with proper error handling for duplicate email
         try {
             const user = new User({
                 email,
@@ -48,7 +43,6 @@ exports.register = async (req, res) => {
 
             await user.save();
 
-            // If recruiter, create recruiter profile
             if (role === 'recruiter' && organizationId) {
                 const recruiterProfile = new Recruiter({
                     user: user._id,
@@ -57,20 +51,18 @@ exports.register = async (req, res) => {
                 await recruiterProfile.save();
             }
 
-            // Generate token
             const token = jwt.sign(
                 { userId: user._id, role: user.role },
                 process.env.JWT_SECRET,
                 { expiresIn: '24h' }
             );
 
-            // Send welcome email (don't wait for it to complete)
             sendWelcomeEmail(user.email, user.name, user.role)
                 .then(result => {
                     if (result.success) {
                         console.log(`Welcome email sent to ${user.email}`);
                     } else {
-                        console.error(`Failed to send welcome email to ${user.email}:`, result.message);
+                        console.error(`Failed to send welcome email  ${user.email}:`, result.message);
                     }
                 })
                 .catch(error => {
@@ -88,11 +80,10 @@ exports.register = async (req, res) => {
                 }
             });
         } catch (err) {
-            // Handle duplicate key error (E11000) or transformed duplicate error
             if (err.code === 11000 || err.isDuplicateError || (err.message && err.message.includes('Email address already exists'))) {
                 return res.status(400).json({ message: 'User with this email already exists' });
             }
-            throw err; // Re-throw other errors to be caught by the outer catch block
+            throw err;
         }
     } catch (error) {
         console.error('Registration error:', error);
@@ -122,7 +113,7 @@ exports.login = async (req, res) => {
             { userId: user._id, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
-        );        // Get recruiter profile if user is a recruiter
+        );
         let organizationId = null;
         if (user.role === 'recruiter') {
             const recruiterProfile = await Recruiter.findOne({ user: user._id });
@@ -149,23 +140,17 @@ exports.login = async (req, res) => {
 // Get user profile
 exports.getProfile = async (req, res) => {
     try {
-        // The user is already attached to req.user by the authenticate middleware
         const user = req.user;
-        
-        // Convert to a plain object and remove the password field
         const userData = user.toObject();
         delete userData.password;
-        
-        // If jobseeker, include profile and active resume info
+
         if (user.role === 'jobseeker') {
             const jobseekerProfile = await JobSeekerProfile.findOne({ user: user._id })
                 .populate('activeResume');
-
             if (jobseekerProfile) {
                 userData.jobseekerProfile = jobseekerProfile;
             }
 
-            // Get active resume info
             const activeResume = await require('../models/Resume').findOne({
                 user: user._id,
                 isActive: true
@@ -176,18 +161,17 @@ exports.getProfile = async (req, res) => {
             }
         }
 
-        // If recruiter, include recruiter profile info
+        // recruiter profile info
         if (user.role === 'recruiter') {
             const recruiterProfile = await Recruiter.findOne({ user: user._id })
                 .populate('organizationId');
 
             if (recruiterProfile) {
                 userData.recruiterProfile = recruiterProfile;
-                // For backward compatibility, also set organizationId at user level
                 userData.organizationId = recruiterProfile.organizationId;
             }
         }
-        
+
         res.json({ user: userData });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -201,31 +185,30 @@ exports.updateProfile = async (req, res) => {
         const updateData = req.body;
         const userRole = req.user.role;
 
-        // Remove sensitive fields that shouldn't be updated
         delete updateData.password;
         delete updateData.email;
         delete updateData.role;
 
-        // Start a session for transaction (ensures all or nothing updates)
         const session = await mongoose.startSession();
-        session.startTransaction();        try {            // Check if profile should be marked as completed
+        session.startTransaction();
+        try {            
+            // Check if profile marked as completed
             const hasBasicInfo = updateData.name && updateData.phone;
-            const hasJobseekerData = userRole === 'jobseeker' && 
+            const hasJobseekerData = userRole === 'jobseeker' &&
                 updateData.skills && updateData.skills.length > 0 &&
                 updateData.experience && updateData.experience.length > 0 &&
                 updateData.education && updateData.education.length > 0;
-            
+
             const profileCompleted = hasBasicInfo && (userRole !== 'jobseeker' || hasJobseekerData);
 
-            // Update basic user data
+            // Update user data
             const user = await User.findByIdAndUpdate(
                 userId,
-                { 
+                {
                     name: updateData.name,
                     phone: updateData.phone,
                     location: updateData.location,
                     profileCompleted: profileCompleted
-                    // Profile picture is handled by the uploadProfilePicture route
                 },
                 { new: true, runValidators: true, session }
             ).select('-password');
@@ -236,20 +219,23 @@ exports.updateProfile = async (req, res) => {
                 return res.status(404).json({ message: 'User not found' });
             }
 
-            // Handle role-specific profile updates
+            // role-specific profile updates
             if (userRole === 'jobseeker') {
-                // Get or create jobseeker profile
+                // get or create jobseeker profile
                 let jobseekerProfile = await JobSeekerProfile.findOne({ user: userId }).session(session);
-                
-                if (!jobseekerProfile) {                    jobseekerProfile = new JobSeekerProfile({
+
+                if (!jobseekerProfile) {
+                    jobseekerProfile = new JobSeekerProfile({
                         user: userId,
                         skills: updateData.skills || [],
                         experience: updateData.experience || [],
                         education: updateData.education || [],
                         bio: updateData.bio || '',
                         jobPreferences: updateData.jobPreferences || {}
-                    });} else {
-                    // Update existing profile
+                    });
+                } 
+                else {
+                    // update profile
                     if (updateData.skills) jobseekerProfile.skills = updateData.skills;
                     if (updateData.experience) jobseekerProfile.experience = updateData.experience;
                     if (updateData.education) jobseekerProfile.education = updateData.education;
@@ -257,13 +243,11 @@ exports.updateProfile = async (req, res) => {
                     if (updateData.bio) jobseekerProfile.bio = updateData.bio;
                     if (updateData.activeResume) jobseekerProfile.activeResume = updateData.activeResume;
                 }
-                
+
                 await jobseekerProfile.save({ session });
-                
-                // Commit transaction
                 await session.commitTransaction();
                 session.endSession();
-                
+
                 return res.json({
                     message: 'Profile updated successfully',
                     user,
@@ -271,11 +255,10 @@ exports.updateProfile = async (req, res) => {
                 });
             }
             else if (userRole === 'recruiter') {
-                // Get or create recruiter profile
+                // get or create recruiter profile
                 let recruiterProfile = await Recruiter.findOne({ user: userId }).session(session);
 
                 if (!recruiterProfile) {
-                    // This shouldn't happen if registration worked correctly, but handle it
                     await session.abortTransaction();
                     session.endSession();
                     return res.status(400).json({
@@ -283,7 +266,6 @@ exports.updateProfile = async (req, res) => {
                     });
                 }
 
-                // Update recruiter profile fields
                 if (updateData.title) recruiterProfile.title = updateData.title;
                 if (updateData.bio) recruiterProfile.bio = updateData.bio;
                 if (updateData.department) recruiterProfile.department = updateData.department;
@@ -296,8 +278,6 @@ exports.updateProfile = async (req, res) => {
                 if (updateData.certifications) recruiterProfile.certifications = updateData.certifications;
 
                 await recruiterProfile.save({ session });
-
-                // Commit transaction
                 await session.commitTransaction();
                 session.endSession();
 
@@ -307,17 +287,16 @@ exports.updateProfile = async (req, res) => {
                     recruiterProfile
                 });
             }
-            
-            // For admin or other roles, just return the updated user
+
+            // just return the updated user
             await session.commitTransaction();
             session.endSession();
-            
+
             res.json({
                 message: 'Profile updated successfully',
                 user
             });
         } catch (error) {
-            // Rollback transaction on error
             await session.abortTransaction();
             session.endSession();
             throw error;
@@ -355,7 +334,7 @@ exports.adminLogin = async (req, res) => {
         res.json({
             token,
             user: {
-                id: admin._id,                
+                id: admin._id,
                 email: admin.email,
                 role: admin.role,
                 name: admin.name
@@ -366,41 +345,40 @@ exports.adminLogin = async (req, res) => {
     }
 };
 
-// Upload profile picture
+// upload profile picture
 exports.uploadProfilePicture = async (req, res) => {
     try {
         const userId = req.user._id;
-        
-        // Check if file was uploaded
+
+        // check if file was uploaded
         if (!req.file) {
             return res.status(400).json({ message: 'No profile picture provided' });
         }
-        
-        // Get the existing user to check if they already have a profile pic
+
+        // get the user to check if they have a profile pic
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        
-        // Delete old profile picture from Cloudinary if it exists
+
+        // delete old profile picture from Cloudinary
         if (user.profilePicPublicId) {
             await deleteFromCloudinary(user.profilePicPublicId);
         }
-          // Upload new profile picture to Cloudinary
         const fileBuffer = req.file.buffer;
-        const fileFormat = req.file.mimetype.split('/')[1]; // Extract format from mimetype
-        
+        const fileFormat = req.file.mimetype.split('/')[1];
+
         const result = await uploadToCloudinary(fileBuffer, {
             folder: 'profiles',
             resourceType: 'image',
             format: fileFormat,
             transformation: [
-                { width: 800, height: 800, crop: 'limit' }, // Resize image for optimization
-                { quality: 'auto:good' } // Optimize quality
+                { width: 800, height: 800, crop: 'limit' },
+                { quality: 'auto:good' }
             ]
         });
-        
-        // Update user profile with new profile picture URL
+
+        // update user profile with new profile picture URL
         const updatedUser = await User.findByIdAndUpdate(
             userId,
             {
@@ -410,7 +388,7 @@ exports.uploadProfilePicture = async (req, res) => {
             },
             { new: true }
         ).select('-password');
-        
+
         res.json({
             message: 'Profile picture uploaded successfully',
             user: updatedUser
@@ -421,22 +399,17 @@ exports.uploadProfilePicture = async (req, res) => {
     }
 };
 
-// Get user profile by ID (for recruiters to view applicant profiles)
+// get user profile by ID
 exports.getUserProfile = async (req, res) => {
     try {
         const { userId } = req.params;
-
-        // Validate ObjectId format
         if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid user ID format'
             });
         }
-
-        // Get user profile
         const user = await User.findById(userId).select('-password');
-
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -444,7 +417,7 @@ exports.getUserProfile = async (req, res) => {
             });
         }
 
-        // If jobseeker, include profile data
+        // jobseeker, include profile data
         if (user.role === 'jobseeker') {
             const jobseekerProfile = await JobSeekerProfile.findOne({ user: user._id });
 
@@ -492,20 +465,20 @@ const testUsers = async () => {
 
 testUsers();
 
-// Change recruiter's organization
+// recruiter's organization
 exports.changeOrganization = async (req, res) => {
     try {
         const userId = req.user._id;
         const { organizationId } = req.body;
 
-        // Verify user is a recruiter
+        // if user is a recruiter
         if (req.user.role !== 'recruiter') {
             return res.status(403).json({
                 message: 'Only recruiters can change organizations'
             });
         }
 
-        // Verify new organization exists
+        // verify new organization exists
         const newOrganization = await Organization.findById(organizationId);
         if (!newOrganization) {
             return res.status(404).json({
@@ -513,7 +486,7 @@ exports.changeOrganization = async (req, res) => {
             });
         }
 
-        // Get current recruiter profile
+        // get current profile
         const recruiterProfile = await Recruiter.findOne({ user: userId });
         if (!recruiterProfile) {
             return res.status(404).json({
@@ -522,13 +495,11 @@ exports.changeOrganization = async (req, res) => {
         }
 
         const oldOrganizationId = recruiterProfile.organizationId;
-
-        // Start transaction
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
-            // Update recruiter's organizationId
+            // update recruiter organizationId
             await Recruiter.findByIdAndUpdate(
                 recruiterProfile._id,
                 { organizationId: organizationId },
@@ -538,7 +509,7 @@ exports.changeOrganization = async (req, res) => {
             await session.commitTransaction();
             session.endSession();
 
-            // Get updated user with recruiter profile
+            // get updated user with recruiter
             const user = await User.findById(userId).select('-password');
             const updatedRecruiterProfile = await Recruiter.findOne({ user: userId })
                 .populate('organizationId');
@@ -562,7 +533,7 @@ exports.changeOrganization = async (req, res) => {
     }
 };
 
-// Configure nodemailer transporter
+// configure nodemailer transporter
 const createEmailTransporter = () => {
     return nodemailer.createTransport({
         service: 'gmail',
@@ -582,28 +553,26 @@ exports.forgotPassword = async (req, res) => {
             return res.status(400).json({ message: 'Email is required' });
         }
 
-        // Find user by email
+        // find user by email
         const user = await User.findOne({ email });
         if (!user) {
-            // Don't reveal if email exists or not for security
+            // if email exists or not for security
             return res.json({
                 message: 'If an account with that email exists, we have sent a password reset link.'
             });
         }
-
-        // Generate reset token
+        // reset token
         const resetToken = crypto.randomBytes(32).toString('hex');
         const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
-
-        // Save reset token to user
+        // reset token to user
         user.resetPasswordToken = resetToken;
         user.resetPasswordExpires = resetTokenExpiry;
         await user.save();
 
-        // Create reset URL
+        // reset URL
         const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password?token=${resetToken}`;
 
-        // Email content
+        // Email content / copilot
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: email,
@@ -639,7 +608,7 @@ exports.forgotPassword = async (req, res) => {
     }
 };
 
-// Validate Reset Token
+// validate reset
 exports.validateResetToken = async (req, res) => {
     try {
         const { token } = req.params;
@@ -647,17 +616,14 @@ exports.validateResetToken = async (req, res) => {
         if (!token) {
             return res.status(400).json({ message: 'Reset token is required' });
         }
-
-        // Find user with valid reset token
+        //user with valid reset token
         const user = await User.findOne({
             resetPasswordToken: token,
             resetPasswordExpires: { $gt: Date.now() }
         });
-
         if (!user) {
             return res.status(400).json({ message: 'Invalid or expired reset token' });
         }
-
         res.json({ message: 'Reset token is valid' });
     } catch (error) {
         console.error('Validate reset token error:', error);
@@ -665,7 +631,6 @@ exports.validateResetToken = async (req, res) => {
     }
 };
 
-// Reset Password
 exports.resetPassword = async (req, res) => {
     try {
         const { token } = req.params;
@@ -682,8 +647,6 @@ exports.resetPassword = async (req, res) => {
         if (password.length < 6) {
             return res.status(400).json({ message: 'Password must be at least 6 characters long' });
         }
-
-        // Find user with valid reset token
         const user = await User.findOne({
             resetPasswordToken: token,
             resetPasswordExpires: { $gt: Date.now() }
@@ -693,10 +656,8 @@ exports.resetPassword = async (req, res) => {
             return res.status(400).json({ message: 'Invalid or expired reset token' });
         }
 
-        // Hash new password
         const hashedPassword = await bcrypt.hash(password, 12);
 
-        // Update user password and clear reset token
         user.password = hashedPassword;
         user.resetPasswordToken = undefined;
         user.resetPasswordExpires = undefined;
@@ -709,7 +670,6 @@ exports.resetPassword = async (req, res) => {
     }
 };
 
-// Export all controller methods
 module.exports = {
     register: exports.register,
     login: exports.login,

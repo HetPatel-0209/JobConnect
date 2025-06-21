@@ -41,7 +41,7 @@ export default function RecruiterProfile() {
         setError('Failed to load profile');
       }
     } catch (err) {
-      console.error('Error loading profile:', err);
+      console.error(err);
       setError('Failed to load profile');
     } finally {
       setLoading(false);

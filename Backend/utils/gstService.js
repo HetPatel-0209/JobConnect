@@ -1,10 +1,5 @@
 const axios = require('axios');
 
-/**
- * Fetch organization data from GST API
- * @param {string} gstNumber - The GST number to lookup
- * @returns {Promise<Object>} Organization data
- */
 const fetchGSTData = async (gstNumber) => {
     try {
         if (!process.env.GST_DATA_FETCH) {
@@ -14,7 +9,7 @@ const fetchGSTData = async (gstNumber) => {
         const apiUrl = `http://sheet.gstincheck.co.in/check/${process.env.GST_DATA_FETCH}/${gstNumber}`;
         
         const response = await axios.get(apiUrl, {
-            timeout: 10000, // 10 second timeout
+            timeout: 10000,
             headers: {
                 'User-Agent': 'JobConnect-Backend/1.0'
             }
@@ -26,14 +21,13 @@ const fetchGSTData = async (gstNumber) => {
 
         const gstData = response.data.data;
         
-        // Extract and format the required data
         const organizationData = {
             gstin: gstData.gstin,
-            name: gstData.tradeNam || gstData.lgnm, // Trade name or legal name
+            name: gstData.tradeNam || gstData.lgnm,
             legalName: gstData.lgnm,
             tradeName: gstData.tradeNam,
             status: gstData.sts,
-            businessType: gstData.ctb, // Constitution of business
+            businessType: gstData.ctb,
             registrationDate: gstData.rgdt,
             address: {
                 fullAddress: gstData.pradr?.adr || '',
@@ -52,30 +46,23 @@ const fetchGSTData = async (gstNumber) => {
         return {
             success: true,
             data: organizationData,
-            rawData: gstData // Keep raw data for reference
+            rawData: gstData
         };
 
     } catch (error) {
         console.error('GST API Error:', error.message);
         
         if (error.response) {
-            // API returned an error response
+            
             throw new Error(`GST API Error: ${error.response.status} - ${error.response.statusText}`);
         } else if (error.request) {
-            // Request was made but no response received
             throw new Error('GST API is not responding. Please try again later.');
         } else {
-            // Something else went wrong
             throw new Error(error.message || 'Failed to fetch GST data');
         }
     }
 };
 
-/**
- * Validate GST number format
- * @param {string} gstNumber - GST number to validate
- * @returns {boolean} True if valid format
- */
 const validateGSTFormat = (gstNumber) => {
     // GST format: 15 characters - 2 state code + 10 PAN + 1 entity + 1 check digit + 1 default
     const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;

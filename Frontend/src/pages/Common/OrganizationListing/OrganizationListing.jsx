@@ -45,7 +45,6 @@ export default function OrganizationListing() {
       const response = await OrganizationService.getAllOrganizations(params);
 
       if (response.success) {
-        // Fix: Based on your console log, the data is directly in response.data array
         const orgsData = Array.isArray(response.data) ? response.data : response.data.organizations || [];
         const paginationData = response.pagination || response.data.pagination || {};
 
@@ -55,7 +54,7 @@ export default function OrganizationListing() {
         setError('Failed to load organizations');
       }
     } catch (err) {
-      console.error('Error loading organizations:', err);
+      console.error(err);
       setError('Failed to load organizations');
     } finally {
       setLoading(false);

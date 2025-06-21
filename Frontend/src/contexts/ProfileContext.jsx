@@ -13,7 +13,6 @@ export const ProfileProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch profile data when user changes
   useEffect(() => {
     if (user) {
       fetchProfile();
@@ -29,15 +28,13 @@ export const ProfileProvider = ({ children }) => {
     try {
       const response = await AuthService.getProfile();
       setProfileData(response.user || response);
-
-      // If profile has an image URL, set it
       if (response.user?.profilePic) {
         setProfileImage(response.user.profilePic);
       } else if (response.profilePic) {
         setProfileImage(response.profilePic);
       }
     } catch (err) {
-      console.error('Error fetching profile:', err);
+      console.error(err);
       setError('Failed to load profile data');
     } finally {
       setLoading(false);
@@ -57,7 +54,7 @@ export const ProfileProvider = ({ children }) => {
 
       return response;
     } catch (err) {
-      console.error('Error updating profile:', err);
+      console.error(err);
       setError('Failed to update profile');
       throw err;
     } finally {
@@ -80,7 +77,7 @@ export const ProfileProvider = ({ children }) => {
 
       return response;
     } catch (err) {
-      console.error('Error uploading profile image:', err);
+      console.error(err);
       setError('Failed to upload profile image');
       throw err;
     } finally {
@@ -102,7 +99,7 @@ export const ProfileProvider = ({ children }) => {
       setApplications(response);
       return response;
     } catch (err) {
-      console.error('Error fetching applications:', err);
+      console.error(err);
       setError('Failed to load applications');
       throw err;
     } finally {

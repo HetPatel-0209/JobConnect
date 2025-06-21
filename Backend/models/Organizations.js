@@ -15,15 +15,15 @@ const orgSchema = new mongoose.Schema({
         enum: ['1-10', '11-50', '51-200', '201-500', '501-1000', '1000+']
     },
     logo: String,
-    logoPublicId: String, // Cloudinary public ID for logo
+    logoPublicId: String,
     banner: String,
-    bannerPublicId: String, // Cloudinary public ID for banner
+    bannerPublicId: String,
     website: String,
     description: {
         about: String,
         vision: String,
         mission: String,
-        benefits: [String] // Employee benefits
+        benefits: [String]
     },
     contact: {
         email: { type: String, required: true },

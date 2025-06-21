@@ -48,7 +48,7 @@ export default function UserJobDetails() {
           const savedResponse = await JobService.checkJobSaved(id);
           setIsSaved(savedResponse.isSaved);
         } catch (err) {
-          console.error('Error checking saved status:', err);
+          console.error(err);
         }
       } catch (err) {
         console.error('Error fetching job details:', err);
@@ -70,12 +70,10 @@ export default function UserJobDetails() {
         // Unsave the job
         await JobService.unsaveJob(job._id);
         setIsSaved(false);
-        console.log('Job removed from saved jobs');
       } else {
         // Save the job
         await JobService.saveJob(job._id);
         setIsSaved(true);
-        console.log('Job saved successfully');
       }
     } catch (error) {
       console.error('Error saving/unsaving job:', error);
@@ -141,10 +139,6 @@ export default function UserJobDetails() {
     );
   }
 
-  // Debug logging for job data
-  console.log('UserJobDetails - Job data:', job);
-  console.log('UserJobDetails - Recruiter data:', job?.recruiter);
-  console.log('UserJobDetails - Organization data:', job?.organization);
   const formatSkills = (skills) => {
     if (!skills) return [];
     

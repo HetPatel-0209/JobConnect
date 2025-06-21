@@ -34,12 +34,10 @@ exports.authorizeRoles = (...roles) => {
     };
 };
 
-// Optional authentication - doesn't fail if no token provided
 exports.optionalAuthenticate = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            // No authentication provided, continue without user
             req.user = null;
             return next();
         }
@@ -49,7 +47,6 @@ exports.optionalAuthenticate = async (req, res, next) => {
 
         const user = await User.findById(decoded.userId);
         if (!user) {
-            // Invalid user, continue without user
             req.user = null;
             return next();
         }
@@ -57,7 +54,6 @@ exports.optionalAuthenticate = async (req, res, next) => {
         req.user = user;
         next();
     } catch (error) {
-        // Invalid token, continue without user
         req.user = null;
         next();
     }

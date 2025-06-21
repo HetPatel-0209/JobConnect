@@ -30,7 +30,7 @@ export const OrganizationProvider = ({ children }) => {
                 setCurrentOrganization(response.data);
             }
         } catch (err) {
-            console.error('Error loading user organization:', err);
+            console.error(err);
             setError('Failed to load organization data');
         } finally {
             setLoading(false);

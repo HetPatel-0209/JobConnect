@@ -34,7 +34,7 @@ export default function RecruiterJobDetails() {
         const response = await JobService.getJobById(id);
         setJob(response.job);
       } catch (err) {
-        console.error('Error fetching job details:', err);
+        console.error(err);
         setError(err.message || 'Failed to fetch job details');
       } finally {
         setLoading(false);

@@ -104,8 +104,6 @@ export default function UserProfile() {
             // Try to fetch active resume separately
             try {
               const resumeResponse = await ResumeService.getUserActiveResume();
-              console.log('Resume response in UserProfile:', resumeResponse);
-              
               // Handle the new response format
               if (resumeResponse.hasActiveResume && resumeResponse.activeResume) {
                 setActiveResume(resumeResponse.activeResume);
@@ -116,8 +114,7 @@ export default function UserProfile() {
                 setActiveResume(null);
               }
             } catch (resumeError) {
-              // No active resume found, which is fine
-              console.log('No active resume found');
+              
             }
           }
         }
@@ -173,7 +170,7 @@ export default function UserProfile() {
         const imageUrl = URL.createObjectURL(file);
         setProfileImage(response.user.profilePic || imageUrl);
       } catch (error) {
-        console.error('Error uploading profile picture:', error);
+        console.error(error);
         setErrors(prev => ({ ...prev, image: 'Failed to upload image. Please try again.' }));
 
         // Fallback to local preview
@@ -321,7 +318,7 @@ export default function UserProfile() {
 
       alert("✅ Profile details saved successfully!");
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error(error);
       setErrors(prev => ({
         ...prev,
         general: error.response?.data?.message || 'Failed to update profile. Please try again.'
@@ -341,14 +338,6 @@ export default function UserProfile() {
   // Handle resume download with proper error handling
   const handleResumeDownload = async (resume) => {
     try {
-      // Debug logging
-      console.log('Downloading resume:', {
-        filename: resume.filename,
-        downloadUrl: resume.downloadUrl,
-        cloudinarySecureUrl: resume.cloudinarySecureUrl,
-        fileUrl: resume.fileUrl
-      });
-
       const filename = resume.filename || `resume-${resume._id || 'unknown'}.pdf`;
       
       // First try the downloadUrl which should have the attachment flag
@@ -393,13 +382,13 @@ export default function UserProfile() {
       
       throw new Error('No download URL available');
         } catch (error) {
-      console.error('Primary download failed, trying alternative method:', error);
+      console.error(error);
       
       // Try alternative download method
       try {
         await handleResumeDownloadAlternative(resume);
       } catch (altError) {
-        console.error('Alternative download also failed:', altError);
+        console.error(altError);
         
         // Last resort: Open any available URL in new tab
         const fallbackUrl = resume.cloudinarySecureUrl || resume.downloadUrl || resume.fileUrl;
@@ -454,7 +443,7 @@ export default function UserProfile() {
       window.URL.revokeObjectURL(url);
       
     } catch (error) {
-      console.error('Alternative download failed:', error);
+      console.error(error);
       // Fall back to opening in new tab
       const fallbackUrl = resume.cloudinarySecureUrl || resume.downloadUrl;
       if (fallbackUrl) {

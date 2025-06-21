@@ -35,8 +35,8 @@ const jobseekerProfileSchema = new mongoose.Schema({
         workModes: [{
             type: String,
             enum: ['remote', 'on-site', 'hybrid']
-        }], // full-time, part-time, contract
-        locations: [String], // remote, on-site, hybrid
+        }], 
+        locations: [String],
         salaryRange: { min: Number, max: Number }
     },
 

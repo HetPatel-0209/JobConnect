@@ -45,7 +45,7 @@ const recruiterSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: function(v) {
-                if (!v) return true; // Allow empty values
+                if (!v) return true;
                 return /^https?:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+\/?$/.test(v);
             },
             message: 'Please enter a valid LinkedIn profile URL'
@@ -56,7 +56,6 @@ const recruiterSchema = new mongoose.Schema({
         trim: true
     }],
     
-    // Certifications
     certifications: [{
         name: {
             type: String,
@@ -79,7 +78,6 @@ const recruiterSchema = new mongoose.Schema({
         }
     }],
     
-    // Education
     education: [{
         institution: {
             type: String,
@@ -111,7 +109,6 @@ const recruiterSchema = new mongoose.Schema({
         }
     }],
     
-    // Work Experience
     workExperience: [{
         company: {
             type: String,
@@ -127,7 +124,7 @@ const recruiterSchema = new mongoose.Schema({
             type: Date,
             required: true
         },
-        endDate: Date, // null if current position
+        endDate: Date,
         isCurrent: {
             type: Boolean,
             default: false
@@ -143,13 +140,11 @@ const recruiterSchema = new mongoose.Schema({
         }
     }],
     
-    // Profile completion status
     profileCompleted: {
         type: Boolean,
         default: false
     },
     
-    // Activity tracking
     isActive: {
         type: Boolean,
         default: true
@@ -160,13 +155,11 @@ const recruiterSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// Indexes for better query performance
 recruiterSchema.index({ organizationId: 1 });
 recruiterSchema.index({ 'specializations': 1 });
 recruiterSchema.index({ 'skills': 1 });
 recruiterSchema.index({ isActive: 1 });
 
-// Virtual for full professional profile completion
 recruiterSchema.virtual('professionalProfileCompleted').get(function() {
     const hasBasicInfo = this.title && this.bio && this.bio.trim().length > 0;
     const hasExperience = this.workExperience && this.workExperience.length > 0;

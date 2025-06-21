@@ -42,7 +42,6 @@ export default function RegistrationForm() {
   // Handle redirect after successful registration
   useEffect(() => {
     if (redirectAfterRegistration && user) {
-      console.log('User state updated after registration:', user);
       if (user.role === 'jobseeker') {
         console.log('Redirecting jobseeker to dashboard');
         navigate('/user/job-dashboard');
@@ -108,14 +107,11 @@ export default function RegistrationForm() {
         };        // Add organizationId for recruiters
         if (userType === 'recruiter' && selectedOrganization) {
           userData.organizationId = selectedOrganization._id;
-          console.log('Adding organizationId:', selectedOrganization._id);
         } else if (userType === 'recruiter' && !selectedOrganization) {
           throw new Error('Organization selection is required for recruiters');
         }
 
         const response = await register(userData);
-        console.log('Registration successful:', response);
-
         // Set flag to trigger redirect when user state updates
         setRedirectAfterRegistration(true);
         

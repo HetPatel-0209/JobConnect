@@ -53,15 +53,12 @@ export default function JobseekerProfile() {
         setError('Failed to load profile');
       }
 
-      // Check for resume data - handle different response structures
       if (resumeResponse.hasActiveResume) {
-        // The backend spreads resume fields to top level, so use the response directly
-        // but prefer the activeResume object if it exists
         const resumeData = resumeResponse.activeResume || resumeResponse;
         setResume(resumeData);
       }
     } catch (err) {
-      console.error('Error loading profile:', err);
+      console.error(err);
       setError('Failed to load profile');
     } finally {
       setLoading(false);
@@ -92,7 +89,6 @@ export default function JobseekerProfile() {
 
   const handleDownloadResume = async () => {
     if (!resume) {
-      console.error('No resume available for download');
       return;
     }
 
@@ -111,7 +107,7 @@ export default function JobseekerProfile() {
       // Clean up the blob URL
       window.URL.revokeObjectURL(downloadData.url);
     } catch (error) {
-      console.error('Error downloading resume:', error);
+      console.error(error);
       // Fallback to cloudinary URL if download service fails
       if (resume.cloudinarySecureUrl) {
         window.open(resume.cloudinarySecureUrl, '_blank');

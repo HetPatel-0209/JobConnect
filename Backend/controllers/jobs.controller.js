@@ -14,18 +14,13 @@ const cloudinary = require('cloudinary');
 const fs = require('fs').promises;
 const path = require('path');
 
-// Helper function to escape special characters in regex
 function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Helper function to delete user resumes from both database and Cloudinary
 const deleteUserResumes = async (userId) => {
     try {
-        // Find all existing resumes for the user
         const existingResumes = await Resume.find({ user: userId });
-        
-        // Delete files from Cloudinary first
         for (const resume of existingResumes) {
             if (resume.cloudinaryPublicId) {
                 try {
@@ -36,7 +31,7 @@ const deleteUserResumes = async (userId) => {
                             (error, result) => {
                                 if (error) {
                                     console.warn(`Could not delete resume ${resume.cloudinaryPublicId} from Cloudinary:`, error);
-                                    resolve(); // Continue even if Cloudinary delete fails
+                                    resolve();
                                 } else {
                                     console.log(`Successfully deleted resume ${resume.cloudinaryPublicId} from Cloudinary`);
                                     resolve(result);
@@ -49,10 +44,9 @@ const deleteUserResumes = async (userId) => {
                 }
             }
         }
-        
-        // Delete all existing resume records from database
+
         const deleteResult = await Resume.deleteMany({ user: userId });
-        console.log(`Deleted ${deleteResult.deletedCount} resume records for user ${userId}`);        
+        console.log(`Deleted ${deleteResult.deletedCount} resume records for user ${userId}`);
         return { deletedCount: deleteResult.deletedCount, cloudinaryFilesDeleted: existingResumes.length };
     } catch (error) {
         console.error('Error in deleteUserResumes:', error);
@@ -60,57 +54,51 @@ const deleteUserResumes = async (userId) => {
     }
 };
 
-// Get all job posts with optional filtering
+// all job posts with optional filtering
 exports.getAllJobs = async (req, res) => {
     try {
-        const { 
-            page = 1, 
-            limit = 10, 
-            location, 
-            skills, 
-            jobType, 
-            workMode, 
-            salaryMin, 
+        const {
+            page = 1,
+            limit = 10,
+            location,
+            skills,
+            jobType,
+            workMode,
+            salaryMin,
             salaryMax,
-            search 
+            search
         } = req.query;
 
-        // Build query object
         const query = { status: 'active' };
-        
-        // Add filters if provided
         if (location) {
             query.location = { $regex: escapeRegExp(location), $options: 'i' };
         }
-          if (skills) {
+        if (skills) {
             const skillsArray = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim());
-            // Use case-insensitive regex for each skill
-            query['requirements.skills.required'] = { 
+            query['requirements.skills.required'] = {
                 $in: skillsArray.map(skill => new RegExp(escapeRegExp(skill), 'i'))
             };
         }
-        
+
         if (jobType) {
             query.jobType = jobType;
         }
-        
+
         if (workMode) {
             query.workMode = workMode;
         }
-          if (salaryMin || salaryMax) {
+        if (salaryMin || salaryMax) {
             query.$and = query.$and || [];
-            
+
             if (salaryMin) {
-                // Job max salary should be >= requested min salary
                 query.$and.push({ 'salary.max': { $gte: Number(salaryMin) } });
             }
-            
+
             if (salaryMax) {
-                // Job min salary should be <= requested max salary  
                 query.$and.push({ 'salary.min': { $lte: Number(salaryMax) } });
             }
         }
-        
+
         if (search) {
             query.$or = [
                 { title: { $regex: escapeRegExp(search), $options: 'i' } },
@@ -119,7 +107,7 @@ exports.getAllJobs = async (req, res) => {
         }
 
         const skip = (page - 1) * limit;
-        
+
         const jobs = await JobPost.find(query)
             .populate('recruiter', 'name email')
             .populate('organization', 'name logo location')
@@ -144,12 +132,9 @@ exports.getAllJobs = async (req, res) => {
     }
 };
 
-// Get a specific job by ID
 exports.getJobById = async (req, res) => {
     try {
         const { jobId } = req.params;
-
-        // Validate ObjectId format
         if (!jobId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({ message: 'Invalid job ID format' });
         }
@@ -175,19 +160,16 @@ exports.getJobById = async (req, res) => {
     }
 };
 
-// Get applied jobs
 exports.getAppliedJobs = async (req, res) => {
     try {
         const { page = 1, limit = 10, status } = req.query;
-        
-        // Build query
         const query = { applicant: req.user._id };
         if (status) {
             query.status = status;
         }
-        
+
         const skip = (page - 1) * limit;
-        
+
         const applications = await Application.find(query)
             .populate({
                 path: 'job',
@@ -201,7 +183,7 @@ exports.getAppliedJobs = async (req, res) => {
             .limit(Number(limit));
 
         const total = await Application.countDocuments(query);
-        
+
         res.json({
             applications,
             pagination: {
@@ -217,48 +199,42 @@ exports.getAppliedJobs = async (req, res) => {
     }
 };
 
-// Calculate ATS score with AI
+// score with AI
 exports.calculateATSScore = async (req, res) => {
     try {
         let jobId, resumeId, useAI = true;
-        
-        // Handle both GET and POST requests with different parameter structures
         if (req.method === 'GET') {
-            // Handle GET request from params
             jobId = req.params.jobId;
             useAI = req.query.useAI !== 'false';
         } else {
-            // Handle POST request from body
             jobId = req.body.jobId;
             resumeId = req.body.resumeId;
             useAI = req.body.useAI !== false;
         }
-        
+
         if (!jobId) {
             return res.status(400).json({ message: 'Job ID is required' });
         }
-        
+
         const job = await JobPost.findById(jobId);
         if (!job) {
             return res.status(404).json({ message: 'Job not found' });
         }
 
         const user = await User.findById(req.user._id);
-        
-        // Get user's resume - either by ID from request or active resume
         let resume;
         if (resumeId) {
-            resume = await Resume.findOne({ 
+            resume = await Resume.findOne({
                 _id: resumeId,
                 user: req.user._id
             });
         } else {
-            resume = await Resume.findOne({ 
-                user: req.user._id, 
-                isActive: true 
+            resume = await Resume.findOne({
+                user: req.user._id,
+                isActive: true
             });
         }
-        
+
         if (!resume) {
             return res.status(404).json({ message: 'No resume found. Please upload a resume first.' });
         }
@@ -268,8 +244,6 @@ exports.calculateATSScore = async (req, res) => {
             education: user.education || [],
             experience: user.experience || []
         };
-
-        // If resume exists and has parsed data, use that
         if (resume.parsedData) {
             resumeData = {
                 ...resumeData,
@@ -285,7 +259,7 @@ exports.calculateATSScore = async (req, res) => {
         };
 
         let result;
-        
+
         if (useAI && process.env.GROQ_API_KEY) {
             try {
                 result = await calculateAIATSScore(resumeData, jobData);
@@ -314,7 +288,6 @@ exports.calculateATSScore = async (req, res) => {
     }
 };
 
-// Post a job (recruiter)
 exports.postJob = async (req, res) => {
     try {
         console.log('POST /jobs request received');
@@ -326,7 +299,7 @@ exports.postJob = async (req, res) => {
             recruiter: req.user._id
         });
         const savedJob = await job.save();
-        
+
         // Add job to recruiter's postedJobs
         await User.findByIdAndUpdate(req.user._id, {
             $push: { postedJobs: savedJob._id }
@@ -347,28 +320,25 @@ exports.postJob = async (req, res) => {
     }
 };
 
-// Get applied candidates (recruiter)
 exports.getAppliedCandidates = async (req, res) => {
     try {
         const { jobId } = req.params;
         console.log('GET /jobs/:jobId/applications request received');
         console.log('Job ID:', jobId);
         console.log('User:', req.user ? { id: req.user._id, role: req.user.role } : 'No user');
-        
-        // Validate ObjectId format
         if (!jobId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid job ID format'
             });
         }
-        
-        // Verify job exists and belongs to recruiter
+
+        // verify job exists
         const job = await JobPost.findOne({
             _id: jobId,
             recruiter: req.user._id
         });
-        
+
         if (!job) {
             return res.status(404).json({
                 success: false,
@@ -381,7 +351,6 @@ exports.getAppliedCandidates = async (req, res) => {
             .populate('job', 'title')
             .sort('-appliedAt');
 
-        // Get resume data for each applicant
         const Resume = require('../models/Resume');
         const applicationsWithResumes = await Promise.all(
             applications.map(async (application) => {
@@ -419,13 +388,10 @@ exports.getAppliedCandidates = async (req, res) => {
     }
 };
 
-// Apply for a job
 exports.applyForJob = async (req, res) => {
     try {
         const { jobId } = req.params;
         const userId = req.user._id;
-
-        // Validate ObjectId format
         if (!jobId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({ message: 'Invalid job ID format' });
         }
@@ -439,27 +405,25 @@ exports.applyForJob = async (req, res) => {
             return res.status(400).json({ message: 'Job is no longer active' });
         }
 
-        // Check if already applied
+        // if already applied
         const existingApplication = await Application.findOne({
             job: jobId,
             applicant: userId
         });
-        
+
         if (existingApplication) {
             return res.status(400).json({ message: 'Already applied to this job' });
         }
 
-        // Get user's active resume for ATS calculation
-        const resume = await Resume.findOne({ 
-            user: userId, 
-            isActive: true 
+        const resume = await Resume.findOne({
+            user: userId,
+            isActive: true
         });
 
         let atsScore = 0;
         let aiEvaluation = null;
 
         if (resume && resume.parsedData) {
-            // Calculate ATS score
             const jobData = {
                 title: job.title,
                 description: job.description,
@@ -476,8 +440,8 @@ exports.applyForJob = async (req, res) => {
                     missingSkills: result.missingSkills || [],
                     suggestions: result.suggestions || []
                 };
-            } catch (aiError) {
-                // Fallback to basic scoring
+            }
+            catch (aiError) {
                 const basicResult = calculateBasicATSScore(resume.parsedData, jobData);
                 atsScore = basicResult.atsScore;
                 aiEvaluation = {
@@ -487,8 +451,6 @@ exports.applyForJob = async (req, res) => {
                 };
             }
         }
-
-        // Create application
         const application = new Application({
             job: jobId,
             applicant: userId,
@@ -498,7 +460,7 @@ exports.applyForJob = async (req, res) => {
 
         await application.save();
 
-        res.status(201).json({ 
+        res.status(201).json({
             message: 'Successfully applied to job',
             application: {
                 id: application._id,
@@ -511,7 +473,6 @@ exports.applyForJob = async (req, res) => {
     }
 };
 
-// Update job status
 exports.updateJobStatus = async (req, res) => {
     try {
         const { jobId } = req.params;
@@ -556,7 +517,6 @@ exports.updateJobStatus = async (req, res) => {
     }
 };
 
-// Delete job
 exports.deleteJob = async (req, res) => {
     try {
         const { jobId } = req.params;
@@ -569,24 +529,20 @@ exports.deleteJob = async (req, res) => {
             return res.status(404).json({ message: 'Job not found' });
         }
 
-        // Remove job reference from recruiter's posted jobs
         await User.findByIdAndUpdate(req.user._id, {
             $pull: { postedJobs: jobId }
         });
 
-        // Remove job reference from all jobseekers who applied
         await User.updateMany(
             { appliedJobs: jobId },
             { $pull: { appliedJobs: jobId } }
-        );        await JobPost.findByIdAndDelete(jobId);
+        ); await JobPost.findByIdAndDelete(jobId);
         res.json({ message: 'Job deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// Search jobs
-// Upload and parse resume
 exports.uploadResume = async (req, res) => {
     try {
         if (!req.file) {
@@ -594,33 +550,30 @@ exports.uploadResume = async (req, res) => {
         }
 
         const userId = req.user._id;
-        
-        // Delete all existing resumes (both from database and Cloudinary)
         const deleteResult = await deleteUserResumes(userId);
         console.log(`Cleanup completed: ${deleteResult.deletedCount} resume records deleted, ${deleteResult.cloudinaryFilesDeleted} files removed from Cloudinary`);
 
         const fileExt = path.extname(req.file.originalname).toLowerCase();
         const isDocx = fileExt === '.docx' || fileExt === '.doc';
         const isPdf = fileExt === '.pdf';
-        
+
         if (!isPdf && !isDocx) {
-            return res.status(400).json({ 
-                message: 'Unsupported file type. Only PDF and DOCX files are allowed.' 
+            return res.status(400).json({
+                message: 'Unsupported file type. Only PDF and DOCX files are allowed.'
             });
         }
-        
-        // Variables for compression (only applies to PDF)
+
         let compressedBuffer, originalSize, compressedSize, compressionRatio;
-        
+
         if (isPdf) {
             // Get compression level from query params (default to medium)
             const compressionLevel = req.query.compression || 'medium';
-            
+
             // Validate compression level
             if (!['low', 'medium', 'high', 'none'].includes(compressionLevel)) {
                 console.warn(`Invalid compression level: ${compressionLevel}, using 'medium' instead`);
             }
-            
+
             // If compression is set to 'none', skip compression
             if (compressionLevel === 'none') {
                 compressedBuffer = req.file.buffer;
@@ -628,17 +581,16 @@ exports.uploadResume = async (req, res) => {
                 compressionRatio = 0;
             } else {
                 // Compress the PDF before uploading
-                ({ buffer: compressedBuffer, originalSize, compressedSize, compressionRatio } = 
-                  await compressPDF(req.file.buffer, compressionLevel));
+                ({ buffer: compressedBuffer, originalSize, compressedSize, compressionRatio } =
+                    await compressPDF(req.file.buffer, compressionLevel));
             }
-        } else {
+        }
+        else {
             // For DOCX, just use the original buffer
             compressedBuffer = req.file.buffer;
             originalSize = compressedSize = req.file.buffer.length;
             compressionRatio = 0;
         }
-        
-        // Parse resume data
         let parsedData = null;
         try {
             parsedData = await parseResumeFromBuffer(compressedBuffer, req.file.mimetype);
@@ -647,14 +599,13 @@ exports.uploadResume = async (req, res) => {
             return res.status(400).json({ message: 'Failed to parse resume: ' + extractError.message });
         }
 
-        // Upload to Cloudinary
         const result = await new Promise((resolve, reject) => {
             const randomFilename = generateRandomFilename();
-            const resourceFormat = fileExt.replace('.', ''); // Remove the dot from extension
-            
+            const resourceFormat = fileExt.replace('.', '');
+
             cloudinary.v2.uploader.upload_stream(
                 {
-                    resource_type: 'raw', // This is crucial for document files
+                    resource_type: 'raw',
                     folder: 'resumes',
                     public_id: `${isPdf ? 'pdf' : 'docx'}_${Date.now()}_${randomFilename}`,
                     use_filename: false,
@@ -671,14 +622,12 @@ exports.uploadResume = async (req, res) => {
             ).end(compressedBuffer);
         });
 
-        // Generate document URLs with proper resource type
         const fileUrl = cloudinary.v2.url(result.public_id, {
             resource_type: 'raw',
             secure: true,
             sign_url: false,
         });
 
-        // Generate download URL with proper headers
         const downloadUrl = cloudinary.v2.url(result.public_id, {
             resource_type: 'raw',
             secure: true,
@@ -686,7 +635,6 @@ exports.uploadResume = async (req, res) => {
             flags: 'attachment'
         });
 
-        // Create new resume record
         const resume = new Resume({
             user: userId,
             filename: req.file.originalname,
@@ -708,11 +656,8 @@ exports.uploadResume = async (req, res) => {
         });
 
         await resume.save();
-
-        // Update user profile with extracted data
         const user = await User.findById(userId);
         if (parsedData.skills.length > 0) {
-            // Merge with existing skills, avoid duplicates
             const existingSkills = user.skills || [];
             const newSkills = [...new Set([...existingSkills, ...parsedData.skills])];
             user.skills = newSkills;
@@ -726,8 +671,8 @@ exports.uploadResume = async (req, res) => {
         await user.save();
 
         res.status(201).json({
-            message: deleteResult.deletedCount > 0 
-                ? `Resume uploaded successfully. Previous resume replaced.` 
+            message: deleteResult.deletedCount > 0
+                ? `Resume uploaded successfully. Previous resume replaced.`
                 : 'Resume uploaded and parsed successfully',
             resume: {
                 id: resume._id,
@@ -749,20 +694,19 @@ exports.uploadResume = async (req, res) => {
     }
 };
 
-// Get user's resumes
 exports.getUserResumes = async (req, res) => {
     try {
         const resumes = await Resume.find({ user: req.user._id })
             .select('-parsedText -__v')
             .sort('-uploadedAt');
-        
+
         res.json(resumes);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// Get user's active resume
+// user active resume
 exports.getUserActiveResume = async (req, res) => {
     try {
         const activeResume = await Resume.findOne({
@@ -789,12 +733,9 @@ exports.getUserActiveResume = async (req, res) => {
     }
 };
 
-// Get user's active resume by user ID (for recruiters)
 exports.getUserActiveResumeById = async (req, res) => {
     try {
         const { userId } = req.params;
-
-        // Only recruiters can access other users' resumes
         if (req.user.role !== 'recruiter') {
             return res.status(403).json({
                 success: false,
@@ -830,7 +771,6 @@ exports.getUserActiveResumeById = async (req, res) => {
     }
 };
 
-// Delete resume
 exports.deleteResume = async (req, res) => {
     try {
         const { resumeId } = req.params;
@@ -852,7 +792,7 @@ exports.deleteResume = async (req, res) => {
                         { resource_type: 'raw' },
                         (error, result) => {
                             if (error) {
-                                resolve(); // Continue even if Cloudinary delete fails
+                                resolve();
                             } else {
                                 resolve(result);
                             }
@@ -870,18 +810,16 @@ exports.deleteResume = async (req, res) => {
     }
 };
 
-// Set active resume
 exports.setActiveResume = async (req, res) => {
     try {
         const { resumeId } = req.params;
-        
-        // Deactivate all resumes for the user
+
+        // deactivate all resumes
         await Resume.updateMany(
             { user: req.user._id },
             { isActive: false }
         );
-
-        // Activate the selected resume
+        // selected resume
         const resume = await Resume.findOneAndUpdate(
             { _id: resumeId, user: req.user._id },
             { isActive: true },
@@ -898,22 +836,17 @@ exports.setActiveResume = async (req, res) => {
     }
 };
 
-// View resume
 exports.viewResume = async (req, res) => {
     try {
         const { resumeId } = req.params;
-        
+
         const resume = await Resume.findById(resumeId);
         if (!resume) {
             return res.status(404).json({ message: 'Resume not found' });
         }
-
-        // Check if user has permission to view this resume
         if (resume.user.toString() !== req.user._id.toString() && req.user.role !== 'recruiter') {
             return res.status(403).json({ message: 'Not authorized to view this resume' });
         }
-
-        // Generate a signed URL for temporary access
         const signedUrl = cloudinary.v2.url(resume.cloudinaryPublicId, {
             resource_type: 'raw',
             secure: true,
@@ -940,26 +873,26 @@ exports.viewResume = async (req, res) => {
 exports.getJobseekerStats = async (req, res) => {
     try {
         const userId = req.user._id;
-        
+
         // Get total applications
         const totalApplications = await Application.countDocuments({ applicant: userId });
-        
+
         // Get pending applications
-        const pendingApplications = await Application.countDocuments({ 
-            applicant: userId, 
-            status: 'pending' 
+        const pendingApplications = await Application.countDocuments({
+            applicant: userId,
+            status: 'pending'
         });        // Get interview count
-        const interviews = await Application.countDocuments({ 
-            applicant: userId, 
-            status: 'interview' 
+        const interviews = await Application.countDocuments({
+            applicant: userId,
+            status: 'interview'
         });
-        
+
         // Get rejections
-        const rejections = await Application.countDocuments({ 
-            applicant: userId, 
-            status: 'rejected' 
+        const rejections = await Application.countDocuments({
+            applicant: userId,
+            status: 'rejected'
         });
-          // Check if user has active resume
+        // Check if user has active resume
         const hasActiveResume = await Resume.exists({ user: userId, isActive: true });
 
         // Get saved jobs count
@@ -976,7 +909,7 @@ exports.getJobseekerStats = async (req, res) => {
             sender: { $ne: userId },
             'readBy.user': { $ne: userId }
         });
-        
+
         res.json({
             appliedJobs: totalApplications,
             savedJobs: savedJobs,
@@ -991,15 +924,12 @@ exports.getJobseekerStats = async (req, res) => {
     }
 };
 
-// Get recommended jobs based on user skills and preferences
 exports.getRecommendedJobs = async (req, res) => {
     try {
         const { page = 1, limit = 10 } = req.query;
         const userId = req.user.id;
-        
-        // Get user's jobseeker profile with skills
         const jobseekerProfile = await JobSeekerProfile.findOne({ user: userId });
-        
+
         if (!jobseekerProfile) {
             return res.json({
                 jobs: [],
@@ -1012,42 +942,40 @@ exports.getRecommendedJobs = async (req, res) => {
                 }
             });
         }
-        
+
         const userSkills = jobseekerProfile.skills.map(skill => skill.name);
         const userPreferences = jobseekerProfile.jobPreferences || {};
-        
-        // Build query for recommendations
         const query = { status: 'active' };
-        
-        // Match skills if user has skills
+
+        // match skills
         if (userSkills.length > 0) {
-            query['requirements.skills.required'] = { 
+            query['requirements.skills.required'] = {
                 $in: userSkills.map(skill => new RegExp(escapeRegExp(skill), 'i'))
             };
         }
-        
-        // Apply user preferences
+
+        // apply user preferences
         if (userPreferences.jobTypes && userPreferences.jobTypes.length > 0) {
             query.jobType = { $in: userPreferences.jobTypes };
         }
-        
+
         if (userPreferences.workModes && userPreferences.workModes.length > 0) {
             query.workMode = { $in: userPreferences.workModes };
         }
-        
+
         if (userPreferences.locations && userPreferences.locations.length > 0) {
-            query.location = { 
+            query.location = {
                 $in: userPreferences.locations.map(loc => new RegExp(escapeRegExp(loc), 'i'))
             };
         }
-        
-        // Salary range filter
+
+        // salary range filter
         if (userPreferences.salaryRange && userPreferences.salaryRange.min) {
             query['salary.max'] = { $gte: userPreferences.salaryRange.min };
         }
-        
+
         const skip = (page - 1) * limit;
-        
+
         const jobs = await JobPost.find(query)
             .populate('recruiter', 'name email')
             .populate('organization', 'name logo location')
@@ -1082,7 +1010,7 @@ exports.updateApplicationStatus = async (req, res) => {
         console.log('Application ID:', applicationId);
         console.log('New Status:', status);
         console.log('User:', req.user ? { id: req.user._id, role: req.user.role } : 'No user');
-        
+
         // Validate status
         const validStatuses = ['applied', 'reviewed', 'shortlisted', 'interview', 'rejected', 'hired'];
         if (!validStatuses.includes(status)) {
@@ -1092,7 +1020,7 @@ exports.updateApplicationStatus = async (req, res) => {
                 validStatuses
             });
         }
-        
+
         const application = await Application.findById(applicationId)
             .populate({
                 path: 'job',
@@ -1162,7 +1090,7 @@ exports.updateApplicationStatus = async (req, res) => {
                     });
             }
         }
-        
+
         res.json({
             success: true,
             message: 'Application status updated successfully',
@@ -1177,12 +1105,10 @@ exports.updateApplicationStatus = async (req, res) => {
     }
 };
 
-// Get recruiter details by ID
+// recruiter details by ID
 exports.getRecruiterById = async (req, res) => {
     try {
         const { recruiterId } = req.params;
-
-        // Validate ObjectId format
         if (!recruiterId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({ message: 'Invalid recruiter ID format' });
         }
@@ -1198,7 +1124,7 @@ exports.getRecruiterById = async (req, res) => {
             return res.status(400).json({ message: 'User is not a recruiter' });
         }
 
-        // Get recruiter profile with organization
+        // recruiter profile with organization
         const recruiterProfile = await Recruiter.findOne({ user: recruiterId })
             .populate('organizationId', 'name logo contact description');
 
@@ -1215,12 +1141,10 @@ exports.getRecruiterById = async (req, res) => {
     }
 };
 
-// Get company details by organization ID
+// company details by organization ID
 exports.getCompanyById = async (req, res) => {
     try {
         const { companyId } = req.params;
-
-        // Validate ObjectId format
         if (!companyId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({ message: 'Invalid company ID format' });
         }
@@ -1231,7 +1155,7 @@ exports.getCompanyById = async (req, res) => {
             return res.status(404).json({ message: 'Company not found' });
         }
 
-        // Get recruiters for this organization
+        // recruiters for organization
         const recruiters = await Recruiter.find({ organizationId: companyId })
             .populate('user', 'name email phone profilePic')
             .select('user title department');
@@ -1251,21 +1175,17 @@ exports.getCompanyById = async (req, res) => {
     }
 };
 
-// Get jobs by organization ID
+// jobs by organization ID
 exports.getJobsByOrganization = async (req, res) => {
     try {
         const { organizationId } = req.params;
         const { page = 1, limit = 10, status = 'active' } = req.query;
-
-        // Validate ObjectId format
         if (!organizationId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid organization ID format'
             });
         }
-
-        // Build query
         const query = { organization: organizationId };
         if (status) {
             query.status = status;
@@ -1306,8 +1226,6 @@ exports.getRecruiterJobs = async (req, res) => {
     try {
         const { page = 1, limit = 10, status } = req.query;
         const recruiterId = req.user._id;
-
-        // Build query
         const query = { recruiter: recruiterId };
         if (status) {
             query.status = status;
@@ -1321,7 +1239,7 @@ exports.getRecruiterJobs = async (req, res) => {
             .skip(skip)
             .limit(Number(limit));
 
-        // Get application counts for each job
+        // application counts for each job
         const jobsWithApplications = await Promise.all(
             jobs.map(async (job) => {
                 const applicationCount = await Application.countDocuments({ job: job._id });
@@ -1358,33 +1276,33 @@ exports.getRecruiterJobs = async (req, res) => {
     }
 };
 
-// Get recruiter dashboard statistics
+// recruiter statistics
 exports.getRecruiterStats = async (req, res) => {
     try {
         const recruiterId = req.user._id;
 
-        // Get total jobs posted
+        // jobs posted
         const totalJobs = await JobPost.countDocuments({ recruiter: recruiterId });
 
-        // Get active jobs
+        // active jobs
         const activeJobs = await JobPost.countDocuments({
             recruiter: recruiterId,
             status: 'active'
         });
 
-        // Get draft jobs
+        // draft jobs
         const draftJobs = await JobPost.countDocuments({
             recruiter: recruiterId,
             status: 'draft'
         });
 
-        // Get closed jobs
+        // closed jobs
         const closedJobs = await JobPost.countDocuments({
             recruiter: recruiterId,
             status: 'closed'
         });
 
-        // Get all applications for recruiter's jobs
+        // all applications
         const recruiterJobs = await JobPost.find({ recruiter: recruiterId }).select('_id');
         const jobIds = recruiterJobs.map(job => job._id);
 
@@ -1392,7 +1310,7 @@ exports.getRecruiterStats = async (req, res) => {
             job: { $in: jobIds }
         });
 
-        // Get applications by status
+        // applications by status
         const pendingApplications = await Application.countDocuments({
             job: { $in: jobIds },
             status: 'applied'
@@ -1455,13 +1373,10 @@ exports.getRecruiterStats = async (req, res) => {
     }
 };
 
-// Get analytics for a specific job
 exports.getJobAnalytics = async (req, res) => {
     try {
         const { jobId } = req.params;
         const recruiterId = req.user._id;
-
-        // Validate ObjectId format
         if (!jobId.match(/^[0-9a-fA-F]{24}$/)) {
             return res.status(400).json({
                 success: false,
@@ -1482,7 +1397,6 @@ exports.getJobAnalytics = async (req, res) => {
             });
         }
 
-        // Get application analytics
         const totalApplications = await Application.countDocuments({ job: jobId });
 
         const applicationsByStatus = await Application.aggregate([
@@ -1490,7 +1404,6 @@ exports.getJobAnalytics = async (req, res) => {
             { $group: { _id: '$status', count: { $sum: 1 } } }
         ]);
 
-        // Get applications over time (last 30 days)
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -1514,7 +1427,7 @@ exports.getJobAnalytics = async (req, res) => {
             { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
         ]);
 
-        // Get top skills from applicants
+        // skills from applicants
         const topSkills = await Application.aggregate([
             { $match: { job: new mongoose.Types.ObjectId(jobId) } },
             { $lookup: { from: 'users', localField: 'applicant', foreignField: '_id', as: 'applicantData' } },
@@ -1525,7 +1438,7 @@ exports.getJobAnalytics = async (req, res) => {
             { $limit: 10 }
         ]);
 
-        // Calculate average ATS score
+        // average ATS score
         const atsStats = await Application.aggregate([
             { $match: { job: new mongoose.Types.ObjectId(jobId) } },
             {
@@ -1571,7 +1484,6 @@ exports.getJobAnalytics = async (req, res) => {
     }
 };
 
-// Get overall analytics for recruiter's jobs
 exports.getRecruiterAnalytics = async (req, res) => {
     try {
         const recruiterId = req.user._id;
@@ -1582,7 +1494,6 @@ exports.getRecruiterAnalytics = async (req, res) => {
         console.log('Date range:', { startDate, endDate });
         console.log('Query params:', req.query);
 
-        // Build date filter
         let dateFilter = {};
         if (startDate && startDate.trim() !== '') {
             dateFilter.createdAt = dateFilter.createdAt || {};
@@ -1591,7 +1502,6 @@ exports.getRecruiterAnalytics = async (req, res) => {
         }
         if (endDate && endDate.trim() !== '') {
             dateFilter.createdAt = dateFilter.createdAt || {};
-            // Add one day to endDate to include the entire end date
             const endDateTime = new Date(endDate);
             endDateTime.setHours(23, 59, 59, 999);
             dateFilter.createdAt.$lte = endDateTime;
@@ -1599,7 +1509,6 @@ exports.getRecruiterAnalytics = async (req, res) => {
         }
         console.log('Date filter applied:', dateFilter);
 
-        // Get recruiter's jobs
         const recruiterJobs = await JobPost.find({
             recruiter: recruiterId,
             ...dateFilter
@@ -1616,7 +1525,6 @@ exports.getRecruiterAnalytics = async (req, res) => {
         const jobIds = recruiterJobs.map(job => job._id);
         console.log('Job IDs for analytics:', jobIds);
 
-        // Jobs created over time
         let jobsOverTime = [];
         try {
             jobsOverTime = await JobPost.aggregate([
@@ -1637,7 +1545,6 @@ exports.getRecruiterAnalytics = async (req, res) => {
             console.error('Error in jobsOverTime aggregation:', error);
         }
 
-        // Applications over time
         let applicationsOverTime = [];
         try {
             if (jobIds.length > 0) {
@@ -1660,7 +1567,7 @@ exports.getRecruiterAnalytics = async (req, res) => {
             console.error('Error in applicationsOverTime aggregation:', error);
         }
 
-        // Top performing jobs (by application count)
+        // top performing jobs
         let topJobs = [];
         try {
             if (jobIds.length > 0) {
@@ -1685,7 +1592,7 @@ exports.getRecruiterAnalytics = async (req, res) => {
             console.error('Error in topJobs aggregation:', error);
         }
 
-        // Get total applications count
+        // applications count
         const totalApplications = await Application.countDocuments({ job: { $in: jobIds } });
         console.log('Total applications found:', totalApplications);
 
@@ -1714,13 +1621,12 @@ exports.getRecruiterAnalytics = async (req, res) => {
     }
 };
 
-// Save a job for later
 exports.saveJob = async (req, res) => {
     try {
         const { jobId } = req.params;
         const userId = req.user._id;
 
-        // Check if job exists
+        // Cif job exists
         const job = await JobPost.findById(jobId);
         if (!job) {
             return res.status(404).json({
@@ -1729,7 +1635,6 @@ exports.saveJob = async (req, res) => {
             });
         }
 
-        // Check if job is already saved
         const existingSavedJob = await SavedJob.findOne({ user: userId, job: jobId });
         if (existingSavedJob) {
             return res.status(400).json({
@@ -1738,7 +1643,6 @@ exports.saveJob = async (req, res) => {
             });
         }
 
-        // Save the job
         const savedJob = new SavedJob({
             user: userId,
             job: jobId
@@ -1759,7 +1663,6 @@ exports.saveJob = async (req, res) => {
     }
 };
 
-// Remove a saved job
 exports.unsaveJob = async (req, res) => {
     try {
         const { jobId } = req.params;
@@ -1786,7 +1689,6 @@ exports.unsaveJob = async (req, res) => {
     }
 };
 
-// Get all saved jobs for a user
 exports.getSavedJobs = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -1807,7 +1709,7 @@ exports.getSavedJobs = async (req, res) => {
 
         const total = await SavedJob.countDocuments({ user: userId });
 
-        // Filter out any saved jobs where the job has been deleted
+        // filter out saved jobs that has been deleted
         const validSavedJobs = savedJobs.filter(savedJob => savedJob.job);
 
         res.json({
@@ -1830,7 +1732,6 @@ exports.getSavedJobs = async (req, res) => {
     }
 };
 
-// Check if a job is saved by the user
 exports.checkJobSaved = async (req, res) => {
     try {
         const { jobId } = req.params;

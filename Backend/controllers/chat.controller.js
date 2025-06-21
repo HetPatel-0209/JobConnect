@@ -7,13 +7,13 @@ exports.sendMessage = async (req, res) => {
         const { recipientId, content, messageType = 'text' } = req.body;
         const senderId = req.user._id;
 
-        // Check if recipient exists
+        // if recipient exists
         const recipient = await User.findById(recipientId);
         if (!recipient) {
             return res.status(404).json({ message: 'Recipient not found' });
         }
 
-        // Find or create chat between users
+        // find or create chat
         let chat = await Chat.findOne({
             'participants.user': { $all: [senderId, recipientId] },
             isActive: true
@@ -29,7 +29,7 @@ exports.sendMessage = async (req, res) => {
             await chat.save();
         }
 
-        // Create new message
+        // new message
         const message = new Message({
             chat: chat._id,
             sender: senderId,
@@ -40,11 +40,10 @@ exports.sendMessage = async (req, res) => {
 
         await message.save();
 
-        // Update chat with last message
+        // update chat with last message
         chat.lastMessage = message._id;
         await chat.save();
-
-        // Populate the message for response
+        // message for response
         await message.populate('sender', 'name role email');
         await message.populate('chat');
 
@@ -71,7 +70,7 @@ exports.getChats = async (req, res) => {
         .populate('lastMessage')
         .sort({ updatedAt: -1 });
 
-        // Get unread message count for each chat
+        // unread message count for each chat
         const chatsWithUnreadCount = await Promise.all(
             chats.map(async (chat) => {
                 const unreadCount = await Message.countDocuments({
@@ -104,7 +103,7 @@ exports.getChatMessages = async (req, res) => {
         const limit = parseInt(req.query.limit) || 50;
         const skip = (page - 1) * limit;
 
-        // Check if user is participant in the chat
+        // if user is participant in the chat
         const chat = await Chat.findOne({
             _id: chatId,
             'participants.user': userId,
@@ -115,7 +114,7 @@ exports.getChatMessages = async (req, res) => {
             return res.status(404).json({ message: 'Chat not found' });
         }
 
-        // Get messages for this chat with pagination
+        // messages for this chat with pagination
         const messages = await Message.find({ chat: chatId })
             .populate('sender', 'name role email')
             .populate('readBy.user', 'name')
@@ -123,7 +122,7 @@ exports.getChatMessages = async (req, res) => {
             .skip(skip)
             .limit(limit);
 
-        // Mark messages as read for current user
+        // messages as read for current user
         await Message.updateMany(
             { 
                 chat: chatId,
@@ -157,13 +156,13 @@ exports.getChatMessages = async (req, res) => {
     }
 };
 
-// Mark messages as read
+// messages as read
 exports.markMessagesAsRead = async (req, res) => {
     try {
         const { chatId } = req.params;
         const userId = req.user._id;
 
-        // Check if user is participant in the chat
+        // if user is participant in the chat
         const chat = await Chat.findOne({
             _id: chatId,
             'participants.user': userId,
@@ -173,8 +172,7 @@ exports.markMessagesAsRead = async (req, res) => {
         if (!chat) {
             return res.status(404).json({ message: 'Chat not found' });
         }
-
-        // Mark all unread messages from other participants as read
+        // all unread messages from other participants as read
         const result = await Message.updateMany(
             { 
                 chat: chatId,
@@ -200,7 +198,6 @@ exports.markMessagesAsRead = async (req, res) => {
     }
 };
 
-// Delete chat
 exports.deleteChat = async (req, res) => {
     try {
         const { chatId } = req.params;
@@ -216,12 +213,8 @@ exports.deleteChat = async (req, res) => {
             return res.status(404).json({ message: 'Chat not found' });
         }
 
-        // Mark chat as inactive instead of deleting
         chat.isActive = false;
         await chat.save();
-
-        // Optionally, also delete all messages in this chat
-        // await Message.deleteMany({ chat: chatId });
 
         res.json({ 
             success: true,

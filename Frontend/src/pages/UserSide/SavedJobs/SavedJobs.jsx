@@ -42,7 +42,7 @@ const SavedJobs = () => {
         setError('Failed to load saved jobs');
       }
     } catch (err) {
-      console.error('Error loading saved jobs:', err);
+      console.error(err);
       setError('Failed to load saved jobs');
     } finally {
       setLoading(false);
@@ -57,7 +57,7 @@ const SavedJobs = () => {
         setSavedJobs(prev => prev.filter(savedJob => savedJob.job._id !== jobId));
       }
     } catch (err) {
-      console.error('Error unsaving job:', err);
+      console.error(err);
     }
   };
 

@@ -113,7 +113,7 @@ const CompanyDetails = () => {
         setErrors({ general: 'Failed to load organization details' });
       }
     } catch (error) {
-      console.error('Error loading organization:', error);
+      console.error(error);
       setErrors({ general: 'Failed to load organization details' });
     } finally {
       setLoading(false);
@@ -212,7 +212,7 @@ const CompanyDetails = () => {
         setTimeout(() => setShowSuccess(false), 3000);
       }
     } catch (error) {
-      console.error('Error updating organization:', error);
+      console.error(error);
       setErrors({ general: 'Failed to update organization details' });
     } finally {
       setSaving(false);
