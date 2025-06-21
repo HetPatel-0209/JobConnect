@@ -89,7 +89,6 @@ const apiService = {
      */
     post: async (url, data = {}, config = {}) => {
         try {
-            console.log(`API POST: `, data);
             const response = await api.post(url, data, config);
             return response.data;
         } catch (error) {
