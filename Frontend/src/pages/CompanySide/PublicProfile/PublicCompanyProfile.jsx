@@ -10,7 +10,6 @@ import {
   Mail,
   Phone,
   Linkedin,
-  Twitter,
   ExternalLink,
   Briefcase,
   Calendar,
@@ -22,6 +21,7 @@ import {
   Loader2,
   AlertCircle
 } from 'lucide-react';
+import { FaXTwitter } from 'react-icons/fa6';
 
 export default function PublicCompanyProfile() {
   const { companyId } = useParams();
@@ -217,7 +217,7 @@ export default function PublicCompanyProfile() {
                     rel="noopener noreferrer"
                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                   >
-                    <Twitter className="w-5 h-5" />
+                    <FaXTwitter className="w-5 h-5" />
                   </a>
                 )}
               </div>

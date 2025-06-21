@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { OrganizationService } from '../services/organization.service';
 import { useAuth } from './AuthContext';
 
@@ -35,7 +35,9 @@ export const OrganizationProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [user]);    const fetchByGST = useCallback(async (gstNumber) => {
+    }, [user]);
+
+    const fetchByGST = useCallback(async (gstNumber) => {
         setLoading(true);
         setError(null);
         try {
@@ -47,7 +49,9 @@ export const OrganizationProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, []);    const createOrganization = useCallback(async (organizationData) => {
+    }, []);
+
+    const createOrganization = useCallback(async (organizationData) => {
         setLoading(true);
         setError(null);
         try {
@@ -100,7 +104,9 @@ export const OrganizationProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [currentOrganization]);    const searchOrganizations = useCallback(async (searchQuery, options = {}) => {
+    }, [currentOrganization]);
+
+    const searchOrganizations = useCallback(async (searchQuery, options = {}) => {
         setLoading(true);
         setError(null);
         try {
@@ -113,7 +119,9 @@ export const OrganizationProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, []);    const getAllOrganizations = useCallback(async (params = {}) => {
+    }, []);
+
+    const getAllOrganizations = useCallback(async (params = {}) => {
         setLoading(true);
         setError(null);
         try {
@@ -130,7 +138,9 @@ export const OrganizationProvider = ({ children }) => {
 
     const validateGSTFormat = useCallback((gstNumber) => {
         return OrganizationService.validateGSTFormat(gstNumber);
-    }, []);    const clearError = useCallback(() => {
+    }, []);
+
+    const clearError = useCallback(() => {
         setError(null);
     }, []);
 

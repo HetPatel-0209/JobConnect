@@ -30,6 +30,10 @@ const messageSchema = new mongoose.Schema({
         seen: { type: Boolean, default: false },
         seenAt: { type: Date }
     },
+    deliveredTo: [{
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        deliveredAt: { type: Date, default: Date.now }
+    }],
     readBy: [{
         user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         readAt: { type: Date, default: Date.now }

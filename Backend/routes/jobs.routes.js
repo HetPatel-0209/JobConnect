@@ -5,6 +5,7 @@ const {
     getJobById,
     getRecruiterById,
     getCompanyById,
+    getJobsByOrganization,
     getAppliedJobs,
     getRecommendedJobs,
     getJobseekerStats,
@@ -21,10 +22,15 @@ const {
     setActiveResume,
     viewResume,
     getUserActiveResume,
+    getUserActiveResumeById,
     getRecruiterJobs,
     getRecruiterStats,
     getJobAnalytics,
-    getRecruiterAnalytics
+    getRecruiterAnalytics,
+    saveJob,
+    unsaveJob,
+    getSavedJobs,
+    checkJobSaved
 } = require('../controllers/jobs.controller');
 const { authenticate, authorizeRoles, optionalAuthenticate } = require('../middlewares/auth.middleware');
 const { jobPostValidation } = require('../middlewares/validation.middleware');
@@ -39,11 +45,13 @@ router.get('/', getAllJobs);
 router.get('/applied', authenticate, authorizeRoles('jobseeker'), getAppliedJobs);
 router.get('/recommended', authenticate, authorizeRoles('jobseeker'), getRecommendedJobs);
 router.get('/stats', authenticate, authorizeRoles('jobseeker'), getJobseekerStats);
+router.get('/saved', authenticate, authorizeRoles('jobseeker'), getSavedJobs);
 
 // Resume management routes - Jobseeker only
 router.post('/resumes/upload', authenticate, authorizeRoles('jobseeker'), uploadResumeMiddleware, handleUploadError, uploadResume);
 router.get('/resumes', authenticate, authorizeRoles('jobseeker'), getUserResumes);
 router.get('/resumes/user', authenticate, authorizeRoles('jobseeker'), getUserActiveResume);
+router.get('/resumes/user/:userId', authenticate, authorizeRoles('recruiter'), getUserActiveResumeById);
 router.get('/resumes/:resumeId/view', authenticate, viewResume);
 router.delete('/resumes/:resumeId', authenticate, authorizeRoles('jobseeker'), deleteResume);
 router.put('/resumes/:resumeId/activate', authenticate, authorizeRoles('jobseeker'), setActiveResume);
@@ -61,6 +69,7 @@ router.get('/recruiter/analytics', authenticate, authorizeRoles('recruiter'), ge
 // Company and recruiter routes - must come before /:jobId
 router.get('/company/:companyId', getCompanyById);
 router.get('/recruiter/:recruiterId', getRecruiterById);
+router.get('/organization/:organizationId', getJobsByOrganization);
 
 // Routes with parameters (must come after static routes)
 router.get('/:jobId', optionalAuthenticate, getJobById);
@@ -70,5 +79,10 @@ router.post('/:jobId/apply', authenticate, authorizeRoles('jobseeker'), applyFor
 router.put('/:jobId', authenticate, authorizeRoles('recruiter'), updateJobStatus);
 router.delete('/:jobId', authenticate, authorizeRoles('recruiter'), deleteJob);
 router.get('/:jobId/applications', authenticate, authorizeRoles('recruiter'), getAppliedCandidates);
+
+// Saved jobs routes - Jobseeker only
+router.post('/:jobId/save', authenticate, authorizeRoles('jobseeker'), saveJob);
+router.delete('/:jobId/save', authenticate, authorizeRoles('jobseeker'), unsaveJob);
+router.get('/:jobId/saved', authenticate, authorizeRoles('jobseeker'), checkJobSaved);
 
 module.exports = router;

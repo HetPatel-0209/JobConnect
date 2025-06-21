@@ -1,162 +1,67 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { ChatService } from '../../services/chat.service';
-import socketService from '../../services/socket.service';
+import { useChat } from '../../contexts/ChatContext';
 import ChatList from '../../components/chat/ChatList';
 import ChatWindow from '../../components/chat/ChatWindow';
 
 const ChatPage = () => {
-  const { user } = useAuth();
-  const [chats, setChats] = useState([]);
-  const [activeChat, setActiveChat] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth();
+  const {
+    chats,
+    activeChat,
+    messages,
+    loading,
+    error,
+    typingUsers,
+    unreadCount,
+    initialized,
+    setActiveChat,
+    fetchMessages,
+    sendMessage,
+    markChatAsRead,
+    deleteChat,
+    sendTypingStatus,
+    fetchChats
+  } = useChat();
+
   const [messagesLoading, setMessagesLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [typingUsers, setTypingUsers] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
-  // Debug logging
-  console.log('ChatPage rendered with user:', user);
-  console.log('Current chats:', chats);
-  console.log('Active chat:', activeChat);
+  // Debug logging (reduced to prevent console spam)
+  // console.log('ChatPage rendered with user:', user);
+  // console.log('Current chats:', chats);
+  // console.log('Active chat:', activeChat);
 
-  // Initialize socket connection
-  useEffect(() => {
-    if (user) {
-      const token = localStorage.getItem('token');
-      if (token) {
-        console.log('Connecting to socket with user:', user);
-        socketService.connect(token);
-      }
-    }
-
-    return () => {
-      if (activeChat) {
-        socketService.leaveChat(activeChat._id);
-      }
-    };
-  }, [user]);
-
-  // Set up socket event listeners
-  useEffect(() => {
-    const handleNewMessage = (message) => {
-      // Add message to current chat if it matches
-      if (activeChat && message.chat === activeChat._id) {
-        setMessages(prev => [...prev, message]);
-      }
-      
-      // Refresh chat list to update last message
-      fetchChats();
-    };
-
-    const handleMessageNotification = (notification) => {
-      // Update unread count
-      setUnreadCount(prev => prev + 1);
-      
-      // Refresh chat list
-      fetchChats();
-    };
-
-    const handleTypingStatus = (data) => {
-      if (activeChat && data.chatId === activeChat._id) {
-        setTypingUsers(prev => {
-          if (data.isTyping) {
-            return prev.includes(data.userId) ? prev : [...prev, data.userId];
-          } else {
-            return prev.filter(id => id !== data.userId);
-          }
-        });
-      }
-    };
-
-    const handleMessagesRead = (data) => {
-      if (activeChat && data.chatId === activeChat._id) {
-        // Update message read status
-        setMessages(prev => prev.map(msg => {
-          if (!data.messageIds || data.messageIds.includes(msg._id)) {
-            return {
-              ...msg,
-              readBy: [...(msg.readBy || []), { user: data.userId, readAt: new Date() }]
-            };
-          }
-          return msg;
-        }));
-      }
-    };
-
-    // Register event listeners
-    socketService.on('receive_message', handleNewMessage);
-    socketService.on('new_message_notification', handleMessageNotification);
-    socketService.on('typing_status', handleTypingStatus);
-    socketService.on('messages_read', handleMessagesRead);
-
-    return () => {
-      socketService.off('receive_message', handleNewMessage);
-      socketService.off('new_message_notification', handleMessageNotification);
-      socketService.off('typing_status', handleTypingStatus);
-      socketService.off('messages_read', handleMessagesRead);
-    };
-  }, [activeChat]);
-
-  // Fetch chats on component mount
-  useEffect(() => {
-    fetchChats();
-    fetchChatStats();
-  }, []);
-
-  // Join chat room when active chat changes
+  // Fetch messages when active chat changes
   useEffect(() => {
     if (activeChat) {
-      socketService.joinChat(activeChat._id);
-      fetchMessages(activeChat._id);
-      
-      // Clear typing users when switching chats
-      setTypingUsers([]);
+      setMessagesLoading(true);
+      fetchMessages(activeChat._id).finally(() => {
+        setMessagesLoading(false);
+      });
     }
+  }, [activeChat]); // Removed fetchMessages from dependencies to prevent infinite loop  // Simple backup mechanism for ChatPage
+  useEffect(() => {
+    if (user && !authLoading && initialized && chats.length === 0 && !loading) {
+      console.log('ChatPage: User ready but no chats, triggering fetch');
+      const timer = setTimeout(() => {
+        fetchChats(true);
+      }, 3000); // Increased delay to prevent rapid firing
 
-    return () => {
-      if (activeChat) {
-        socketService.leaveChat(activeChat._id);
-      }
-    };
-  }, [activeChat]);
-
-  const fetchChats = async () => {
-    try {
-      console.log('Fetching chats...');
-      const response = await ChatService.getChats();
-      console.log('Chats response:', response);
-      setChats(response.data || []);
-    } catch (err) {
-      console.error('Error fetching chats:', err);
-      setError('Failed to load chats');
-    } finally {
-      setLoading(false);
+      return () => clearTimeout(timer);
     }
-  };
+  }, [user, authLoading, initialized]); // Removed chats.length and loading to prevent infinite loop// Handle page reload recovery (run only when user/auth state changes)
+  useEffect(() => {
+    if (user && !authLoading && !initialized) {
+      console.log('ChatPage: Ensuring chat functionality after potential page reload');
+      // Small delay to allow context to initialize
+      const timer = setTimeout(() => {
+        console.log('ChatPage: Context not initialized, triggering initialization');
+        fetchChats(true);
+      }, 500);
 
-  const fetchMessages = async (chatId) => {
-    setMessagesLoading(true);
-    try {
-      const response = await ChatService.getChatMessages(chatId);
-      setMessages(response.data?.messages || []);
-    } catch (err) {
-      console.error('Error fetching messages:', err);
-      setError('Failed to load messages');
-    } finally {
-      setMessagesLoading(false);
+      return () => clearTimeout(timer);
     }
-  };
-
-  const fetchChatStats = async () => {
-    try {
-      const response = await ChatService.getChatStats();
-      setUnreadCount(response.data?.totalUnreadMessages || 0);
-    } catch (err) {
-      console.error('Error fetching chat stats:', err);
-    }
-  };
+  }, [user, authLoading, initialized]); // Removed fetchChats from dependencies to prevent infinite loop
 
   const handleChatSelect = (chat) => {
     setActiveChat(chat);
@@ -164,59 +69,60 @@ const ChatPage = () => {
 
   const handleSendMessage = async (recipientId, content) => {
     try {
-      // Send via socket for real-time delivery
-      if (activeChat) {
-        socketService.sendMessage(activeChat._id, content);
-      }
+      await sendMessage(recipientId, content);
     } catch (err) {
       console.error('Error sending message:', err);
-      setError('Failed to send message');
     }
   };
 
   const handleMarkAsRead = async (chatId) => {
     try {
-      await ChatService.markChatAsRead(chatId);
-      socketService.markMessagesAsRead(chatId);
-      
-      // Update local unread count
-      const chat = chats.find(c => c._id === chatId);
-      if (chat && chat.unreadCount) {
-        setUnreadCount(prev => Math.max(0, prev - chat.unreadCount));
-      }
-      
-      // Refresh chats to update unread counts
-      fetchChats();
+      await markChatAsRead(chatId);
     } catch (err) {
       console.error('Error marking messages as read:', err);
     }
   };
 
   const handleTyping = (chatId, isTyping) => {
-    socketService.sendTypingStatus(chatId, isTyping);
+    sendTypingStatus(chatId, isTyping);
   };
 
   const handleDeleteChat = async (chatId) => {
     if (window.confirm('Are you sure you want to delete this conversation?')) {
       try {
-        await ChatService.deleteChat(chatId);
-        setChats(prev => prev.filter(chat => chat._id !== chatId));
-        
-        if (activeChat && activeChat._id === chatId) {
-          setActiveChat(null);
-          setMessages([]);
-        }
+        await deleteChat(chatId);
       } catch (err) {
         console.error('Error deleting chat:', err);
-        setError('Failed to delete chat');
       }
     }
   };
 
-  if (loading) {
+  // Add a manual refresh button for debugging
+  const handleRefreshChats = () => {
+    console.log('Manual refresh triggered');
+    fetchChats(true); // Force refresh
+  };
+
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-600">
+            {authLoading ? 'Loading authentication...' : 'Loading chats...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
+          <p className="text-gray-600">Please log in to access the chat.</p>
+        </div>
       </div>
     );
   }
@@ -226,15 +132,37 @@ const ChatPage = () => {
       {/* Chat List Sidebar */}
       <div className="w-1/3 border-r border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
+            <button
+              onClick={handleRefreshChats}
+              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Refresh
+            </button>
+          </div>
           {unreadCount > 0 && (
             <p className="text-sm text-gray-600 mt-1">
               {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
             </p>
           )}
+          <p className="text-xs text-gray-500 mt-1">
+            Chats: {chats.length} | User: {user?.name || 'None'} | Auth: {authLoading ? 'Loading' : 'Ready'} | Init: {initialized ? 'Yes' : 'No'}
+          </p>
         </div>
         
         <div className="flex-1 overflow-y-auto">
+          {chats.length === 0 && !loading && (
+            <div className="p-4 text-center">
+              <p className="text-gray-500 mb-4">No chats found</p>
+              <button
+                onClick={handleRefreshChats}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Load Chats
+              </button>
+            </div>
+          )}
           <ChatList
             chats={chats}
             activeChat={activeChat}
@@ -254,10 +182,10 @@ const ChatPage = () => {
               <div className="ml-3">
                 <p className="text-sm text-red-700">{error}</p>
                 <button
-                  onClick={() => setError(null)}
+                  onClick={() => window.location.reload()}
                   className="mt-2 text-sm text-red-600 hover:text-red-500"
                 >
-                  Dismiss
+                  Reload Page
                 </button>
               </div>
             </div>

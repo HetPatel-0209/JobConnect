@@ -26,11 +26,11 @@ const userSchema = new mongoose.Schema({
     profilePic: String,
     profilePicPublicId: String, // Cloudinary public ID for profile picture
     location: String,
-
     isActive: { type: Boolean, default: true },
     profileCompleted: { type: Boolean, default: false },
     lastLogin: Date,
     lastSeen: { type: Date, default: Date.now },
+    isOnline: { type: Boolean, default: false },
 
     // Password reset fields
     resetPasswordToken: String,
@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Add error handling for duplicate key errors
-userSchema.post('save', function(error, doc, next) {
+userSchema.post('save', function (error, doc, next) {
     if (error.name === 'MongoServerError' && error.code === 11000) {
         const err = new Error('Email address already exists');
         err.statusCode = 400;

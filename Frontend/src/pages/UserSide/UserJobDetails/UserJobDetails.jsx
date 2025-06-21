@@ -21,7 +21,9 @@ import {
   UserCircle,
   Briefcase,
   BookOpen,
-  Target
+  Target,
+  Bookmark,
+  BookmarkCheck
 } from 'lucide-react';
 import ChatButton from '../../../components/chat/ChatButton';
 
@@ -40,6 +42,14 @@ export default function UserJobDetails() {
         setLoading(true);
         const response = await JobService.getJobById(id);
         setJob(response.job);
+
+        // Check if job is saved
+        try {
+          const savedResponse = await JobService.checkJobSaved(id);
+          setIsSaved(savedResponse.isSaved);
+        } catch (err) {
+          console.error('Error checking saved status:', err);
+        }
       } catch (err) {
         console.error('Error fetching job details:', err);
         setError(err.message || 'Failed to fetch job details');
@@ -56,13 +66,20 @@ export default function UserJobDetails() {
   const handleSaveJob = async () => {
     try {
       setSaving(true);
-      // TODO: Implement save job functionality
-      // await JobService.saveJob(job._id);
-      setIsSaved(true);
-      console.log('Job saved successfully');
+      if (isSaved) {
+        // Unsave the job
+        await JobService.unsaveJob(job._id);
+        setIsSaved(false);
+        console.log('Job removed from saved jobs');
+      } else {
+        // Save the job
+        await JobService.saveJob(job._id);
+        setIsSaved(true);
+        console.log('Job saved successfully');
+      }
     } catch (error) {
-      console.error('Error saving job:', error);
-      alert('Failed to save job. Please try again.');
+      console.error('Error saving/unsaving job:', error);
+      alert(`Failed to ${isSaved ? 'remove' : 'save'} job. Please try again.`);
     } finally {
       setSaving(false);
     }
@@ -245,13 +262,20 @@ export default function UserJobDetails() {
                 <button
                   onClick={handleSaveJob}
                   disabled={saving}
-                  className={`px-8 py-3 border font-medium rounded-lg transition-colors duration-200 ${
+                  className={`inline-flex items-center gap-2 px-8 py-3 border font-medium rounded-lg transition-colors duration-200 ${
                     isSaved
-                      ? 'border-green-300 bg-green-50 text-green-700'
+                      ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
                       : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                   } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  {saving ? 'Saving...' : isSaved ? 'Saved ✓' : 'Save Job'}
+                  {saving ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : isSaved ? (
+                    <BookmarkCheck className="w-4 h-4" />
+                  ) : (
+                    <Bookmark className="w-4 h-4" />
+                  )}
+                  {saving ? 'Saving...' : isSaved ? 'Saved' : 'Save Job'}
                 </button>
               </div>
             </div>

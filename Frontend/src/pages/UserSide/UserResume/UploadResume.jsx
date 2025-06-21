@@ -8,6 +8,7 @@ import {
   Download
 } from 'lucide-react';
 import { ResumeService } from '../../../services/resume.service';
+import { useNavigate } from 'react-router-dom';
 
 const UploadResume = ({ onClose, onSuccess }) => {
   const [fileName, setFileName] = useState(''); const [error, setError] = useState('');
@@ -16,6 +17,8 @@ const UploadResume = ({ onClose, onSuccess }) => {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadResponse, setUploadResponse] = useState(null);
+  const navigate = useNavigate();
+
   const validateFile = (file) => {
     if (!file) return false;
 
@@ -71,14 +74,14 @@ const UploadResume = ({ onClose, onSuccess }) => {
   const handleDragLeave = (event) => {
     event.preventDefault();
     setIsDragging(false);
-  };  const handleUpload = async () => {
+  }; const handleUpload = async () => {
     if (!selectedFile) {
       setError('Please select a file first');
       return;
     }
 
     setIsUploading(true);
-    setError('');    try {
+    setError(''); try {
       const response = await ResumeService.uploadResume(selectedFile);
       setIsUploading(false);
       setUploadSuccess(true);
@@ -107,7 +110,7 @@ const UploadResume = ({ onClose, onSuccess }) => {
       setIsUploading(false);
       setError(error.response?.data?.message || 'Failed to upload resume. Please try again.');
     }
-  };  const resetUpload = () => {
+  }; const resetUpload = () => {
     setFileName('');
     setSelectedFile(null);
     setError('');
@@ -124,8 +127,8 @@ const UploadResume = ({ onClose, onSuccess }) => {
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>          <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Successful!</h2>
           <p className="text-gray-600 mb-6">
-            {uploadResponse?.previousResumeDeleted 
-              ? 'Your resume has been uploaded successfully and your previous resume has been replaced.' 
+            {uploadResponse?.previousResumeDeleted
+              ? 'Your resume has been uploaded successfully and your previous resume has been replaced.'
               : 'Your resume has been uploaded successfully.'}
           </p>
 
@@ -160,14 +163,12 @@ const UploadResume = ({ onClose, onSuccess }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-8 relative">
         {/* Close Button */}
-        <a href="/user/job-dashboard">
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </a>
+        <button
+          onClick={() => navigate(-1)}
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors duration-200"
+        >
+          <X className="w-5 h-5" />
+        </button>
 
         {/* Header */}
         <div className="text-center mb-8">
@@ -265,7 +266,7 @@ const UploadResume = ({ onClose, onSuccess }) => {
             <div className="flex gap-3">
               <a href="/user/job-dashboard">
                 <button
-                  onClick={onClose}
+                  onClick={() => navigate(-1)}
                   className="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
                 >
                   Skip for now

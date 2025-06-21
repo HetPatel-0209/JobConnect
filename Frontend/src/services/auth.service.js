@@ -37,13 +37,7 @@ export const AuthService = {
         }
     },
 
-    /**
-     * Logout the current user
-     */
-    logout: () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-    },
+
 
     /**
      * Get the current user from localStorage

@@ -260,7 +260,7 @@ exports.getAllOrganizations = async (req, res) => {
         const skip = (page - 1) * limit;
         
         const organizations = await Organization.find(query)
-            .select('gstin name companySize contact.address.city contact.address.state createdAt')
+            .select('gstin name companySize contact.address.city contact.address.state createdAt logo')
             .sort('-createdAt')
             .skip(skip)
             .limit(Number(limit));

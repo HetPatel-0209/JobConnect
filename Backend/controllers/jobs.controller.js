@@ -6,7 +6,10 @@ const Recruiter = require('../models/Recruiter');
 const Application = require('../models/Application');
 const Resume = require('../models/Resume');
 const Organization = require('../models/Organizations');
+const SavedJob = require('../models/SavedJob');
+const { Chat, Message } = require('../models/Chat');
 const { parseResumeFromBuffer, calculateAIATSScore, calculateBasicATSScore, compressPDF, generateRandomFilename } = require('../utils/aiResumeParser');
+const { sendInterviewEmail, sendHiredEmail } = require('../utils/emailService');
 const cloudinary = require('cloudinary');
 const fs = require('fs').promises;
 const path = require('path');
@@ -378,6 +381,22 @@ exports.getAppliedCandidates = async (req, res) => {
             .populate('job', 'title')
             .sort('-appliedAt');
 
+        // Get resume data for each applicant
+        const Resume = require('../models/Resume');
+        const applicationsWithResumes = await Promise.all(
+            applications.map(async (application) => {
+                const resume = await Resume.findOne({
+                    user: application.applicant._id,
+                    isActive: true
+                }).select('cloudinarySecureUrl downloadUrl filename mimeType fileSize');
+
+                return {
+                    ...application.toObject(),
+                    resume: resume
+                };
+            })
+        );
+
         res.json({
             success: true,
             message: 'Applicants retrieved successfully',
@@ -387,8 +406,8 @@ exports.getAppliedCandidates = async (req, res) => {
                     title: job.title,
                     organization: job.organization
                 },
-                applications,
-                total: applications.length
+                applications: applicationsWithResumes,
+                total: applicationsWithResumes.length
             }
         });
     } catch (error) {
@@ -497,23 +516,43 @@ exports.updateJobStatus = async (req, res) => {
     try {
         const { jobId } = req.params;
         const updates = req.body;
+
+        console.log('PUT /jobs/:jobId request received');
+        console.log('Job ID:', jobId);
+        console.log('Updates:', updates);
+        console.log('User:', req.user ? { id: req.user._id, role: req.user.role } : 'No user');
+
         const job = await JobPost.findOne({
             _id: jobId,
             recruiter: req.user._id
         });
 
         if (!job) {
-            return res.status(404).json({ message: 'Job not found' });
+            console.log('Job not found or not owned by recruiter');
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found or you are not authorized to update this job'
+            });
         }
 
         Object.keys(updates).forEach(key => {
             job[key] = updates[key];
         });
-        
+
         await job.save();
-        res.json(job);
+
+        console.log('Job updated successfully:', job._id);
+        res.json({
+            success: true,
+            message: 'Job updated successfully',
+            data: job
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Error updating job:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 };
 
@@ -726,19 +765,19 @@ exports.getUserResumes = async (req, res) => {
 // Get user's active resume
 exports.getUserActiveResume = async (req, res) => {
     try {
-        const activeResume = await Resume.findOne({ 
-            user: req.user._id, 
-            isActive: true 
+        const activeResume = await Resume.findOne({
+            user: req.user._id,
+            isActive: true
         }).select('-parsedText -__v');
-        
+
         if (!activeResume) {
-            return res.status(200).json({ 
+            return res.status(200).json({
                 message: 'No active resume found',
                 activeResume: null,
                 hasActiveResume: false
             });
         }
-        
+
         res.json({
             message: 'Active resume found',
             activeResume: activeResume,
@@ -747,6 +786,47 @@ exports.getUserActiveResume = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// Get user's active resume by user ID (for recruiters)
+exports.getUserActiveResumeById = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Only recruiters can access other users' resumes
+        if (req.user.role !== 'recruiter') {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to access user resumes'
+            });
+        }
+
+        const activeResume = await Resume.findOne({
+            user: userId,
+            isActive: true
+        }).select('cloudinarySecureUrl downloadUrl filename mimeType fileSize uploadedAt');
+
+        if (!activeResume) {
+            return res.status(200).json({
+                success: true,
+                message: 'No active resume found',
+                resume: null,
+                hasResume: false
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Resume found',
+            resume: activeResume,
+            hasResume: true
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 };
 
@@ -881,11 +961,21 @@ exports.getJobseekerStats = async (req, res) => {
         });
           // Check if user has active resume
         const hasActiveResume = await Resume.exists({ user: userId, isActive: true });
-        
-        // For now, we'll use placeholder values for savedJobs and unreadMessages
-        // These can be implemented when we add saved jobs and messaging features
-        const savedJobs = 0; // TODO: Implement saved jobs functionality
-        const unreadMessages = 0; // TODO: Implement messaging functionality
+
+        // Get saved jobs count
+        const savedJobs = await SavedJob.countDocuments({ user: userId });
+
+        // Get unread messages count
+        const userChats = await Chat.find({
+            'participants.user': userId,
+            isActive: true
+        }).distinct('_id');
+
+        const unreadMessages = await Message.countDocuments({
+            chat: { $in: userChats },
+            sender: { $ne: userId },
+            'readBy.user': { $ne: userId }
+        });
         
         res.json({
             appliedJobs: totalApplications,
@@ -1004,29 +1094,74 @@ exports.updateApplicationStatus = async (req, res) => {
         }
         
         const application = await Application.findById(applicationId)
-            .populate('job')
+            .populate({
+                path: 'job',
+                populate: {
+                    path: 'organization',
+                    select: 'name'
+                }
+            })
             .populate('applicant');
-            
+
         if (!application) {
             return res.status(404).json({
                 success: false,
                 message: 'Application not found'
             });
         }
-        
+
         // Check if user is the recruiter of the job or the applicant (for testing)
         const isRecruiter = application.job.recruiter.toString() === req.user._id.toString();
         const isApplicant = application.applicant._id.toString() === req.user._id.toString();
-        
+
         if (!isRecruiter && !isApplicant) {
             return res.status(403).json({
                 success: false,
                 message: 'Unauthorized to update this application'
             });
         }
-        
+
+        // Store old status to check if it changed
+        const oldStatus = application.status;
+
         application.status = status;
         await application.save();
+
+        // Send email notifications for status changes (only if recruiter is updating)
+        if (isRecruiter && oldStatus !== status) {
+            const applicantEmail = application.applicant.email;
+            const applicantName = application.applicant.name;
+            const jobTitle = application.job.title;
+            const companyName = application.job.organization?.name || 'Company';
+
+            if (status === 'interview') {
+                // Send interview notification email
+                sendInterviewEmail(applicantEmail, applicantName, jobTitle, companyName)
+                    .then(result => {
+                        if (result.success) {
+                            console.log(`Interview email sent to ${applicantEmail} for job: ${jobTitle}`);
+                        } else {
+                            console.error(`Failed to send interview email to ${applicantEmail}:`, result.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`Error sending interview email to ${applicantEmail}:`, error);
+                    });
+            } else if (status === 'hired') {
+                // Send hired notification email
+                sendHiredEmail(applicantEmail, applicantName, jobTitle, companyName)
+                    .then(result => {
+                        if (result.success) {
+                            console.log(`Hired email sent to ${applicantEmail} for job: ${jobTitle}`);
+                        } else {
+                            console.error(`Failed to send hired email to ${applicantEmail}:`, result.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`Error sending hired email to ${applicantEmail}:`, error);
+                    });
+            }
+        }
         
         res.json({
             success: true,
@@ -1113,6 +1248,56 @@ exports.getCompanyById = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// Get jobs by organization ID
+exports.getJobsByOrganization = async (req, res) => {
+    try {
+        const { organizationId } = req.params;
+        const { page = 1, limit = 10, status = 'active' } = req.query;
+
+        // Validate ObjectId format
+        if (!organizationId.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid organization ID format'
+            });
+        }
+
+        // Build query
+        const query = { organization: organizationId };
+        if (status) {
+            query.status = status;
+        }
+
+        const skip = (page - 1) * limit;
+
+        const jobs = await JobPost.find(query)
+            .populate('recruiter', 'name email')
+            .populate('organization', 'name logo location')
+            .sort('-createdAt')
+            .skip(skip)
+            .limit(Number(limit));
+
+        const total = await JobPost.countDocuments(query);
+
+        res.json({
+            success: true,
+            data: jobs,
+            pagination: {
+                currentPage: Number(page),
+                totalPages: Math.ceil(total / limit),
+                totalJobs: total,
+                hasNext: page * limit < total,
+                hasPrev: page > 1
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 };
 
@@ -1522,6 +1707,142 @@ exports.getRecruiterAnalytics = async (req, res) => {
         });
     } catch (error) {
         console.error('Error getting recruiter analytics:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Save a job for later
+exports.saveJob = async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        const userId = req.user._id;
+
+        // Check if job exists
+        const job = await JobPost.findById(jobId);
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found'
+            });
+        }
+
+        // Check if job is already saved
+        const existingSavedJob = await SavedJob.findOne({ user: userId, job: jobId });
+        if (existingSavedJob) {
+            return res.status(400).json({
+                success: false,
+                message: 'Job is already saved'
+            });
+        }
+
+        // Save the job
+        const savedJob = new SavedJob({
+            user: userId,
+            job: jobId
+        });
+
+        await savedJob.save();
+
+        res.status(201).json({
+            success: true,
+            message: 'Job saved successfully',
+            data: savedJob
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Remove a saved job
+exports.unsaveJob = async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        const userId = req.user._id;
+
+        const savedJob = await SavedJob.findOneAndDelete({ user: userId, job: jobId });
+
+        if (!savedJob) {
+            return res.status(404).json({
+                success: false,
+                message: 'Saved job not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Job removed from saved jobs'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Get all saved jobs for a user
+exports.getSavedJobs = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { page = 1, limit = 10 } = req.query;
+        const skip = (page - 1) * limit;
+
+        const savedJobs = await SavedJob.find({ user: userId })
+            .populate({
+                path: 'job',
+                populate: {
+                    path: 'organization',
+                    select: 'name logo location'
+                }
+            })
+            .sort({ savedAt: -1 })
+            .skip(skip)
+            .limit(Number(limit));
+
+        const total = await SavedJob.countDocuments({ user: userId });
+
+        // Filter out any saved jobs where the job has been deleted
+        const validSavedJobs = savedJobs.filter(savedJob => savedJob.job);
+
+        res.json({
+            success: true,
+            data: {
+                savedJobs: validSavedJobs,
+                pagination: {
+                    page: Number(page),
+                    limit: Number(limit),
+                    total,
+                    pages: Math.ceil(total / limit)
+                }
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Check if a job is saved by the user
+exports.checkJobSaved = async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        const userId = req.user._id;
+
+        const savedJob = await SavedJob.findOne({ user: userId, job: jobId });
+
+        res.json({
+            success: true,
+            isSaved: !!savedJob
+        });
+    } catch (error) {
         res.status(500).json({
             success: false,
             message: error.message

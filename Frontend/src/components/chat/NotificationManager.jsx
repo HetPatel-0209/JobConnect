@@ -1,24 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { useChat } from '../../contexts/ChatContext';
 import NotificationToast from './NotificationToast';
+import socketService from '../../services/socket.service';
 
 const NotificationManager = () => {
   const [notifications, setNotifications] = useState([]);
-  const { } = useChat();
+  const { user } = useChat();
 
   useEffect(() => {
     // Request notification permission on mount
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-  }, []);
+
+    // Listen for new message notifications
+    const handleNewMessageNotification = (notification) => {
+      // Only show notification if it's not from the current user
+      if (notification.message && notification.message.sender._id !== user?.id && notification.message.sender._id !== user?._id) {
+        addNotification(notification);
+      }
+    };
+
+    socketService.on('new_message_notification', handleNewMessageNotification);
+
+    return () => {
+      socketService.off('new_message_notification', handleNewMessageNotification);
+    };
+  }, [user]);
 
   const addNotification = (notification) => {
     const id = Date.now() + Math.random();
     const newNotification = { ...notification, id };
-    
+
     setNotifications(prev => [...prev, newNotification]);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
       removeNotification(id);

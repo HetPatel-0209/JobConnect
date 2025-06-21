@@ -16,10 +16,10 @@ import {
   Mail,
   Phone,
   Linkedin,
-  Twitter,
   Instagram
 } from 'lucide-react';
 import { JobService } from '../../../services/job.service';
+import { FaXTwitter } from 'react-icons/fa6';
 
 export default function CompanyDetails() {
   const { id } = useParams();
@@ -331,8 +331,8 @@ export default function CompanyDetails() {
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 p-3 bg-sky-50 rounded-lg hover:bg-sky-100 transition-colors"
                     >
-                      <Twitter className="w-5 h-5 text-sky-600" />
-                      <span className="text-sky-700 font-medium">Twitter</span>
+                      <FaXTwitter className="w-5 h-5 text-sky-600" />
+                      <span className="text-sky-700 font-medium">X</span>
                       <ExternalLink className="w-4 h-4 text-sky-600 ml-auto" />
                     </a>
                   )}

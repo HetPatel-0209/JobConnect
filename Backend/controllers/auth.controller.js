@@ -8,6 +8,7 @@ const JobSeekerProfile = require('../models/JobSeeker');
 const Organization = require('../models/Organizations');
 const Recruiter = require('../models/Recruiter');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinaryService');
+const { sendWelcomeEmail } = require('../utils/emailService');
 
 // Register new user
 exports.register = async (req, res) => {
@@ -62,6 +63,19 @@ exports.register = async (req, res) => {
                 process.env.JWT_SECRET,
                 { expiresIn: '24h' }
             );
+
+            // Send welcome email (don't wait for it to complete)
+            sendWelcomeEmail(user.email, user.name, user.role)
+                .then(result => {
+                    if (result.success) {
+                        console.log(`Welcome email sent to ${user.email}`);
+                    } else {
+                        console.error(`Failed to send welcome email to ${user.email}:`, result.message);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error sending welcome email to ${user.email}:`, error);
+                });
 
             res.status(201).json({
                 token,

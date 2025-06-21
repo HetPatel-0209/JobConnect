@@ -9,7 +9,6 @@ import {
   Eye,
   Calendar,
   Star,
-  Download,
   Loader2,
   AlertCircle
 } from 'lucide-react';
@@ -112,10 +111,6 @@ export default function JobAnalytics() {
               }`}>
                 {analytics?.job?.status?.charAt(0).toUpperCase() + analytics?.job?.status?.slice(1)}
               </span>
-              <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                <Download className="w-4 h-4" />
-                Export Report
-              </button>
             </div>
           </div>
         </div>

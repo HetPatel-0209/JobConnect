@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { JobService } from '../../../services/job.service';
 import { OrganizationService } from '../../../services/organization.service';
@@ -24,6 +24,7 @@ import {
 const Postjob = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [customSkill, setCustomSkill] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,6 +32,12 @@ const Postjob = () => {
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
   const [organization, setOrganization] = useState(null);
+
+  // Edit mode detection
+  const editJobId = searchParams.get('edit');
+  const isEditMode = !!editJobId;
+
+  console.log('PostJob component loaded:', { editJobId, isEditMode, searchParams: Object.fromEntries(searchParams) });
   const [formData, setFormData] = useState({
     title: '',
     location: '',
@@ -67,6 +74,15 @@ const Postjob = () => {
     loadOrganization();
   }, [user]);
 
+  useEffect(() => {
+    if (isEditMode && editJobId) {
+      console.log('Edit mode detected, loading job...', { isEditMode, editJobId, organization });
+      loadJobForEdit();
+    } else {
+      console.log('Not in edit mode or no job ID:', { isEditMode, editJobId });
+    }
+  }, [isEditMode, editJobId]);
+
   const loadOrganization = async () => {
     const organizationId = user?.recruiterProfile?.organizationId?._id || user?.recruiterProfile?.organizationId || user?.organizationId;
     if (!organizationId) {
@@ -85,6 +101,88 @@ const Postjob = () => {
     } catch (err) {
       console.error('Error loading organization:', err);
       setErrors({ organization: 'Failed to load organization details' });
+    } finally {
+      if (!isEditMode) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const loadJobForEdit = async () => {
+    try {
+      setLoading(true);
+      console.log('Loading job for edit, jobId:', editJobId);
+      const response = await JobService.getJobById(editJobId);
+      console.log('Job API response:', response);
+
+      // Handle different response formats
+      const job = response.job || response.data || response;
+      console.log('Job data received:', job);
+
+      if (job && job._id) {
+
+        // Transform job data to match form structure
+        const experienceLevelMapping = {
+          0: 'entry',    // 0-2 years
+          2: 'mid',      // 2-5 years
+          5: 'senior',   // 5-10 years
+          10: 'lead'     // 10+ years
+        };
+
+        // Find experience level based on min experience
+        let experienceLevel = 'entry';
+        if (job.requirements?.experience?.min >= 10) {
+          experienceLevel = 'lead';
+        } else if (job.requirements?.experience?.min >= 5) {
+          experienceLevel = 'senior';
+        } else if (job.requirements?.experience?.min >= 2) {
+          experienceLevel = 'mid';
+        }
+
+        const jobSkills = job.requirements?.skills?.required || [];
+
+        setFormData({
+          title: job.title || '',
+          location: job.location || '',
+          jobType: job.jobType || '',
+          workMode: job.workMode || '',
+          experienceLevel: experienceLevel,
+          salary: {
+            min: job.salary?.min?.toString() || '',
+            max: job.salary?.max?.toString() || '',
+            currency: 'INR'
+          },
+          description: job.description || '',
+          requirements: job.requirements?.education || [],
+          skills: jobSkills,
+          benefits: [],
+          applicationDeadline: job.applicationDeadline ?
+            new Date(job.applicationDeadline).toISOString().split('T')[0] : '',
+          status: job.status || 'draft',
+          atsCriteria: job.atsCriteria || {
+            minimumScore: 60,
+            keywordWeights: {
+              skills: 40,
+              experience: 30,
+              education: 20,
+              keywords: 10
+            },
+            requiredKeywords: [],
+            preferredKeywords: [],
+            experienceWeight: 1,
+            educationRequired: false
+          }
+        });
+
+        // Set selected skills for the skills component
+        setSelectedSkills(jobSkills);
+      } else {
+        console.error('No job data in response:', response);
+        setErrors({ submit: 'Job not found or invalid job ID' });
+      }
+    } catch (err) {
+      console.error('Error loading job for edit:', err);
+      setErrors({ submit: `Failed to load job details for editing: ${err.message}` });
     } finally {
       setLoading(false);
     }
@@ -235,23 +333,30 @@ const Postjob = () => {
         atsCriteria: formData.atsCriteria
       };
 
-      // Create job using API
-      const response = await JobService.postJob(jobData);
+      // Create or update job using API
+      const response = isEditMode
+        ? await JobService.updateJob(editJobId, jobData)
+        : await JobService.postJob(jobData);
 
-      if (response.success) {
+      console.log('Job submission response:', response);
+
+      // Handle different response formats
+      const isSuccess = response.success !== undefined ? response.success : !!response.data || !!response._id;
+
+      if (isSuccess) {
         setSubmitSuccess(true);
 
         // Navigate after showing success message
         setTimeout(() => {
-          navigate('/dashboard');
+          navigate(isEditMode ? `/job/${editJobId}` : '/dashboard');
         }, 2000);
       } else {
-        setErrors({ submit: response.message || 'Failed to post job' });
+        setErrors({ submit: response.message || `Failed to ${isEditMode ? 'update' : 'post'} job` });
       }
 
     } catch (err) {
-      console.error('Error posting job:', err);
-      setErrors({ submit: err.message || 'Something went wrong while posting the job. Please try again.' });
+      console.error(`Error ${isEditMode ? 'updating' : 'posting'} job:`, err);
+      setErrors({ submit: err.message || `Something went wrong while ${isEditMode ? 'updating' : 'posting'} the job. Please try again.` });
     } finally {
       setIsSubmitting(false);
     }
@@ -300,17 +405,29 @@ const Postjob = () => {
               <Briefcase className="w-8 h-8 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Post a New Job</h1>
-              <p className="text-gray-600 mt-1">Create an opportunity for talented professionals to join your team</p>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {isEditMode ? 'Edit Job' : 'Post a New Job'}
+              </h1>
+              <p className="text-gray-600 mt-1">
+                {isEditMode
+                  ? 'Update job details and requirements for your posting'
+                  : 'Create an opportunity for talented professionals to join your team'
+                }
+              </p>
             </div>
           </div>
 
-          {/* Success Message */}          {submitSuccess && (
+          {/* Success Message */}
+          {submitSuccess && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-green-600" />
               <div>
-                <p className="text-green-800 font-medium">Job posted successfully!</p>
-                <p className="text-green-600 text-sm">Redirecting to dashboard...</p>
+                <p className="text-green-800 font-medium">
+                  {isEditMode ? 'Job updated successfully!' : 'Job posted successfully!'}
+                </p>
+                <p className="text-green-600 text-sm">
+                  {isEditMode ? 'Redirecting to job details...' : 'Redirecting to dashboard...'}
+                </p>
               </div>
             </div>
           )}
@@ -762,7 +879,7 @@ const Postjob = () => {
             <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
               <button
                 type="button"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate(isEditMode ? `/job/${editJobId}` : '/dashboard')}
                 className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 font-medium"
                 disabled={isSubmitting}
               >
@@ -778,16 +895,17 @@ const Postjob = () => {
                 {isSubmitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Posting Job...
-                  </>                ) : submitSuccess ? (
+                    {isEditMode ? 'Updating Job...' : 'Posting Job...'}
+                  </>
+                ) : submitSuccess ? (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    Posted Successfully!
+                    {isEditMode ? 'Updated Successfully!' : 'Posted Successfully!'}
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    Post Job
+                    {isEditMode ? 'Update Job' : 'Post Job'}
                   </>
                 )}
               </button>

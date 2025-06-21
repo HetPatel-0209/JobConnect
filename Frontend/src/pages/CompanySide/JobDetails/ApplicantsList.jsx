@@ -34,6 +34,7 @@ export default function ApplicantsList() {
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [exportingCSV, setExportingCSV] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -128,6 +129,28 @@ export default function ApplicantsList() {
     });
   };
 
+  const handleViewResume = (resume) => {
+    if (resume?.cloudinarySecureUrl) {
+      window.open(resume.cloudinarySecureUrl, '_blank');
+    } else {
+      console.error('Resume view URL not available');
+    }
+  };
+
+  const handleDownloadResume = (resume) => {
+    if (resume?.downloadUrl) {
+      // Create a temporary link to trigger download
+      const link = document.createElement('a');
+      link.href = resume.downloadUrl;
+      link.download = resume.filename || 'resume.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      console.error('Resume download URL not available');
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'applied': return 'bg-blue-100 text-blue-800';
@@ -181,6 +204,102 @@ export default function ApplicantsList() {
         return [];
     }
   };
+
+  const exportToCSV = async () => {
+    if (exportingCSV) return; // Prevent multiple simultaneous exports
+
+    setExportingCSV(true);
+    setError(null);
+
+    try {
+      // Add a small delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // Define CSV headers
+      const headers = [
+        'Name',
+        'Email',
+        'Phone',
+        'Location',
+        'Status',
+        'ATS Score (%)',
+        'Applied Date',
+        'Skills',
+        'Resume Available',
+        'Resume Filename',
+        'Experience Level',
+        'Education',
+        'Current Company',
+        'LinkedIn Profile',
+        'Portfolio URL'
+      ];
+
+      // Convert applicants data to CSV format
+      const csvData = filteredApplicants.map(application => {
+        const applicantData = application.applicant || application;
+        const profile = applicantData.profile || {};
+
+        return [
+          applicantData.name || 'N/A',
+          applicantData.email || 'N/A',
+          applicantData.phone || 'N/A',
+          applicantData.location || 'N/A',
+          application.status ? application.status.charAt(0).toUpperCase() + application.status.slice(1) : 'N/A',
+          application.atsScore ? `${application.atsScore}%` : 'N/A',
+          formatDate(application.appliedAt),
+          applicantData.skills ? applicantData.skills.join('; ') : 'N/A',
+          application.resume ? 'Yes' : 'No',
+          application.resume?.filename || 'N/A',
+          profile.experienceLevel || applicantData.experienceLevel || 'N/A',
+          profile.education || applicantData.education || 'N/A',
+          profile.currentCompany || applicantData.currentCompany || 'N/A',
+          profile.linkedinProfile || applicantData.linkedinProfile || 'N/A',
+          profile.portfolioUrl || applicantData.portfolioUrl || 'N/A'
+        ];
+      });
+
+      // Combine headers and data
+      const csvContent = [headers, ...csvData]
+        .map(row => row.map(field => {
+          // Escape quotes and wrap in quotes if field contains comma, quote, or newline
+          const stringField = String(field);
+          if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+            return `"${stringField.replace(/"/g, '""')}"`;
+          }
+          return stringField;
+        }).join(','))
+        .join('\n');
+
+      // Create and download the file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+
+        // Generate filename with job title and current date
+        const jobTitle = jobDetails?.title || 'Job';
+        const currentDate = new Date().toISOString().split('T')[0];
+        const filename = `${jobTitle.replace(/[^a-z0-9]/gi, '_')}_Applicants_${currentDate}.csv`;
+
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Show success message
+        setSuccess(`CSV file downloaded successfully! (${filteredApplicants.length} applicants)`);
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (err) {
+      console.error('Error exporting CSV:', err);
+      setError('Failed to export CSV file. Please try again.');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setExportingCSV(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto mt-20">
@@ -222,17 +341,8 @@ export default function ApplicantsList() {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors w-fit"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  Back to Dashboard
+                  Go Back
                 </button>
-                
-                {applicants.length > 0 && (
-                  <div className="flex gap-2">
-                    <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                      <Download className="w-4 h-4" />
-                      Export List
-                    </button>
-                  </div>
-                )}
               </div>
 
               <div className="flex items-start gap-4">
@@ -279,7 +389,7 @@ export default function ApplicantsList() {
                       className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  
+
                   {/* Filter */}
                   <div className="sm:w-48">
                     <select
@@ -296,11 +406,34 @@ export default function ApplicantsList() {
                       <option value="rejected">Rejected</option>
                     </select>
                   </div>
+
+                  {/* Export Button */}
+                  <div className="sm:w-auto">
+                    <button
+                      onClick={exportToCSV}
+                      disabled={exportingCSV || filteredApplicants.length === 0}
+                      className="inline-flex items-center gap-2 px-4 py-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {exportingCSV ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      {exportingCSV ? 'Exporting...' : 'Export CSV'}
+                    </button>
+                  </div>
                 </div>
                 
-                {searchTerm && (
-                  <div className="mt-4 text-sm text-gray-600">
-                    Showing {filteredApplicants.length} of {applicants.length} applicants
+                {(searchTerm || filterBy !== 'all') && (
+                  <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="text-sm text-gray-600">
+                      Showing {filteredApplicants.length} of {applicants.length} applicants
+                      {searchTerm && ` matching "${searchTerm}"`}
+                      {filterBy !== 'all' && ` with status "${filterBy}"`}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      CSV export will include all visible applicants with their contact details, status, and resume information
+                    </div>
                   </div>
                 )}
               </div>
@@ -462,15 +595,22 @@ export default function ApplicantsList() {
                             <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
                               <span>Applied on {formatDate(application.appliedAt)}</span>
                               {application.resume && (
-                                <a
-                                  href={application.resume}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                >
-                                  <Download className="w-3 h-3" />
-                                  View Resume
-                                </a>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleViewResume(application.resume)}
+                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    View Resume
+                                  </button>
+                                  <button
+                                    onClick={() => handleDownloadResume(application.resume)}
+                                    className="text-green-600 hover:text-green-800 flex items-center gap-1 transition-colors"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    Download
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -491,11 +631,17 @@ export default function ApplicantsList() {
                     {searchTerm && ` matching "${searchTerm}"`}
                   </div>
                   <div className="flex gap-2">
-                    <button className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-                      Download PDF
-                    </button>
-                    <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
-                      Export CSV
+                    <button
+                      onClick={exportToCSV}
+                      disabled={exportingCSV || filteredApplicants.length === 0}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {exportingCSV ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      {exportingCSV ? 'Exporting...' : 'Export CSV'}
                     </button>
                   </div>
                 </div>

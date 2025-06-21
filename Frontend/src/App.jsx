@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { usePreventAltArrowNavigation } from './hooks/usePreventAltArrowNavigation';
 
 import { AuthProvider } from './contexts/AuthContext';
@@ -17,6 +17,7 @@ import ApplicantsList from './pages/CompanySide/JobDetails/ApplicantsList';
 import ApplicantProfile from './pages/CompanySide/ApplicantProfile/ApplicantProfile';
 import OrgProfile from './pages/CompanySide/ProfilePage/Orgprofile';
 import OrganizationProfile from './pages/CompanySide/ProfilePage/OrganizationProfile';
+import RecruiterProfile from './pages/CompanySide/ProfilePage/RecruiterProfile';
 import Postjob from './pages/CompanySide/PostJobPage/Postjob';
 import RegisterOrganization from './pages/CompanySide/RegisterOrg/RegisterOrganization';
 import RegistrationSuccess from './pages/CompanySide/RegisterOrg/RegistrationSuccess';
@@ -26,7 +27,6 @@ import JobAnalytics from './pages/CompanySide/Analytics/JobAnalytics';
 import PublicCompanyProfile from './pages/CompanySide/PublicProfile/PublicCompanyProfile';
 import GenericJobDetails from './components/common/GenericJobDetails';
 import ChatPage from './pages/Chat/ChatPage';
-import ChatTest from './pages/Chat/ChatTest';
 import NotificationManager from './components/chat/NotificationManager';
 
 import Home from './pages/Home/Home';
@@ -36,10 +36,15 @@ import ResetPassword from './pages/Auth/ResetPassword';
 
 import JobDashboard from './pages/UserSide/UserDashboard/JobDashboard';
 import UserProfile from './pages/UserSide/UserProfile/UserProfile';
+import JobseekerProfile from './pages/UserSide/UserProfile/JobseekerProfile';
 import UserJobDetails from './pages/UserSide/UserJobDetails/UserJobDetails';
 import HRDetails from './pages/UserSide/UserJobDetails/HRDetails';
 import CompanyDetails from './pages/UserSide/UserJobDetails/CompanyDetails'; // ✅ User Side Details Page
 import UploadResume from './pages/UserSide/UserResume/UploadResume';
+import SavedJobs from './pages/UserSide/SavedJobs/SavedJobs';
+import OrganizationListing from './pages/Common/OrganizationListing/OrganizationListing';
+import OrganizationDetails from './pages/UserSide/OrganizationDetails/OrganizationDetails';
+import PublicOrganizationDetails from './pages/Common/OrganizationDetails/PublicOrganizationDetails';
 
 import './App.css';
 
@@ -79,6 +84,10 @@ function App() {
                   <Route path="/register-organization" element={<RegisterOrganization />} />
                   <Route path="/registration-success" element={<RegistrationSuccess />} />
 
+                  {/* Public Organization Routes */}
+                  <Route path="/organizations" element={<OrganizationListing />} />
+                  <Route path="/organization/:orgId" element={<PublicOrganizationDetails />} />
+
                   {/* ✅ Generic Job Details Route - Redirects based on user role */}
                   <Route path="/jobs/:id" element={
                     <ProtectedRoute allowedRoles={['jobseeker', 'recruiter']}>
@@ -100,6 +109,11 @@ function App() {
                   <Route path="/profile" element={
                     <ProtectedRoute allowedRoles={['recruiter']}>
                       <OrgProfile />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/recruiter/profile" element={
+                    <ProtectedRoute allowedRoles={['recruiter']}>
+                      <RecruiterProfile />
                     </ProtectedRoute>
                   } />
                   <Route path="/job/:jobId/applicants" element={
@@ -144,7 +158,6 @@ function App() {
                       <ChatPage />
                     </ProtectedRoute>
                   } />
-
                   {/* ✅ User Routes - Protected for jobseeker users */}
                   <Route path="/user/job-dashboard" element={
                     <ProtectedRoute allowedRoles={['jobseeker']}>
@@ -156,9 +169,19 @@ function App() {
                       <UserProfile />
                     </ProtectedRoute>
                   } />
+                  <Route path="/user/profile-view" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <JobseekerProfile />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/user/upload-resume" element={
                     <ProtectedRoute allowedRoles={['jobseeker']}>
                       <UploadResume />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/user/saved-jobs" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <SavedJobs />
                     </ProtectedRoute>
                   } />
                   <Route path="/user/job/:id" element={
@@ -185,13 +208,16 @@ function App() {
                       <CompanyDetails />
                     </ProtectedRoute>
                   } />
+                  <Route path="/user/organization/:orgId" element={
+                    <ProtectedRoute allowedRoles={['jobseeker']}>
+                      <OrganizationDetails />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/user/chat" element={
                     <ProtectedRoute allowedRoles={['jobseeker']}>
                       <ChatPage />
                     </ProtectedRoute>
                   } />
-                  <Route path="/chat-test" element={<ChatTest />} />
-
                   {/* Public Company Profile - accessible to all authenticated users */}
                   <Route path="/company/:companyId" element={
                     <ProtectedRoute allowedRoles={['jobseeker', 'recruiter']}>

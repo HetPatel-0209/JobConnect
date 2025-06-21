@@ -5,7 +5,9 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);    useEffect(() => {
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
         const initAuth = () => {
             try {
                 const currentUser = AuthService.getCurrentUser();
@@ -30,7 +32,9 @@ export const AuthProvider = ({ children }) => {
 
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
-    }, []);    const login = async (credentials) => {
+    }, []);
+
+    const login = async (credentials) => {
         try {
             const data = await AuthService.login(credentials);
             setUser(data.user);
@@ -78,7 +82,7 @@ export const AuthProvider = ({ children }) => {
 
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 };

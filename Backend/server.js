@@ -21,8 +21,8 @@ const app = express();
 
 // CORS Configuration
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production' 
-        ? process.env.FRONTEND_URL 
+    origin: process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_URL
         : ['http://localhost:5173', 'http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -62,37 +62,53 @@ const { Chat, Message } = require('./models/Chat');
 const User = require('./models/User');
 const jwt = require('jsonwebtoken');
 
-// Track online users
-const onlineUsers = new Map(); // userId -> { socketId, lastSeen, userInfo }
+// Track online users with better structure
+const onlineUsers = new Map(); // userId -> { socketId, lastSeen, userInfo, connectedAt }
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
     // Authenticate socket connection
-    socket.on('authenticate', async (token) => {        try {
+    socket.on('authenticate', async (token) => {
+        try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            const user = await User.findById(decoded.userId);
-            if (user) {
+            const user = await User.findById(decoded.userId); if (user) {
                 socket.userId = user._id.toString();
                 socket.join(`user_${user._id}`);
                 console.log(`User ${user.name} authenticated with socket ${socket.id}`);
 
                 // Update user's last seen and add to online users
-                await User.findByIdAndUpdate(user._id, { lastSeen: new Date() });
+                await User.findByIdAndUpdate(user._id, {
+                    lastSeen: new Date(),
+                    isOnline: true
+                });
+
                 onlineUsers.set(user._id.toString(), {
                     socketId: socket.id,
                     lastSeen: new Date(),
+                    connectedAt: new Date(),
                     userInfo: { id: user._id, name: user.name, role: user.role }
                 });
 
-                // Broadcast user online status
+                // Broadcast user online status to all users
                 socket.broadcast.emit('user_online', {
                     userId: user._id.toString(),
                     name: user.name,
                     lastSeen: new Date()
                 });
 
-                socket.emit('authenticated', { success: true, user: { id: user._id, name: user.name } });
+                // Send current online users to the newly connected user
+                const onlineUsersList = Array.from(onlineUsers.entries()).map(([userId, data]) => ({
+                    userId,
+                    lastSeen: data.lastSeen,
+                    userInfo: data.userInfo
+                }));
+
+                socket.emit('authenticated', {
+                    success: true,
+                    user: { id: user._id, name: user.name },
+                    onlineUsers: onlineUsersList
+                });
             } else {
                 socket.emit('auth_error', { message: 'User not found' });
             }
@@ -149,25 +165,46 @@ io.on('connection', (socket) => {
             if (!chat) {
                 socket.emit('error', { message: 'Chat not found or access denied' });
                 return;
-            }
-
-            // Create and save message
+            }            // Create and save message
             const message = new Message({
                 chat: chatId,
                 sender: socket.userId,
                 content,
                 messageType,
-                readBy: [{ user: socket.userId }]
+                readBy: [{ user: socket.userId }],
+                status: {
+                    sent: true,
+                    sentAt: new Date(),
+                    delivered: false,
+                    seen: false
+                }
             });
 
             await message.save();
             await message.populate('sender', 'name role email');
 
-            // Update chat with last message
+            // Update chat with last message and timestamp
             chat.lastMessage = message._id;
+            chat.updatedAt = new Date();
             await chat.save();
 
-            // Emit to all users in the chat
+            // Send confirmation back to sender first
+            socket.emit('message_sent', {
+                _id: message._id,
+                tempId: data.tempId, // If provided for optimistic updates
+                chat: chatId,
+                sender: message.sender,
+                content: message.content,
+                messageType: message.messageType,
+                timestamp: message.timestamp,
+                status: {
+                    sent: true,
+                    delivered: false,
+                    read: false
+                }
+            });
+
+            // Emit to all users in the chat room
             io.to(chatId).emit('receive_message', {
                 _id: message._id,
                 chat: chatId,
@@ -183,24 +220,61 @@ io.on('connection', (socket) => {
                 }
             });
 
-            // Emit to specific users (for notifications and delivery status)
-            chat.participants.forEach(participant => {
+            // Handle delivery status and notifications for each participant
+            for (const participant of chat.participants) {
                 const participantId = participant.user.toString();
                 if (participantId !== socket.userId) {
-                    // Send notification
+                    // Send to user-specific room for notifications
+                    io.to(`user_${participantId}`).emit('receive_message', {
+                        _id: message._id,
+                        chat: chatId,
+                        content: message.content,
+                        messageType: message.messageType,
+                        sender: message.sender,
+                        timestamp: message.timestamp,
+                        readBy: message.readBy
+                    });
+
+                    // Calculate accurate unread count for this specific user
+                    const unreadCount = await Message.countDocuments({
+                        chat: chatId,
+                        sender: { $ne: participantId },
+                        'readBy.user': { $ne: participantId }
+                    });
+
+                    // Send notification with accurate unread count
                     io.to(`user_${participantId}`).emit('new_message_notification', {
                         chatId,
                         message: {
                             _id: message._id,
                             content: message.content,
-                            sender: message.sender
+                            sender: message.sender,
+                            chat: chatId,
+                            timestamp: message.timestamp
                         },
-                        unreadCount: 1 // This will be calculated properly in the frontend
+                        unreadCount: unreadCount,
+                        totalUnreadCount: await Message.countDocuments({
+                            chat: { $in: await Chat.find({ 'participants.user': participantId, isActive: true }).distinct('_id') },
+                            sender: { $ne: participantId },
+                            'readBy.user': { $ne: participantId }
+                        })
                     });
 
-                    // Check if user is online and mark as delivered
+                    // Mark as delivered if user is online
                     if (onlineUsers.has(participantId)) {
-                        // Mark as delivered immediately if user is online
+                        // Update message delivery status
+                        await Message.findByIdAndUpdate(message._id, {
+                            $push: {
+                                deliveredTo: {
+                                    user: participantId,
+                                    deliveredAt: new Date()
+                                }
+                            },
+                            'status.delivered': true,
+                            'status.deliveredAt': new Date()
+                        });
+
+                        // Notify sender about delivery
                         setTimeout(() => {
                             io.to(chatId).emit('message_delivered', {
                                 messageId: message._id,
@@ -211,7 +285,7 @@ io.on('connection', (socket) => {
                         }, 100);
                     }
                 }
-            });
+            }
 
         } catch (error) {
             console.error('Error sending message:', error);
@@ -228,9 +302,7 @@ io.on('connection', (socket) => {
 
         const { chatId, isTyping } = data;
         socket.to(chatId).emit('typing_status', { userId: socket.userId, isTyping });
-    });
-
-    // Handle message read status
+    });    // Handle message read status
     socket.on('mark_read', async (data) => {
         try {
             if (!socket.userId) {
@@ -241,45 +313,81 @@ io.on('connection', (socket) => {
             const { chatId, messageIds } = data;
 
             // Update read status for specific messages or all unread messages in chat
+            let updatedMessages;
             if (messageIds && Array.isArray(messageIds)) {
-                await Message.updateMany(
-                    { 
+                updatedMessages = await Message.updateMany(
+                    {
                         _id: { $in: messageIds },
                         chat: chatId,
                         'readBy.user': { $ne: socket.userId }
                     },
-                    { 
-                        $push: { 
-                            readBy: { 
-                                user: socket.userId, 
-                                readAt: new Date() 
-                            } 
-                        } 
+                    {
+                        $push: {
+                            readBy: {
+                                user: socket.userId,
+                                readAt: new Date()
+                            }
+                        },
+                        'status.seen': true,
+                        'status.seenAt': new Date()
                     }
                 );
             } else {
-                await Message.updateMany(
-                    { 
+                updatedMessages = await Message.updateMany(
+                    {
                         chat: chatId,
                         sender: { $ne: socket.userId },
                         'readBy.user': { $ne: socket.userId }
                     },
-                    { 
-                        $push: { 
-                            readBy: { 
-                                user: socket.userId, 
-                                readAt: new Date() 
-                            } 
-                        } 
+                    {
+                        $push: {
+                            readBy: {
+                                user: socket.userId,
+                                readAt: new Date()
+                            }
+                        },
+                        'status.seen': true,
+                        'status.seenAt': new Date()
                     }
                 );
             }
 
-            // Notify other participants
-            socket.to(chatId).emit('messages_read', { 
-                userId: socket.userId, 
-                chatId, 
-                messageIds 
+            // Get the messages that were marked as read
+            const readMessages = await Message.find({
+                chat: chatId,
+                sender: { $ne: socket.userId },
+                'readBy.user': socket.userId
+            }).select('_id sender');
+
+            // Notify other participants about read status
+            socket.to(chatId).emit('messages_read', {
+                userId: socket.userId,
+                chatId,
+                messageIds: readMessages.map(m => m._id),
+                readAt: new Date()
+            });
+
+            // Send individual read confirmations for each message
+            readMessages.forEach(message => {
+                socket.to(chatId).emit('message_read', {
+                    messageId: message._id,
+                    chatId,
+                    readBy: socket.userId,
+                    readAt: new Date()
+                });
+            });
+
+            // Send updated unread count to the user who marked messages as read
+            const totalUnreadCount = await Message.countDocuments({
+                chat: { $in: await Chat.find({ 'participants.user': socket.userId, isActive: true }).distinct('_id') },
+                sender: { $ne: socket.userId },
+                'readBy.user': { $ne: socket.userId }
+            });
+
+            socket.emit('unread_count_updated', {
+                totalUnreadCount,
+                chatId,
+                readMessageCount: updatedMessages.modifiedCount
             });
 
         } catch (error) {
@@ -346,13 +454,14 @@ io.on('connection', (socket) => {
             deliveredBy: socket.userId,
             deliveredAt: new Date()
         });
-    });
-
-    // Handle disconnection
+    });    // Handle disconnection
     socket.on('disconnect', async () => {
         if (socket.userId) {
-            // Update user's last seen
-            await User.findByIdAndUpdate(socket.userId, { lastSeen: new Date() });
+            // Update user's last seen and online status
+            await User.findByIdAndUpdate(socket.userId, {
+                lastSeen: new Date(),
+                isOnline: false
+            });
 
             // Remove from online users and broadcast offline status
             onlineUsers.delete(socket.userId);

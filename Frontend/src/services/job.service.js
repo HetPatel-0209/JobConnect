@@ -180,5 +180,41 @@ export const JobService = {
      */
     getAppliedCandidates: async (jobId) => {
         return await api.get(`/jobs/${jobId}/applications`);
+    },
+
+    /**
+     * Save a job for later
+     * @param {string} jobId - Job ID to save
+     * @returns {Promise<Object>} Save job response
+     */
+    saveJob: async (jobId) => {
+        return await api.post(`/jobs/${jobId}/save`);
+    },
+
+    /**
+     * Remove a saved job
+     * @param {string} jobId - Job ID to unsave
+     * @returns {Promise<Object>} Unsave job response
+     */
+    unsaveJob: async (jobId) => {
+        return await api.delete(`/jobs/${jobId}/save`);
+    },
+
+    /**
+     * Get all saved jobs
+     * @param {Object} params - Query parameters (page, limit)
+     * @returns {Promise<Object>} Saved jobs list
+     */
+    getSavedJobs: async (params = {}) => {
+        return await api.get('/jobs/saved', { params });
+    },
+
+    /**
+     * Check if a job is saved
+     * @param {string} jobId - Job ID to check
+     * @returns {Promise<Object>} Job saved status
+     */
+    checkJobSaved: async (jobId) => {
+        return await api.get(`/jobs/${jobId}/saved`);
     }
 };

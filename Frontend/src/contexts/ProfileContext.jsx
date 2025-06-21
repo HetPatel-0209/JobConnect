@@ -1,9 +1,9 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { AuthService } from '../services/auth.service';
 import { ApplicationService } from '../services/application.service';
 
-export const ProfileContext = createContext();
+export const ProfileContext = createContext(null);
 
 export const ProfileProvider = ({ children }) => {
   const { user } = useAuth();

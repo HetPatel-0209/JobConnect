@@ -38,6 +38,15 @@ export const ResumeService = {
     getUserActiveResume: async () => {
         return await api.get('/jobs/resumes/user');
     },
+
+    /**
+     * Get user's active resume by user ID (for recruiters)
+     * @param {string} userId - User ID
+     * @returns {Promise<Object>} User's active resume
+     */
+    getUserActiveResumeById: async (userId) => {
+        return await api.get(`/jobs/resumes/user/${userId}`);
+    },
     
     /**
      * Update resume

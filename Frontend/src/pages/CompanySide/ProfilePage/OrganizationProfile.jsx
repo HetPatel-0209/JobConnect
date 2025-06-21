@@ -14,7 +14,6 @@ import {
   MapPin,
   Users,
   Linkedin,
-  Twitter,
   ExternalLink,
   CheckCircle,
   AlertCircle,
@@ -23,6 +22,7 @@ import {
   Eye,
   Target
 } from 'lucide-react';
+import { FaXTwitter } from 'react-icons/fa6';
 
 export default function OrganizationProfile() {
   const { user } = useAuth();
@@ -631,8 +631,8 @@ export default function OrganizationProfile() {
 
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                    <Twitter className="w-4 h-4 text-blue-600" />
-                    Twitter
+                    <FaXTwitter className="w-4 h-4 text-blue-600" />
+                    X
                   </label>
                   {editing ? (
                     <input

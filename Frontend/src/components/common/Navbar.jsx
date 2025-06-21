@@ -213,7 +213,8 @@ export default function Navbar() {
         </div>
       </header>
     );
-  }  // Home Navbar (for web visitors)
+  }  
+  // Home Navbar (for web visitors)
   if (navbarType === 'home') {
     return (
       <header className='fixed top-0 left-0 w-full px-5 md:px-10 py-2.5 md:py-5 bg-white flex justify-between items-center z-[100] shadow-sm'>
@@ -222,12 +223,14 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2 md:gap-3">
+          <Link to="/organizations" className="px-4 md:px-5 py-2 md:py-2.5 bg-blue-600 text-white border-none rounded-md font-bold text-sm md:text-base cursor-pointer inline-block transition-colors duration-300 hover:bg-black hover:text-white">Listed Orgs</Link>
           <Link to="/" className="px-4 md:px-5 py-2 md:py-2.5 bg-blue-600 text-white border-none rounded-md font-bold text-sm md:text-base cursor-pointer inline-block transition-colors duration-300 hover:bg-black hover:text-white">Organization</Link>
           <Link to="/auth" className="px-4 md:px-5 py-2 md:py-2.5 bg-blue-600 text-white border-none rounded-md font-bold text-sm md:text-base cursor-pointer inline-block transition-colors duration-300 hover:bg-black hover:text-white">Login</Link>
         </div>
       </header>
     );
-  }  // Auth Navbar (for login/signup pages)
+  }  
+  // Auth Navbar (for login/signup pages)
   if (navbarType === 'auth') {
     return (
       <header className='fixed top-0 left-0 w-full px-5 md:px-10 py-2.5 md:py-5 bg-white flex justify-between items-center z-[100] shadow-sm'>
@@ -260,7 +263,7 @@ export default function Navbar() {
               </span>
             )}
           </Link>
-          <Link to="/profile" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Profile</Link>
+          <Link to="/recruiter/profile" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Profile</Link>
           <Link to="/company-details" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Your Organization</Link>
           
 
@@ -281,7 +284,7 @@ export default function Navbar() {
             {isDropdownOpen && (
               <div className="absolute top-full right-0 mt-2 bg-white border border-black rounded-lg min-w-[140px] md:min-w-[160px] z-[1000] overflow-hidden shadow-md">
                 <Link to="/company-details" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Company Details</Link>
-                <Link to="/profile" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Profile Detail</Link>
+                <Link to="/recruiter/profile" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Profile Detail</Link>
                 <Link to="/postjob" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Post a Job</Link>
                 <button onClick={handleLogout} className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-red-500 font-medium cursor-pointer transition-colors duration-200 text-left bg-none w-full border-none hover:bg-red-50">Logout</button>
               </div>
@@ -290,7 +293,8 @@ export default function Navbar() {
         </nav>
       </header>
     );
-  }  // User Navbar (for job seekers)
+  }  
+  // User Navbar (for job seekers)
   if (navbarType === 'user') {
     return (
       <header className='fixed top-0 left-0 w-full px-5 md:px-10 py-2.5 md:py-5 bg-white flex justify-between items-center z-[100] shadow-sm'>
@@ -300,7 +304,8 @@ export default function Navbar() {
 
         <nav className="flex items-center">
           <Link to="/user/job-dashboard" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Dashboard</Link>
-          <Link to="/user/profile" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Profile</Link>
+          <Link to="/organizations" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Listed Orgs</Link>
+          <Link to="/user/profile-view" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Profile</Link>
           <Link to="/user/chat" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">
             Messages
             {unreadCount > 0 && (
@@ -322,7 +327,7 @@ export default function Navbar() {
 
             {isDropdownOpen && (
               <div className="absolute top-full right-0 mt-2 bg-white border border-black rounded-lg min-w-[140px] md:min-w-[160px] z-[1000] overflow-hidden shadow-md">
-                <Link to="/user/profile" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Profile Detail</Link>
+                <Link to="/user/profile-view" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Profile Detail</Link>
                 <Link to="/user/upload-resume" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Update Resume</Link>                
                 <button onClick={handleLogout} className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-red-500 font-medium cursor-pointer transition-colors duration-200 text-left bg-none w-full border-none hover:bg-red-50">Logout</button>
               </div>

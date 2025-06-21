@@ -41,11 +41,6 @@ export const OrganizationService = {
         return await api.put(`/organizations/${orgId}`, organizationData);
     },
 
-    /**
-     * Get all organizations with pagination and search
-     * @param {Object} params - Query parameters
-     * @returns {Promise<Object>} Organizations list
-     */
     getAllOrganizations: async (params = {}) => {
         return await api.get('/organizations', params);
     },
