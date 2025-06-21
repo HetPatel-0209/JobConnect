@@ -9,20 +9,6 @@
     "autoAlias": true,
     "autoJobCancelation": true
   },
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
-  "buildCommand": "bun run build",
-  "devCommand": "bun dev",
-  "installCommand": "bun install",
-  "outputDirectory": "dist",
-  "framework": "vite",
   "rewrites": [
     {
       "source": "/(.*)",
@@ -47,8 +33,5 @@
         }
       ]
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
