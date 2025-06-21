@@ -4,6 +4,10 @@ import { handleApiError } from '../utils/apiErrorHandler';
 // Use environment variable or default to production for deployment
 const API_BASE_URL = import.meta.env.VITE_BACKEND_API_BASE_URL || 'https://jobconnect-xwh3.onrender.com/api';
 
+// Debug: Log the API URL being used
+console.log('🔗 API Base URL:', API_BASE_URL);
+console.log('🌍 Environment:', import.meta.env.MODE);
+
 /**
  * Standard API response format
  * @typedef {Object} ApiResponse

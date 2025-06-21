@@ -22,17 +22,30 @@ const app = express();
 // CORS Configuration
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production'
-        ? [process.env.FRONTEND_URL, 'https://jobconnect-project.vercel.app/', 'http://localhost:5173']
+        ? [process.env.FRONTEND_URL, 'https://jobconnect-project.vercel.app', 'https://jobconnect-xi-snowy.vercel.app', 'http://localhost:5173']
         : ['https://jobconnect-xwh3.onrender.com', 'https://jobconnect-project.vercel.app/', 'http://localhost:5173'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 };
+
+// Debug: Log CORS configuration
+console.log('🔧 CORS Configuration:');
+console.log('   NODE_ENV:', process.env.NODE_ENV);
+console.log('   FRONTEND_URL:', process.env.FRONTEND_URL);
+console.log('   Allowed Origins:', corsOptions.origin);
+
 app.use(cors(corsOptions));
 
 // Body parser middleware
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.originalUrl} - Origin: ${req.get('Origin') || 'none'}`);
+    next();
+});
 
 // Connect to Database
 connectDB();
