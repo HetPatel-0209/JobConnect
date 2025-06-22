@@ -1,5 +1,6 @@
 import api from './api';
 import cacheService, { CacheKeys, CacheInvalidation } from './cache.service';
+import { UserIdUtils } from '../utils/userIdUtils';
 
 export const JobService = {
     /**
@@ -49,11 +50,8 @@ export const JobService = {
      * @param {string} userId - User ID (required for proper caching)
      * @returns {Promise<Object>} Dashboard stats
      */    getJobseekerStats: async (userId = null) => {
-        // Use provided userId or fall back to localStorage
-        if (!userId) {
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            userId = user.id;
-        }
+        // Use UserIdUtils for consistent ID extraction
+        userId = UserIdUtils.extractUserId({ userId });
 
         if (!userId) {
             throw new Error('User ID is required for stats');
@@ -75,11 +73,8 @@ export const JobService = {
      * @param {string} userId - User ID (required for proper caching)
      * @returns {Promise<Object>} Applied jobs
      */    getAppliedJobs: async (filters = {}, userId = null) => {
-        // Use provided userId or fall back to localStorage
-        if (!userId) {
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            userId = user.id
-        }
+        // Use UserIdUtils for consistent ID extraction
+        userId = UserIdUtils.extractUserId({ userId });
 
         if (!userId) {
             throw new Error('User ID is required for applied jobs');
@@ -144,9 +139,8 @@ export const JobService = {
      */    postJob: async (jobData) => {
         const result = await api.post('/jobs', jobData);
 
-        // Invalidate relevant caches
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        const userId = user.id;
+        // Invalidate relevant caches using UserIdUtils
+        const userId = UserIdUtils.getCurrentUserId();
 
         if (userId) {
             CacheInvalidation.invalidateRecruiterCache(userId);
@@ -213,11 +207,8 @@ export const JobService = {
      * @param {string} userId - User ID (required for proper caching)
      * @returns {Promise<Object>} ATS score and evaluation
      */    calculateATSScore: async (jobId, useAI = true, userId = null) => {
-        // Use provided userId or fall back to localStorage
-        if (!userId) {
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            userId = user.id; // Support both id and id fields
-        }
+        // Use UserIdUtils for consistent ID extraction
+        userId = UserIdUtils.extractUserId({ userId });
 
         if (!userId) {
             throw new Error('User ID is required for ATS score calculation');
@@ -268,11 +259,8 @@ export const JobService = {
      * @param {string} userId - User ID (required for proper caching)
      * @returns {Promise<Object>} Recruiter's posted jobs
      */    getRecruiterJobs: async (filters = {}, userId = null) => {
-        // Use provided userId or fall back to localStorage
-        if (!userId) {
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            userId = user.id; // Support both id and id fields
-        }
+        // Use UserIdUtils for consistent ID extraction
+        userId = UserIdUtils.extractUserId({ userId });
 
         if (!userId) {
             throw new Error('User ID is required for recruiter jobs');
@@ -291,11 +279,8 @@ export const JobService = {
      * @param {string} userId - User ID (required for proper caching)
      * @returns {Promise<Object>} Dashboard stats
      */    getRecruiterStats: async (userId = null) => {
-        // Use provided userId or fall back to localStorage
-        if (!userId) {
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-            userId = user.id; // Support both id and id fields
-        }
+        // Use UserIdUtils for consistent ID extraction
+        userId = UserIdUtils.extractUserId({ userId });
 
         if (!userId) {
             throw new Error('User ID is required for recruiter stats');

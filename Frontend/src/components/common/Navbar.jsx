@@ -7,7 +7,7 @@ import { useChat } from '../../contexts/ChatContext';
 import { AuthService } from '../../services/auth.service';
 
 export default function Navbar() {
-  const { user: authUser } = useAuth();
+  const { user: authUser, loading: authLoading, logout: authLogout } = useAuth();
   const { profileData, profileImage, setProfileImage, clearProfile, fetchProfile } = useContext(ProfileContext);
 
   // Safely get unread count with fallback
@@ -21,66 +21,13 @@ export default function Navbar() {
 
   const [localOrgImage, setLocalOrgImage] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [user, setCurrentUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use authUser directly instead of local state
+  const user = authUser;
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get user from ProfileContext or fallback sources
-  useEffect(() => {
-    const loadUser = async () => {
-      setIsLoading(true);
-      try {
-        let user = null;
-
-        // First try to get user from ProfileContext
-        if (profileData) {
-          user = profileData;
-        } else if (authUser) {
-          // Try to fetch profile if we have authUser but no profileData
-          try {
-            user = await fetchProfile();
-          } catch (error) {
-            console.error('Failed to fetch profile:', error);
-          }
-        }
-
-        // Fallback to localStorage if no user from contexts
-        if (!user) {
-          const storedCurrentUser = localStorage.getItem('user');
-          const storedUser = localStorage.getItem('user');
-
-          if (storedCurrentUser) {
-            try {
-              user = JSON.parse(storedCurrentUser);
-            } catch (e) {
-              localStorage.removeItem('user');
-            }
-          } else if (storedUser) {
-            try {
-              user = JSON.parse(storedUser);
-            } catch (e) {
-              localStorage.removeItem('user');
-            }
-          }
-        }
-
-        // Final fallback to authUser
-        if (!user && authUser) {
-          user = authUser;
-        }
-
-        setCurrentUser(user);
-      } catch (error) {
-        setCurrentUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadUser();
-  }, [authUser, profileData, fetchProfile, setProfileImage]);
+  // Simplified user loading - just use authUser directly
 
   // Load profile images from localStorage with error handling
   useEffect(() => {
@@ -129,16 +76,13 @@ export default function Navbar() {
         clearProfile();
       }
 
-      // Clear only auth-related localStorage data (not all data)
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('currentUser'); // Remove legacy key if exists
-
-      // Reset state
-      setCurrentUser(null);
+      // Reset local state
       setProfileImage(null);
       setLocalOrgImage(null);
       setIsDropdownOpen(false);
+
+      // Use AuthContext logout function
+      authLogout();
 
       // Navigate to home immediately
       navigate('/', { replace: true });
@@ -147,7 +91,7 @@ export default function Navbar() {
       // Force navigation even if cleanup fails
       navigate('/', { replace: true });
     }
-  }, [clearProfile, setProfileImage, navigate]);
+  }, [clearProfile, setProfileImage, authLogout, navigate]);
 
   // Memoize navbar type calculation to prevent unnecessary re-renders
   const navbarType = useMemo(() => {
@@ -193,8 +137,10 @@ export default function Navbar() {
 
     // Default to home navbar for visitors
     return 'home';
-  }, [user, location.pathname]);// Show loading state briefly to prevent flash
-  if (isLoading) {
+  }, [user, location.pathname]);
+
+  // Show loading state briefly to prevent flash
+  if (authLoading) {
     return (
       <header className='fixed top-0 left-0 w-full px-5 md:px-10 py-2.5 md:py-5 bg-white flex justify-between items-center z-[100] shadow-sm'>
         <div className='flex items-center gap-2.5'>

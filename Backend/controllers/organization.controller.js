@@ -92,12 +92,12 @@ exports.createOrganization = async (req, res) => {
                         ...req.body
                     };
                 }
-            } 
+            }
             catch (gstError) {
                 console.warn('GST API fetch failed, creating with provided data:', gstError.message);
                 organizationData = { ...req.body, gstin };
             }
-        } 
+        }
         else {
             organizationData = { ...req.body, gstin };
         }
@@ -215,7 +215,7 @@ exports.updateOrganization = async (req, res) => {
 exports.getAllOrganizations = async (req, res) => {
     try {
         const { page = 1, limit = 10, search } = req.query;
-        
+
         let query = {};
         if (search) {
             query = {
@@ -227,7 +227,7 @@ exports.getAllOrganizations = async (req, res) => {
         }
 
         const skip = (page - 1) * limit;
-        
+
         const organizations = await Organization.find(query)
             .select('gstin name companySize contact.address.city contact.address.state createdAt logo')
             .sort('-createdAt')
@@ -261,7 +261,7 @@ exports.getAllOrganizations = async (req, res) => {
 exports.uploadOrganizationImages = async (req, res) => {
     try {
         const { orgId } = req.params;
-        
+
         // Check if organization exists
         const organization = await Organization.findById(orgId);
         if (!organization) {
@@ -271,7 +271,7 @@ exports.uploadOrganizationImages = async (req, res) => {
             });
         }
 
-        const userId = req.user.id;
+        const userId = req.user._id;
         const recruiterProfile = await require('../models/Recruiter').findOne({
             user: userId,
             organizationId: orgId
@@ -283,7 +283,7 @@ exports.uploadOrganizationImages = async (req, res) => {
                 message: 'You are not authorized to update this organization'
             });
         }
-        
+
         // if files were uploaded
         if (!req.files || (Object.keys(req.files).length === 0)) {
             return res.status(400).json({
@@ -291,16 +291,16 @@ exports.uploadOrganizationImages = async (req, res) => {
                 message: 'No files uploaded'
             });
         }
-        
+
         const updates = {};
         if (req.files.logo && req.files.logo.length > 0) {
             if (organization.logoPublicId) {
                 await deleteFromCloudinary(organization.logoPublicId);
             }
-            
+
             const logoFile = req.files.logo[0];
             const logoFormat = logoFile.mimetype.split('/')[1];
-            
+
             const logoResult = await uploadToCloudinary(logoFile.buffer, {
                 folder: 'organizations/logos',
                 resourceType: 'image',
@@ -310,20 +310,20 @@ exports.uploadOrganizationImages = async (req, res) => {
                     { quality: 'auto:good' }
                 ]
             });
-            
+
             updates.logo = logoResult.secure_url;
             updates.logoPublicId = logoResult.public_id;
         }
-        
+
         if (req.files.banner && req.files.banner.length > 0) {
             if (organization.bannerPublicId) {
                 await deleteFromCloudinary(organization.bannerPublicId);
             }
-            
+
             // Upload new banner to Cloudinary
             const bannerFile = req.files.banner[0];
             const bannerFormat = bannerFile.mimetype.split('/')[1];
-            
+
             const bannerResult = await uploadToCloudinary(bannerFile.buffer, {
                 folder: 'organizations/banners',
                 resourceType: 'image',
@@ -333,24 +333,24 @@ exports.uploadOrganizationImages = async (req, res) => {
                     { quality: 'auto:good' }
                 ]
             });
-            
+
             updates.banner = bannerResult.secure_url;
             updates.bannerPublicId = bannerResult.public_id;
         }
-        
+
         // new image URLs
         const updatedOrganization = await Organization.findByIdAndUpdate(
             orgId,
             updates,
             { new: true }
         );
-        
+
         res.json({
             success: true,
             message: 'Organization images uploaded successfully',
             data: updatedOrganization
         });
-        
+
     } catch (error) {
         console.error('Upload organization images error:', error);
         res.status(500).json({

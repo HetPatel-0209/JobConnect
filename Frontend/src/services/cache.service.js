@@ -176,7 +176,7 @@ class CacheService {
         }
 
         console.log('🚀 Starting new request for key:', key);
-        
+
         // Create new request
         const requestPromise = requestFn().then(result => {
             console.log('✅ Request completed for key:', key, result);
@@ -391,7 +391,10 @@ export const CacheKeys = {
     JOB_SAVED_STATUS: (jobId, userId) => `job_saved_status_${jobId}_${userId}`,
 
     // Organization data
-    ORGANIZATIONS: (page = 1) => `organizations_${page}`,
+    ORGANIZATIONS: (page = 1, filters = {}) => {
+        const searchParam = filters.search ? `_search_${filters.search}` : '';
+        return `organizations_${page}${searchParam}`;
+    },
     ORGANIZATION_DETAILS: (orgId) => `organization_${orgId}`,
     ORGANIZATION_JOBS: (orgId, page = 1) => `organization_jobs_${orgId}_${page}`,
 
@@ -488,7 +491,7 @@ export const CacheInvalidation = {    // Invalidate user-related cache when prof
                 break;
             case 'job_updated':
                 CacheInvalidation.invalidateJob(data.jobId);
-                break;            case 'profile_updated':
+                break; case 'profile_updated':
                 CacheInvalidation.invalidateUserProfile(data.userId);
                 break;
             case 'message_sent':

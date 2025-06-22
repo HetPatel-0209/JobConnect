@@ -15,11 +15,23 @@ export const useOrganizationSearch = () => {
 
         setLoading(true);
         setError(null);
-        
+
         try {
             const response = await OrganizationService.searchOrganizations(searchQuery, options);
-            // Handle both direct data array and nested success response
-            const orgsData = response.data?.data || response.data || [];
+            // Standardize response format - handle various API response structures
+            let orgsData = [];
+
+            if (response.data?.data && Array.isArray(response.data.data)) {
+                // Nested success response: { data: { data: [...] } }
+                orgsData = response.data.data;
+            } else if (response.data && Array.isArray(response.data)) {
+                // Direct data array: { data: [...] }
+                orgsData = response.data;
+            } else if (Array.isArray(response)) {
+                // Direct array response: [...]
+                orgsData = response;
+            }
+
             setOrganizations(orgsData);
             return orgsData;
         } catch (err) {

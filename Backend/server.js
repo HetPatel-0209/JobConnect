@@ -7,6 +7,7 @@ const socketIo = require('socket.io');
 const cloudinary = require('cloudinary');
 const connectDB = require('./config/database');
 const { errorMiddleware } = require('./middlewares/error.middleware');
+const { normalizeResponse } = require('./middlewares/responseTransformer.middleware');
 
 mongoose.set('strictQuery', true);
 
@@ -54,6 +55,9 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
+// Add response normalization middleware (before routes)
+app.use(normalizeResponse);
+
 // Connect to Database
 connectDB();
 
@@ -94,6 +98,9 @@ const server = http.createServer(app);
 const io = socketIo(server, {
     cors: corsOptions
 });
+
+// Make io instance available to routes
+app.set('io', io);
 
 // Socket.IO event handlers
 const { Chat, Message } = require('./models/Chat');

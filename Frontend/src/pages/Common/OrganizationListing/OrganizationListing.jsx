@@ -54,6 +54,8 @@ export default function OrganizationListing() {
       dependencies: [debouncedSearchTerm],
       onSuccess: (data) => {
         console.log('Organizations loaded:', data);
+        console.log('Search term:', debouncedSearchTerm);
+        console.log('Extracted organizations:', data?.data || data?.organizations || data);
       },
       onError: (err) => {
         console.error('Failed to load organizations:', err);
@@ -62,7 +64,7 @@ export default function OrganizationListing() {
   );
 
   // Handle response structure - extract organizations from response
-  const actualOrganizations = organizations?.data?.organizations || organizations?.organizations || organizations || [];
+  const actualOrganizations = organizations?.data || organizations?.organizations || organizations || [];
   const error = fetchError || (!organizations?.success && organizations?.message ? organizations.message : null);
 
   const handleSearch = (e) => {
@@ -99,8 +101,8 @@ export default function OrganizationListing() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Listed Organizations</h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Discover companies and organizations that are actively hiring. 
-            {user && user.role === 'jobseeker' 
+            Discover companies and organizations that are actively hiring.
+            {user && user.role === 'jobseeker'
               ? ' Click on any organization to view detailed information and available positions.'
               : ' Explore opportunities with leading companies across various industries.'
             }
@@ -168,11 +170,10 @@ export default function OrganizationListing() {
               <div
                 key={org.id}
                 onClick={() => handleOrganizationClick(org.id)}
-                className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 transition-all duration-200 ${
-                  user && user.role === 'jobseeker' 
-                    ? 'hover:shadow-lg hover:scale-105 cursor-pointer' 
-                    : 'hover:shadow-md'
-                }`}
+                className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 transition-all duration-200 ${user && user.role === 'jobseeker'
+                  ? 'hover:shadow-lg hover:scale-105 cursor-pointer'
+                  : 'hover:shadow-md'
+                  }`}
               >
                 {/* Organization Header */}
                 <div className="flex items-start gap-4 mb-4">
@@ -270,11 +271,10 @@ export default function OrganizationListing() {
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-2 rounded-lg transition-colors ${
-                    page === currentPage
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
+                  className={`px-3 py-2 rounded-lg transition-colors ${page === currentPage
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
                 >
                   {page}
                 </button>

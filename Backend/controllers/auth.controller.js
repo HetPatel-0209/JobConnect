@@ -181,7 +181,7 @@ exports.getProfile = async (req, res) => {
 // Update user profile
 exports.updateProfile = async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user._id;
         const updateData = req.body;
         const userRole = req.user.role;
 
@@ -191,7 +191,7 @@ exports.updateProfile = async (req, res) => {
 
         const session = await mongoose.startSession();
         session.startTransaction();
-        try {            
+        try {
             // Check if profile marked as completed
             const hasBasicInfo = updateData.name && updateData.phone;
             const hasJobseekerData = userRole === 'jobseeker' &&
@@ -233,7 +233,7 @@ exports.updateProfile = async (req, res) => {
                         bio: updateData.bio || '',
                         jobPreferences: updateData.jobPreferences || {}
                     });
-                } 
+                }
                 else {
                     // update profile
                     if (updateData.skills) jobseekerProfile.skills = updateData.skills;
@@ -348,7 +348,7 @@ exports.adminLogin = async (req, res) => {
 // upload profile picture
 exports.uploadProfilePicture = async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user._id;
 
         // check if file was uploaded
         if (!req.file) {
@@ -468,7 +468,7 @@ testUsers();
 // recruiter's organization
 exports.changeOrganization = async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user._id;
         const { organizationId } = req.body;
 
         // if user is a recruiter

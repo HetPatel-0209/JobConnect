@@ -460,6 +460,28 @@ exports.applyForJob = async (req, res) => {
 
         await application.save();
 
+        // Emit real-time event for job application
+        const io = req.app.get('io');
+        if (io) {
+            // Notify the user about successful application
+            io.to(`user_${userId}`).emit('job_applied', {
+                userId: userId.toString(),
+                jobId,
+                applicationId: application._id.toString(),
+                jobTitle: job.title,
+                timestamp: new Date()
+            });
+
+            // Notify the recruiter about new application
+            io.to(`user_${job.recruiter}`).emit('new_application', {
+                jobId,
+                applicantId: userId.toString(),
+                applicationId: application._id.toString(),
+                jobTitle: job.title,
+                timestamp: new Date()
+            });
+        }
+
         res.status(201).json({
             message: 'Successfully applied to job',
             application: {
@@ -669,6 +691,17 @@ exports.uploadResume = async (req, res) => {
             user.experience = parsedData.experience;
         }
         await user.save();
+
+        // Emit real-time event for resume upload
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`user_${userId}`).emit('resume_uploaded', {
+                userId: userId.toString(),
+                resumeId: resume._id.toString(),
+                filename: resume.filename,
+                timestamp: new Date()
+            });
+        }
 
         res.status(201).json({
             message: deleteResult.deletedCount > 0
@@ -927,7 +960,7 @@ exports.getJobseekerStats = async (req, res) => {
 exports.getRecommendedJobs = async (req, res) => {
     try {
         const { page = 1, limit = 10 } = req.query;
-        const userId = req.user.id;
+        const userId = req.user._id;
         const jobseekerProfile = await JobSeekerProfile.findOne({ user: userId });
 
         if (!jobseekerProfile) {
