@@ -1,4 +1,5 @@
 import api from './api';
+import cacheService, { CacheKeys, CacheInvalidation } from './cache.service';
 
 export const ApplicationService = {
     /**
@@ -12,12 +13,23 @@ export const ApplicationService = {
     },
 
     /**
-     * Get user's applications (job seeker)
+     * Get user's applications (job seeker) - Enhanced with caching
      * @param {Object} params - Query parameters
      * @returns {Promise<Object>} User applications
      */
     getUserApplications: async (params = {}) => {
-        return await api.get('/applications/user', params);
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const userId = user.id;
+
+        if (!userId) {
+            return await api.get('/applications/user', params);
+        }
+
+        const cacheKey = CacheKeys.USER_APPLICATIONS(userId, params.page || 1);
+
+        return await cacheService.getOrFetch(cacheKey, async () => {
+            return await api.get('/applications/user', params);
+        });
     },
 
     /**

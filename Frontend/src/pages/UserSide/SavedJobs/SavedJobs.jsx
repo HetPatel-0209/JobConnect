@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { JobService } from '../../../services/job.service';
-import { 
-  Bookmark, 
-  BookmarkX, 
-  MapPin, 
-  Clock, 
-  DollarSign, 
-  Building, 
+import { useSmartPaginatedFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys } from '../../../services/cache.service';
+import { useAuth } from '../../../contexts/AuthContext';
+import {
+  Bookmark,
+  BookmarkX,
+  MapPin,
+  Clock,
+  DollarSign,
+  Building,
   ExternalLink,
   Loader2,
   AlertCircle,
@@ -16,46 +19,43 @@ import {
 } from 'lucide-react';
 
 const SavedJobs = () => {
-  const [savedJobs, setSavedJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState({});
-  const [currentPage, setCurrentPage] = useState(1);
-  const navigate = useNavigate();
+  const { user } = useAuth();
 
-  useEffect(() => {
-    loadSavedJobs();
-  }, [currentPage]);
-
-  const loadSavedJobs = async () => {
-    try {
-      setLoading(true);
-      const response = await JobService.getSavedJobs({ 
-        page: currentPage, 
-        limit: 10 
-      });
-      
-      if (response.success) {
-        setSavedJobs(response.data.savedJobs);
-        setPagination(response.data.pagination);
-      } else {
-        setError('Failed to load saved jobs');
+  // Smart paginated fetch for saved jobs
+  const {
+    data: savedJobs,
+    pagination,
+    loading,
+    error: fetchError,
+    page: currentPage,
+    setPage: setCurrentPage,
+    refetch: loadSavedJobs
+  } = useSmartPaginatedFetch(
+    (page) => user ? CacheKeys.USER_SAVED_JOBS(user.id || user.id, page) : null,
+    ({ page }) => JobService.getSavedJobs({ page, limit: 10 }),
+    {
+      enabled: !!user,
+      ttl: 3 * 60 * 1000, // 3 minutes cache
+      realtime: true,
+      onSuccess: (data) => {
+        console.log('Saved jobs loaded:', data);
+      },
+      onError: (err) => {
+        console.error('Failed to load saved jobs:', err);
       }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load saved jobs');
-    } finally {
-      setLoading(false);
     }
-  };
+  );
+
+  // Handle response structure - extract savedJobs from response
+  const actualSavedJobs = savedJobs?.data?.savedJobs || savedJobs?.savedJobs || savedJobs || [];
+  const error = fetchError || (!savedJobs?.success && savedJobs?.message ? savedJobs.message : null);
 
   const handleUnsaveJob = async (jobId) => {
     try {
-      const response = await JobService.unsaveJob(jobId);
-      if (response.success) {
-        // Remove the job from the list
-        setSavedJobs(prev => prev.filter(savedJob => savedJob.job._id !== jobId));
-      }
+      await JobService.unsaveJob(jobId);
+      // The smart cache will automatically update the saved jobs list
+      // No need to manually update state - real-time cache updates handle this
+      loadSavedJobs(); // Refresh the data
     } catch (err) {
       console.error(err);
     }
@@ -129,15 +129,15 @@ const SavedJobs = () => {
             <h1 className="text-2xl font-bold text-gray-900">Saved Jobs</h1>
           </div>
           <p className="text-gray-600">
-            {savedJobs.length > 0 
-              ? `You have ${pagination.total || savedJobs.length} saved job${(pagination.total || savedJobs.length) !== 1 ? 's' : ''}`
+            {actualSavedJobs.length > 0
+              ? `You have ${pagination?.total || actualSavedJobs.length} saved job${(pagination?.total || actualSavedJobs.length) !== 1 ? 's' : ''}`
               : 'No saved jobs yet'
             }
           </p>
         </div>
 
         {/* Jobs List */}
-        {savedJobs.length === 0 ? (
+        {actualSavedJobs.length === 0 ? (
           <div className="text-center py-12">
             <Bookmark className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No Saved Jobs</h3>
@@ -154,10 +154,10 @@ const SavedJobs = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {savedJobs.map((savedJob) => {
+            {actualSavedJobs.map((savedJob) => {
               const job = savedJob.job;
               return (
-                <div key={savedJob._id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                <div key={savedJob.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       {/* Job Title and Company */}
@@ -232,10 +232,10 @@ const SavedJobs = () => {
         )}
 
         {/* Pagination */}
-        {pagination.pages > 1 && (
+        {pagination?.pages > 1 && (
           <div className="flex justify-center mt-8">
             <div className="flex gap-2">
-              {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((page) => (
+              {Array.from({ length: pagination?.pages || 1 }, (_, i) => i + 1).map((page) => (
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}

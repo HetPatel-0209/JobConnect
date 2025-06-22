@@ -8,13 +8,25 @@
  * @returns {Object} Formatted error object
  */
 export const formatApiError = (error) => {
+  // Log extended information for debugging
+  console.group('API Error Details');
+  console.log('Error object:', error);
+  console.log('Request URL:', error.config?.url);
+  console.log('Request Method:', error.config?.method);
+  console.log('Request Data:', error.config?.data);
+  console.log('Response Status:', error.response?.status);
+  console.log('Response Data:', error.response?.data);
+  console.groupEnd();
+
   // If we have a response with data, return that
   if (error.response?.data) {
     return {
       message: error.response.data.message || 'An error occurred',
       errors: error.response.data.errors || null,
       status: error.response.status,
-      statusText: error.response.statusText
+      statusText: error.response.statusText,
+      url: error.config?.url,
+      method: error.config?.method
     };
   }
   
@@ -22,14 +34,18 @@ export const formatApiError = (error) => {
   if (error.request) {
     return {
       message: 'Network error. Please check your connection.',
-      status: 0
+      status: 0,
+      url: error.config?.url,
+      method: error.config?.method
     };
   }
   
   // Handle other errors
   return {
     message: error.message || 'An unknown error occurred',
-    status: 500
+    status: 500,
+    url: error.config?.url,
+    method: error.config?.method
   };
 };
 

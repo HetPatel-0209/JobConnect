@@ -134,7 +134,7 @@ export default function OrgProfile() {
         // Set current organization from recruiter profile
         if (recruiterProfile.organizationId) {
           try {
-            const orgResponse = await OrganizationService.getOrganization(recruiterProfile.organizationId._id || recruiterProfile.organizationId);
+            const orgResponse = await OrganizationService.getOrganization(recruiterProfile.organizationId.id || recruiterProfile.organizationId);
             const orgData = orgResponse.data;
             setCurrentOrganization(orgData);
             setSelectedOrganization(orgData);
@@ -238,7 +238,7 @@ export default function OrgProfile() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
+    localStorage.removeItem('user');
     navigate('/');
   };
 
@@ -252,11 +252,11 @@ export default function OrgProfile() {
     try {
       // Check if organization changed
       const organizationChanged = selectedOrganization &&
-        selectedOrganization._id !== currentOrganization?._id;
+        selectedOrganization.id !== currentOrganization?.id;
 
       if (organizationChanged) {
         // Change organization first
-        await AuthService.changeOrganization(selectedOrganization._id);
+        await AuthService.changeOrganization(selectedOrganization.id);
         setCurrentOrganization(selectedOrganization);
       }
 
@@ -518,7 +518,7 @@ export default function OrgProfile() {
                       <>
                         {organizations.map((org) => (
                           <button
-                            key={org._id}
+                            key={org.id}
                             type="button"
                             onClick={() => handleOrgSelect(org)}
                             className="w-full text-left p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
@@ -562,7 +562,7 @@ export default function OrgProfile() {
                 )}
 
                 {/* Organization Change Warning */}
-                {selectedOrganization && selectedOrganization._id !== currentOrganization?._id && (
+                {selectedOrganization && selectedOrganization.id !== currentOrganization?.id && (
                   <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <div className="flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />

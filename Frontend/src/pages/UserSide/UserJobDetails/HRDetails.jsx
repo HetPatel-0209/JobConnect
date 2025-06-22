@@ -340,7 +340,7 @@ export default function HRDetails() {
               
               <div className="space-y-3">
                 <ChatButton
-                  recipientId={hrProfile._id}
+                  recipientId={hrProfile.id}
                   recipientName={hrProfile.name}
                   recipientRole="recruiter"
                   variant="primary"

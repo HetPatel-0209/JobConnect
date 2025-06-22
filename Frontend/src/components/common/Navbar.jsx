@@ -21,7 +21,7 @@ export default function Navbar() {
 
   const [localOrgImage, setLocalOrgImage] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [user, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -48,14 +48,14 @@ export default function Navbar() {
 
         // Fallback to localStorage if no user from contexts
         if (!user) {
-          const storedCurrentUser = localStorage.getItem('currentUser');
+          const storedCurrentUser = localStorage.getItem('user');
           const storedUser = localStorage.getItem('user');
 
           if (storedCurrentUser) {
             try {
               user = JSON.parse(storedCurrentUser);
             } catch (e) {
-              localStorage.removeItem('currentUser');
+              localStorage.removeItem('user');
             }
           } else if (storedUser) {
             try {
@@ -84,16 +84,16 @@ export default function Navbar() {
 
   // Load profile images from localStorage with error handling
   useEffect(() => {
-    if (!currentUser) return;
+    if (!user) return;
 
     try {
-      const userRole = currentUser.role;
+      const userRole = user.role;
 
       if (userRole === 'recruiter' || userRole === 'organization' || userRole === 'company') {
         const savedOrgImage = localStorage.getItem('orgProfileImage');
         if (savedOrgImage) setLocalOrgImage(savedOrgImage);
       } else if (userRole === 'jobseeker' || userRole === 'user') {
-        const savedProfileData = localStorage.getItem(`user_profile_${currentUser.email}`);
+        const savedProfileData = localStorage.getItem(`user_profile_${user.email}`);
         if (savedProfileData) {
           try {
             const savedProfile = JSON.parse(savedProfileData);
@@ -101,14 +101,14 @@ export default function Navbar() {
               setProfileImage(savedProfile.profileImage);
             }
           } catch (e) {
-            localStorage.removeItem(`user_profile_${currentUser.email}`);
+            localStorage.removeItem(`user_profile_${user.email}`);
           }
         }
       }
     } catch (error) {
       // Silent error handling
     }
-  }, [currentUser?.email, currentUser?.role, setProfileImage]);
+  }, [user?.email, user?.role, setProfileImage]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -129,8 +129,10 @@ export default function Navbar() {
         clearProfile();
       }
 
-      // Clear all localStorage data
-      localStorage.clear();
+      // Clear only auth-related localStorage data (not all data)
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('currentUser'); // Remove legacy key if exists
 
       // Reset state
       setCurrentUser(null);
@@ -156,8 +158,8 @@ export default function Navbar() {
       return 'auth';
     }
 
-    if (currentUser) {
-      const userRole = currentUser.role;
+    if (user) {
+      const userRole = user.role;
 
       // Check if user is on user/jobseeker routes first (more specific)
       if (location.pathname.includes('/user/')) {
@@ -191,7 +193,7 @@ export default function Navbar() {
 
     // Default to home navbar for visitors
     return 'home';
-  }, [currentUser, location.pathname]);// Show loading state briefly to prevent flash
+  }, [user, location.pathname]);// Show loading state briefly to prevent flash
   if (isLoading) {
     return (
       <header className='fixed top-0 left-0 w-full px-5 md:px-10 py-2.5 md:py-5 bg-white flex justify-between items-center z-[100] shadow-sm'>
@@ -335,7 +337,7 @@ export default function Navbar() {
         <img src={logo} alt="Logo" className="w-1/2 h-auto max-h-10 md:max-h-[60px] object-contain" />
       </div>
       <div className="text-red-500 text-xs">
-        Navbar Error: Type={navbarType} Role={currentUser?.role || 'none'}
+        Navbar Error: Type={navbarType} Role={user?.role || 'none'}
       </div>
     </header>
   );

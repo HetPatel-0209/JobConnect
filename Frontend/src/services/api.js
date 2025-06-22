@@ -7,6 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_BACKEND_API_BASE_URL || 'https://jobco
 // Debug logging to see which URL is being used
 console.log('🔧 Environment Variables Debug:');
 console.log('VITE_BACKEND_API_BASE_URL:', import.meta.env.VITE_BACKEND_API_BASE_URL);
+console.log('VITE_BACKEND_API_URL:', import.meta.env.VITE_BACKEND_API_URL);
 console.log('Final API_BASE_URL:', API_BASE_URL);
 console.log('Environment Mode:', import.meta.env.MODE);
 console.log('Is Development:', import.meta.env.DEV);
@@ -30,25 +31,79 @@ const api = axios.create({
 // Request interceptor for adding auth token
 api.interceptors.request.use(
     (config) => {
+        const requestInfo = {
+            method: config.method?.toUpperCase(),
+            url: config.url,
+            baseURL: config.baseURL,
+            fullURL: `${config.baseURL}${config.url}`,
+            headers: config.headers,
+            data: config.data
+        };
+        console.log('🚀 Making API request:', requestInfo);
+
         const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log('🔑 Token added to request');
+        } else {
+            // Only warn for protected endpoints, not for login/register
+            const isAuthEndpoint = config.url?.includes('/auth/login') ||
+                                 config.url?.includes('/auth/register') ||
+                                 config.url?.includes('/auth/forgot-password') ||
+                                 config.url?.includes('/auth/reset-password');
+
+            if (!isAuthEndpoint) {
+                console.log('⚠️ No token found in localStorage for protected endpoint:', config.url);
+            }
         }
         return config;
     },
     (error) => {
+        console.error('❌ Request interceptor error:', error);
         return Promise.reject(error);
     }
 );
 
 // Response interceptor for handling errors
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        const responseInfo = {
+            status: response.status,
+            url: response.config.url,
+            method: response.config.method?.toUpperCase(),
+            data: response.data
+        };
+          console.log('✅ API response received:', responseInfo);
+        return response;
+    },
     (error) => {
         const originalRequest = error.config;
+        const errorInfo = {
+            message: error.message,
+            status: error.response?.status,
+            url: originalRequest?.url,
+            method: originalRequest?.method?.toUpperCase(),
+            baseURL: originalRequest?.baseURL,
+            fullURL: originalRequest ? `${originalRequest.baseURL}${originalRequest.url}` : 'Unknown'
+        };        console.error('❌ API Error occurred:', errorInfo);
+
+        // Debug connection issues
+        if (!error.response) {
+            console.error('🔥 Network Error - No response received:', {
+                message: error.message,
+                code: error.code,
+                config: {
+                    url: originalRequest?.url,
+                    method: originalRequest?.method,
+                    baseURL: originalRequest?.baseURL,
+                    timeout: originalRequest?.timeout
+                }            });
+        } else {            console.error(`🚨 HTTP Error ${error.response.status}:`, error.response.data);
+        }
 
         // Handle authentication errors
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !originalRequest._retry) {            console.log('🔒 Authentication error - clearing credentials and redirecting to login');
+            
             // Clear auth data
             localStorage.removeItem('token');
             localStorage.removeItem('user');
@@ -56,12 +111,6 @@ api.interceptors.response.use(
             // Redirect to login page
             window.location.href = '/auth';
             return Promise.reject(error);
-        }
-
-        // Network errors
-        if (!error.response) {
-            console.error('Network Error:', error.message);
-            return Promise.reject(new Error('Network error. Please check your connection.'));
         }
 
         return Promise.reject(error);

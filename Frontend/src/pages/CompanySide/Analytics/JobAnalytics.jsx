@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { JobService } from '../../../services/job.service';
+import { useSmartFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys } from '../../../services/cache.service';
 import {
   ArrowLeft,
   BarChart3,
@@ -16,32 +18,31 @@ import {
 export default function JobAnalytics() {
   const { jobId } = useParams();
   const navigate = useNavigate();
-  const [analytics, setAnalytics] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    loadJobAnalytics();
-  }, [jobId]);
-
-  const loadJobAnalytics = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await JobService.getJobAnalytics(jobId);
-      if (response.success) {
-        setAnalytics(response.data);
-      } else {
-        setError('Failed to load job analytics');
+  // Smart fetch for job analytics
+  const {
+    data: analyticsResponse,
+    loading,
+    error: fetchError,
+    refetch: loadJobAnalytics
+  } = useSmartFetch(
+    jobId ? CacheKeys.JOB_ANALYTICS(jobId) : null,
+    () => JobService.getJobAnalytics(jobId),
+    {
+      enabled: !!jobId,
+      ttl: 5 * 60 * 1000, // 5 minutes cache
+      onSuccess: (data) => {
+        console.log('Job analytics loaded:', data);
+      },
+      onError: (err) => {
+        console.error('Failed to load job analytics:', err);
       }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load job analytics');
-    } finally {
-      setLoading(false);
     }
-  };
+  );
+
+  // Extract analytics data and handle response structure
+  const analytics = analyticsResponse?.success ? analyticsResponse.data : analyticsResponse;
+  const error = fetchError || (!analyticsResponse?.success ? analyticsResponse?.message : null);
 
   if (loading) {
     return (
@@ -224,7 +225,7 @@ export default function JobAnalytics() {
                 {analytics.analytics.applicationsOverTime.map((item, index) => (
                   <div key={index} className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">
-                      {item._id.day}/{item._id.month}/{item._id.year}
+                      {item.id.day}/{item.id.month}/{item.id.year}
                     </span>
                     <div className="flex items-center gap-3">
                       <div className="w-32 bg-gray-200 rounded-full h-2">

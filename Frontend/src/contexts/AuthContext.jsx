@@ -10,8 +10,8 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const initAuth = () => {
             try {
-                const currentUser = AuthService.getCurrentUser();
-                setUser(currentUser);
+                const user = AuthService.getCurrentUser();
+                setUser(user);
             } catch (error) {
                 console.error(error);
                 setUser(null);
@@ -24,9 +24,9 @@ export const AuthProvider = ({ children }) => {
 
         // Listen for storage changes in other tabs
         const handleStorageChange = (e) => {
-            if (e.key === 'user' || e.key === 'currentUser' || e.key === 'token') {
-                const currentUser = AuthService.getCurrentUser();
-                setUser(currentUser);
+            if (e.key === 'user' || e.key === 'token') {
+                const user = AuthService.getCurrentUser();
+                setUser(user);
             }
         };
 
@@ -71,13 +71,18 @@ export const AuthProvider = ({ children }) => {
         setUser(prev => ({ ...prev, ...newProfile }));
     };
 
+    const debugAuth = () => {
+        return AuthService.debugAuthState();
+    };
+
     const value = {
         user,
         loading,
         login,
         register,
         logout,
-        updateProfile
+        updateProfile,
+        debugAuth
     };
 
     return (

@@ -106,7 +106,7 @@ export default function RegistrationForm() {
           role: userType === 'jobseeker' ? 'jobseeker' : 'recruiter'
         };        // Add organizationId for recruiters
         if (userType === 'recruiter' && selectedOrganization) {
-          userData.organizationId = selectedOrganization._id;
+          userData.organizationId = selectedOrganization.id;
         } else if (userType === 'recruiter' && !selectedOrganization) {
           throw new Error('Organization selection is required for recruiters');
         }
@@ -279,7 +279,7 @@ export default function RegistrationForm() {
                 ) : organizations.length > 0 ? (
                   <>                    {organizations.map((org) => (
                       <button
-                        key={org._id}
+                        key={org.id}
                         type="button"
                         onClick={() => handleOrgSelect(org)}
                         className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-sm"

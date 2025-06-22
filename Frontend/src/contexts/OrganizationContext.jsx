@@ -24,7 +24,7 @@ export const OrganizationProvider = ({ children }) => {
         setLoading(true);
         try {
             // Check if user has recruiter profile with organization
-            const organizationId = user?.recruiterProfile?.organizationId?._id || user?.recruiterProfile?.organizationId || user?.organizationId;
+            const organizationId = user?.recruiterProfile?.organizationId?.id || user?.recruiterProfile?.organizationId || user?.organizationId;
             if (organizationId) {
                 const response = await OrganizationService.getOrganization(organizationId);
                 setCurrentOrganization(response.data);
@@ -73,7 +73,7 @@ export const OrganizationProvider = ({ children }) => {
             const response = await OrganizationService.updateOrganization(orgId, organizationData);
 
             // Update current organization if it's the same one being updated
-            if (currentOrganization && currentOrganization._id === orgId) {
+            if (currentOrganization && currentOrganization.id === orgId) {
                 setCurrentOrganization(response.data);
             }
 
@@ -93,7 +93,7 @@ export const OrganizationProvider = ({ children }) => {
             const response = await OrganizationService.uploadImages(orgId, files);
 
             // Update current organization if it's the same one being updated
-            if (currentOrganization && currentOrganization._id === orgId) {
+            if (currentOrganization && currentOrganization.id === orgId) {
                 setCurrentOrganization(response.data);
             }
 

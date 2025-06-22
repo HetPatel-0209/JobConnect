@@ -16,7 +16,7 @@ const NotificationManager = () => {
     // Listen for new message notifications
     const handleNewMessageNotification = (notification) => {
       // Only show notification if it's not from the current user
-      if (notification.message && notification.message.sender._id !== user?.id && notification.message.sender._id !== user?._id) {
+      if (notification.message && notification.message.sender.id !== user?.id && notification.message.sender.id !== user?.id) {
         addNotification(notification);
       }
     };

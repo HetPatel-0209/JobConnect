@@ -271,9 +271,9 @@ exports.uploadOrganizationImages = async (req, res) => {
             });
         }
 
-        const currentUserId = req.user._id;
+        const userId = req.user.id;
         const recruiterProfile = await require('../models/Recruiter').findOne({
-            user: currentUserId,
+            user: userId,
             organizationId: orgId
         });
 

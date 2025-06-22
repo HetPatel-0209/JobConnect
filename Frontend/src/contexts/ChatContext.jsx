@@ -85,10 +85,18 @@ export const ChatProvider = ({ children }) => {
                     setInitialized(true);
                 }
 
-                // Cleanup reconnect handler
+                // Set up periodic connection health check
+                const healthCheckInterval = setInterval(() => {
+                    if (isActive && user) {
+                        socketService.checkConnectionHealth();
+                    }
+                }, 30000); // Check every 30 seconds
+
+                // Cleanup reconnect handler and health check
                 return () => {
                     socketService.off('reconnect', handleReconnect);
                     socketService.off('authenticated', handleAuthenticated);
+                    clearInterval(healthCheckInterval);
                 };
             }
 
@@ -162,15 +170,15 @@ export const ChatProvider = ({ children }) => {
     useEffect(() => {
         const handleNewMessage = (message) => {
             // Add message to current chat if it matches
-            if (activeChat && message.chat === activeChat._id) {
+            if (activeChat && message.chat === activeChat.id) {
                 // Check if message is from current user (to avoid duplicates from optimistic updates)
-                const isFromCurrentUser = message.sender._id === user?.id || message.sender._id === user?._id;
+                const isFromCurrentUser = message.sender.id === user?.id ;
 
                 if (!isFromCurrentUser) {
                     // Only add messages from other users (avoid duplicating our own optimistic messages)
                     setMessages(prev => {
                         // Check if message already exists to prevent duplicates
-                        const messageExists = prev.some(msg => msg._id === message._id);
+                        const messageExists = prev.some(msg => msg.id === message.id);
                         if (messageExists) {
                             return prev;
                         }
@@ -178,25 +186,25 @@ export const ChatProvider = ({ children }) => {
                     });
 
                     // Confirm message delivery
-                    socketService.confirmMessageDelivery(message._id, message.chat);
+                    socketService.confirmMessageDelivery(message.id, message.chat);
                 } else {
                     console.log('Skipping message from current user to avoid duplicate');
                 }
             }
 
             // Update message status for all messages
-            setMessageStatuses(prev => new Map(prev.set(message._id, {
+            setMessageStatuses(prev => new Map(prev.set(message.id, {
                 sent: true,
                 delivered: message.status?.delivered || false,
                 read: message.status?.read || false
             })));
 
             // Update chat list locally and unread count
-            const isFromOtherUser = message.sender._id !== user?.id && message.sender._id !== user?._id;
+            const isFromOtherUser = message.sender.id !== user?.id && message.sender.id !== user?.id;
 
             setChats(prevChats => {
                 return prevChats.map(chat => {
-                    if (chat._id === message.chat) {
+                    if (chat.id === message.chat) {
                         const newUnreadCount = isFromOtherUser
                             ? (chat.unreadCount || 0) + 1
                             : chat.unreadCount || 0;
@@ -244,7 +252,7 @@ export const ChatProvider = ({ children }) => {
             if (notification.message) {
                 setChats(prevChats => {
                     return prevChats.map(chat => {
-                        if (chat._id === notification.message.chat) {
+                        if (chat.id === notification.message.chat) {
                             return {
                                 ...chat,
                                 lastMessage: notification.message,
@@ -259,7 +267,7 @@ export const ChatProvider = ({ children }) => {
         };
 
         const handleTypingStatus = (data) => {
-            if (activeChat && data.chatId === activeChat._id) {
+            if (activeChat && data.chatId === activeChat.id) {
                 setTypingUsers(prev => {
                     if (data.isTyping) {
                         return prev.includes(data.userId) ? prev : [...prev, data.userId];
@@ -271,10 +279,10 @@ export const ChatProvider = ({ children }) => {
         };
 
         const handleMessagesRead = (data) => {
-            if (activeChat && data.chatId === activeChat._id) {
+            if (activeChat && data.chatId === activeChat.id) {
                 // Update message read status
                 setMessages(prev => prev.map(msg => {
-                    if (!data.messageIds || data.messageIds.includes(msg._id)) {
+                    if (!data.messageIds || data.messageIds.includes(msg.id)) {
                         return {
                             ...msg,
                             readBy: [...(msg.readBy || []), { user: data.userId, readAt: new Date() }]
@@ -342,7 +350,7 @@ export const ChatProvider = ({ children }) => {
             // Replace optimistic message with real message
             if (data.tempId) {
                 setMessages(prev => prev.map(msg =>
-                    msg._id === data.tempId ? { ...data, _id: data._id } : msg
+                    msg.id === data.tempId ? { ...data, id: data.id } : msg
                 ));
 
                 // Transfer status from temp ID to real ID
@@ -351,7 +359,7 @@ export const ChatProvider = ({ children }) => {
                     const tempStatus = newMap.get(data.tempId);
                     if (tempStatus) {
                         newMap.delete(data.tempId);
-                        newMap.set(data._id, {
+                        newMap.set(data.id, {
                             ...tempStatus,
                             sent: true,
                             sentAt: new Date()
@@ -362,7 +370,7 @@ export const ChatProvider = ({ children }) => {
             } else {
                 // For messages without tempId, add them if they don't exist
                 setMessages(prev => {
-                    const messageExists = prev.some(msg => msg._id === data._id);
+                    const messageExists = prev.some(msg => msg.id === data.id);
                     if (!messageExists) {
                         return [...prev, data];
                     }
@@ -370,7 +378,7 @@ export const ChatProvider = ({ children }) => {
                 });
 
                 // Set status for new message
-                setMessageStatuses(prev => new Map(prev.set(data._id, {
+                setMessageStatuses(prev => new Map(prev.set(data.id, {
                     sent: true,
                     delivered: false,
                     read: false,
@@ -408,6 +416,12 @@ export const ChatProvider = ({ children }) => {
         const handleConnectError = (error) => {
             console.error('Socket connection error in ChatContext:', error);
             setIsSocketConnected(false);
+
+            // Handle namespace errors specifically
+            if (error.message && error.message.includes('Invalid namespace')) {
+                console.warn('Namespace error detected in ChatContext, will attempt reconnection...');
+                // The socket service will handle the reconnection automatically
+            }
         };
 
         const handleUnreadCountUpdated = (data) => {
@@ -453,8 +467,8 @@ export const ChatProvider = ({ children }) => {
     }, [activeChat]);    // Join chat room when active chat changes
     useEffect(() => {
         if (activeChat && socketService.isSocketConnected()) {
-            socketService.joinChat(activeChat._id);
-            fetchMessages(activeChat._id);
+            socketService.joinChat(activeChat.id);
+            fetchMessages(activeChat.id);
 
             // Clear typing users when switching chats
             setTypingUsers([]);
@@ -462,7 +476,7 @@ export const ChatProvider = ({ children }) => {
 
         return () => {
             if (activeChat && socketService.isSocketConnected()) {
-                socketService.leaveChat(activeChat._id);
+                socketService.leaveChat(activeChat.id);
             }
         };
     }, [activeChat, isSocketConnected]);
@@ -520,7 +534,7 @@ export const ChatProvider = ({ children }) => {
 
             // Remove duplicates based on message ID
             const uniqueMessages = fetchedMessages.filter((message, index, self) =>
-                index === self.findIndex(m => m._id === message._id)
+                index === self.findIndex(m => m.id === message.id)
             );
 
             setMessages(uniqueMessages);
@@ -550,10 +564,10 @@ export const ChatProvider = ({ children }) => {
 
                 // Create optimistic message for immediate UI update
                 const optimisticMessage = {
-                    _id: tempMessageId,
+                    id: tempMessageId,
                     content,
-                    sender: { _id: user?.id || user?._id, name: user?.name },
-                    chat: activeChat._id,
+                    sender: { id: user?.id || user?.id, name: user?.name },
+                    chat: activeChat.id,
                     timestamp: new Date(),
                     messageType: 'text'
                 };
@@ -562,7 +576,7 @@ export const ChatProvider = ({ children }) => {
                 setMessages(prev => [...prev, optimisticMessage]);
 
                 // Send via socket with temp ID for tracking
-                socketService.sendMessage(activeChat._id, content, 'text', tempMessageId);
+                socketService.sendMessage(activeChat.id, content, 'text', tempMessageId);
 
                 // Mark as sent after a short delay (optimistic)
                 setTimeout(() => {
@@ -585,7 +599,7 @@ export const ChatProvider = ({ children }) => {
 
                 // Set message status as sent
                 if (response.data) {
-                    setMessageStatuses(prev => new Map(prev.set(response.data._id, {
+                    setMessageStatuses(prev => new Map(prev.set(response.data.id, {
                         sent: true,
                         delivered: false,
                         read: false,
@@ -597,7 +611,7 @@ export const ChatProvider = ({ children }) => {
                 if (activeChat && response.data) {
                     setMessages(prevMessages => {
                         // Check if message already exists to prevent duplicates
-                        const messageExists = prevMessages.some(msg => msg._id === response.data._id);
+                        const messageExists = prevMessages.some(msg => msg.id === response.data.id);
                         if (messageExists) {
                             return prevMessages;
                         }
@@ -608,7 +622,7 @@ export const ChatProvider = ({ children }) => {
                 // Update chat list locally instead of refetching
                 setChats(prevChats => {
                     return prevChats.map(chat => {
-                        if (chat.participants.some(p => p.user._id === recipientId || p.user.id === recipientId)) {
+                        if (chat.participants.some(p => p.user.id === recipientId || p.user.id === recipientId)) {
                             return {
                                 ...chat,
                                 lastMessage: response.data,
@@ -649,7 +663,7 @@ export const ChatProvider = ({ children }) => {
     const markChatAsRead = async (chatId) => {
         try {
             // Find the chat and get its unread count before updating
-            const chat = chats.find(c => c._id === chatId);
+            const chat = chats.find(c => c.id === chatId);
             const chatUnreadCount = chat?.unreadCount || 0;
 
             await ChatService.markChatAsRead(chatId);
@@ -670,7 +684,7 @@ export const ChatProvider = ({ children }) => {
             // Update chat list locally instead of refetching
             setChats(prevChats => {
                 return prevChats.map(chat => {
-                    if (chat._id === chatId) {
+                    if (chat.id === chatId) {
                         return {
                             ...chat,
                             unreadCount: 0
@@ -707,9 +721,9 @@ export const ChatProvider = ({ children }) => {
     const deleteChat = async (chatId) => {
         try {
             await ChatService.deleteChat(chatId);
-            setChats(prev => prev.filter(chat => chat._id !== chatId));
+            setChats(prev => prev.filter(chat => chat.id !== chatId));
 
-            if (activeChat && activeChat._id === chatId) {
+            if (activeChat && activeChat.id === chatId) {
                 setActiveChat(null);
                 setMessages([]);
             }

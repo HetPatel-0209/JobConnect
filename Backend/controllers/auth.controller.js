@@ -45,14 +45,14 @@ exports.register = async (req, res) => {
 
             if (role === 'recruiter' && organizationId) {
                 const recruiterProfile = new Recruiter({
-                    user: user._id,
+                    user: user.id,
                     organizationId: organizationId
                 });
                 await recruiterProfile.save();
             }
 
             const token = jwt.sign(
-                { userId: user._id, role: user.role },
+                { userId: user.id, role: user.role },
                 process.env.JWT_SECRET,
                 { expiresIn: '24h' }
             );
@@ -72,7 +72,7 @@ exports.register = async (req, res) => {
             res.status(201).json({
                 token,
                 user: {
-                    id: user._id,
+                    id: user.id,
                     email: user.email,
                     role: user.role,
                     name: user.name,
@@ -110,13 +110,13 @@ exports.login = async (req, res) => {
 
         // Generate token
         const token = jwt.sign(
-            { userId: user._id, role: user.role },
+            { userId: user.id, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
         let organizationId = null;
         if (user.role === 'recruiter') {
-            const recruiterProfile = await Recruiter.findOne({ user: user._id });
+            const recruiterProfile = await Recruiter.findOne({ user: user.id });
             if (recruiterProfile) {
                 organizationId = recruiterProfile.organizationId;
             }
@@ -125,7 +125,7 @@ exports.login = async (req, res) => {
         res.json({
             token,
             user: {
-                id: user._id,
+                id: user.id,
                 email: user.email,
                 role: user.role,
                 name: user.name,
@@ -145,14 +145,14 @@ exports.getProfile = async (req, res) => {
         delete userData.password;
 
         if (user.role === 'jobseeker') {
-            const jobseekerProfile = await JobSeekerProfile.findOne({ user: user._id })
+            const jobseekerProfile = await JobSeekerProfile.findOne({ user: user.id })
                 .populate('activeResume');
             if (jobseekerProfile) {
                 userData.jobseekerProfile = jobseekerProfile;
             }
 
             const activeResume = await require('../models/Resume').findOne({
-                user: user._id,
+                user: user.id,
                 isActive: true
             }).select('filename cloudinarySecureUrl uploadedAt fileSize mimeType');
 
@@ -163,7 +163,7 @@ exports.getProfile = async (req, res) => {
 
         // recruiter profile info
         if (user.role === 'recruiter') {
-            const recruiterProfile = await Recruiter.findOne({ user: user._id })
+            const recruiterProfile = await Recruiter.findOne({ user: user.id })
                 .populate('organizationId');
 
             if (recruiterProfile) {
@@ -181,7 +181,7 @@ exports.getProfile = async (req, res) => {
 // Update user profile
 exports.updateProfile = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user.id;
         const updateData = req.body;
         const userRole = req.user.role;
 
@@ -348,7 +348,7 @@ exports.adminLogin = async (req, res) => {
 // upload profile picture
 exports.uploadProfilePicture = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user.id;
 
         // check if file was uploaded
         if (!req.file) {
@@ -419,7 +419,7 @@ exports.getUserProfile = async (req, res) => {
 
         // jobseeker, include profile data
         if (user.role === 'jobseeker') {
-            const jobseekerProfile = await JobSeekerProfile.findOne({ user: user._id });
+            const jobseekerProfile = await JobSeekerProfile.findOne({ user: user.id });
 
             if (jobseekerProfile) {
                 const userData = user.toObject();
@@ -468,7 +468,7 @@ testUsers();
 // recruiter's organization
 exports.changeOrganization = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user.id;
         const { organizationId } = req.body;
 
         // if user is a recruiter

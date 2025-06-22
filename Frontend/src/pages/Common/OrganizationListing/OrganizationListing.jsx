@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { OrganizationService } from '../../../services/organization.service';
 import { useDebounceSearch } from '../../../hooks/useDebounce';
+import { useSmartPaginatedFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys } from '../../../services/cache.service';
 import {
   Building2,
   MapPin,
@@ -21,57 +23,47 @@ import {
 export default function OrganizationListing() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [organizations, setOrganizations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [pagination, setPagination] = useState({});
-  const [currentPage, setCurrentPage] = useState(1);
 
   // Use custom debounce hook for search
   const { debouncedValue: debouncedSearchTerm, isSearching } = useDebounceSearch(searchTerm, 500);
 
-  const loadOrganizations = useCallback(async (page = currentPage, searchTerm = debouncedSearchTerm) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = {
-        page,
-        limit: 12,
-        ...(searchTerm && { search: searchTerm })
-      };
-
-      const response = await OrganizationService.getAllOrganizations(params);
-
-      if (response.success) {
-        const orgsData = Array.isArray(response.data) ? response.data : response.data.organizations || [];
-        const paginationData = response.pagination || response.data.pagination || {};
-
-        setOrganizations(orgsData);
-        setPagination(paginationData);
-      } else {
-        setError('Failed to load organizations');
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load organizations');
-    } finally {
-      setLoading(false);
-    }
-  }, []); // Empty dependency array to prevent recreation
-
-  // Load organizations when page or search term changes
-  useEffect(() => {
-    loadOrganizations(currentPage, debouncedSearchTerm);
-  }, [currentPage, debouncedSearchTerm]);
-
-  // Reset to first page when search term changes (but not on initial load)
-  useEffect(() => {
-    if (debouncedSearchTerm && currentPage !== 1) {
-      setCurrentPage(1);
-    }
+  // Memoize cache key to prevent unnecessary re-renders
+  const cacheKeyGenerator = useMemo(() => {
+    return (page) => CacheKeys.ORGANIZATIONS(page, { search: debouncedSearchTerm });
   }, [debouncedSearchTerm]);
+
+  // Smart paginated fetch for organizations
+  const {
+    data: organizations,
+    pagination,
+    loading,
+    error: fetchError,
+    page: currentPage,
+    setPage: setCurrentPage,
+    refetch: loadOrganizations
+  } = useSmartPaginatedFetch(
+    cacheKeyGenerator,
+    ({ page }) => OrganizationService.getAllOrganizations({
+      page,
+      limit: 12,
+      ...(debouncedSearchTerm && { search: debouncedSearchTerm })
+    }),
+    {
+      ttl: 3 * 60 * 1000, // 3 minutes cache
+      dependencies: [debouncedSearchTerm],
+      onSuccess: (data) => {
+        console.log('Organizations loaded:', data);
+      },
+      onError: (err) => {
+        console.error('Failed to load organizations:', err);
+      }
+    }
+  );
+
+  // Handle response structure - extract organizations from response
+  const actualOrganizations = organizations?.data?.organizations || organizations?.organizations || organizations || [];
+  const error = fetchError || (!organizations?.success && organizations?.message ? organizations.message : null);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -89,7 +81,7 @@ export default function OrganizationListing() {
     }
   };
 
-  if (loading && organizations.length === 0) {
+  if (loading && actualOrganizations.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -132,7 +124,7 @@ export default function OrganizationListing() {
               )}
             </div>
             <div className="flex items-center text-sm text-gray-500">
-              {isSearching ? 'Searching...' : `${organizations.length} organizations`}
+              {isSearching ? 'Searching...' : `${actualOrganizations.length} organizations`}
             </div>
           </form>
         </div>
@@ -148,7 +140,7 @@ export default function OrganizationListing() {
         )}
 
         {/* Organizations Grid */}
-        {organizations.length === 0 && !loading ? (
+        {actualOrganizations.length === 0 && !loading ? (
           <div className="text-center py-16">
             <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No Organizations Found</h3>
@@ -172,10 +164,10 @@ export default function OrganizationListing() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {organizations.map((org) => (
+            {actualOrganizations.map((org) => (
               <div
-                key={org._id}
-                onClick={() => handleOrganizationClick(org._id)}
+                key={org.id}
+                onClick={() => handleOrganizationClick(org.id)}
                 className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 transition-all duration-200 ${
                   user && user.role === 'jobseeker' 
                     ? 'hover:shadow-lg hover:scale-105 cursor-pointer' 
@@ -249,7 +241,7 @@ export default function OrganizationListing() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleOrganizationClick(org._id);
+                        handleOrganizationClick(org.id);
                       }}
                       className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
@@ -271,10 +263,10 @@ export default function OrganizationListing() {
         )}
 
         {/* Pagination */}
-        {pagination.totalPages > 1 && (
+        {pagination?.totalPages > 1 && (
           <div className="flex justify-center mt-8">
             <div className="flex gap-2">
-              {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
+              {Array.from({ length: pagination?.totalPages || 1 }, (_, i) => i + 1).map((page) => (
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
@@ -292,7 +284,7 @@ export default function OrganizationListing() {
         )}
 
         {/* Loading indicator for pagination */}
-        {loading && organizations.length > 0 && (
+        {loading && actualOrganizations.length > 0 && (
           <div className="flex justify-center mt-8">
             <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
           </div>

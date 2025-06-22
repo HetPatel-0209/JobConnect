@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { JobService } from '../../../services/job.service';
 import { ApplicationService } from '../../../services/application.service';
+import { useSmartMultiFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys, CacheInvalidation } from '../../../services/cache.service';
 import {
   ArrowLeft,
   Users,
@@ -26,9 +28,6 @@ import {
 
 export default function ApplicantsList() {
   const { jobId } = useParams();
-  const [applicants, setApplicants] = useState([]);
-  const [jobDetails, setJobDetails] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState('all');
   const [updatingStatus, setUpdatingStatus] = useState(null);
@@ -37,39 +36,34 @@ export default function ApplicantsList() {
   const [exportingCSV, setExportingCSV] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadData();
-  }, [jobId]);
-
-  const loadData = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Load job details and applicants in parallel
-      const [jobResponse, applicantsResponse] = await Promise.all([
-        JobService.getJobById(jobId),
-        JobService.getAppliedCandidates(jobId)
-      ]);
-
-      if (jobResponse.success || jobResponse.job) {
-        setJobDetails(jobResponse.job || jobResponse.data);
-      } else {
-        setError('Failed to load job details');
-      }
-
-      if (applicantsResponse.success) {
-        setApplicants(applicantsResponse.data.applications || []);
-      } else {
-        setError('Failed to load applicants');
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load job and applicant data');
-    } finally {
-      setIsLoading(false);
+  // Smart multi-fetch for job details and applicants
+  const { results, loading: isLoading, errors } = useSmartMultiFetch({
+    jobDetails: {
+      cacheKey: jobId ? CacheKeys.JOB_DETAILS(jobId) : null,
+      fetchFunction: () => JobService.getJobById(jobId),
+      enabled: !!jobId,
+      ttl: 5 * 60 * 1000 // 5 minutes cache
+    },
+    applicants: {
+      cacheKey: jobId ? CacheKeys.JOB_APPLICATIONS(jobId) : null,
+      fetchFunction: () => JobService.getAppliedCandidates(jobId),
+      enabled: !!jobId,
+      ttl: 2 * 60 * 1000, // 2 minutes cache
+      realtime: true // Real-time updates for applicant status changes
     }
-  };
+  });
+
+  // Extract data from results
+  const jobResponse = results.jobDetails;
+  const applicantsResponse = results.applicants;
+
+  const jobDetails = jobResponse?.job || jobResponse?.data || jobResponse;
+  const applicants = applicantsResponse?.success ?
+    (applicantsResponse.data?.applications || []) :
+    (applicantsResponse?.data?.applications || applicantsResponse || []);
+
+  // Handle errors from smart fetch
+  const fetchError = errors.jobDetails || errors.applicants;
 
   const handleStatusUpdate = async (applicationId, newStatus) => {
     setUpdatingStatus(applicationId);
@@ -79,14 +73,13 @@ export default function ApplicantsList() {
       const response = await ApplicationService.updateApplicationStatus(applicationId, newStatus);
 
       if (response.success) {
-        // Update local state
-        setApplicants(prev =>
-          prev.map(app =>
-            app._id === applicationId
-              ? { ...app, status: newStatus }
-              : app
-          )
-        );
+        // Smart cache invalidation - the cache will automatically update
+        CacheInvalidation.invalidateByEvent('application_status_updated', {
+          applicationId,
+          jobId,
+          newStatus
+        });
+
         setSuccess(`Application status updated to ${newStatus}`);
         setTimeout(() => setSuccess(null), 3000);
       } else {
@@ -474,7 +467,7 @@ export default function ApplicantsList() {
                     const nextStatusOptions = getNextStatusOptions(application.status);
 
                     return (
-                      <div key={application._id || index} className="p-6 hover:bg-gray-50 transition-colors">
+                      <div key={application.id || index} className="p-6 hover:bg-gray-50 transition-colors">
                         <div className="flex items-start gap-4">
                           {/* Avatar */}
                           <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -504,7 +497,7 @@ export default function ApplicantsList() {
 
                               <div className="flex gap-2">
                                 <button
-                                  onClick={() => navigate(`/applicant/${applicantData._id}`)}
+                                  onClick={() => navigate(`/applicant/${applicantData.id}`)}
                                   className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                                 >
                                   <Eye className="w-4 h-4" />
@@ -515,8 +508,8 @@ export default function ApplicantsList() {
                                 {nextStatusOptions.length > 0 && (
                                   <select
                                     value=""
-                                    onChange={(e) => e.target.value && handleStatusUpdate(application._id, e.target.value)}
-                                    disabled={updatingStatus === application._id}
+                                    onChange={(e) => e.target.value && handleStatusUpdate(application.id, e.target.value)}
+                                    disabled={updatingStatus === application.id}
                                     className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                                   >
                                     <option value="">Update Status</option>
@@ -528,7 +521,7 @@ export default function ApplicantsList() {
                                   </select>
                                 )}
 
-                                {updatingStatus === application._id && (
+                                {updatingStatus === application.id && (
                                   <div className="flex items-center">
                                     <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
                                   </div>

@@ -5,7 +5,7 @@ exports.sendMessage = async (req, res) => {
     try {
         console.log('POST /chat/messages - User:', req.user, 'Body:', req.body);
         const { recipientId, content, messageType = 'text' } = req.body;
-        const senderId = req.user._id;
+        const senderId = req.user.id;
 
         // if recipient exists
         const recipient = await User.findById(recipientId);
@@ -60,7 +60,7 @@ exports.sendMessage = async (req, res) => {
 exports.getChats = async (req, res) => {
     try {
         console.log('GET /chat/chats - User:', req.user);
-        const userId = req.user._id;
+        const userId = req.user.id;
         
         const chats = await Chat.find({ 
             'participants.user': userId,
@@ -98,7 +98,7 @@ exports.getChats = async (req, res) => {
 exports.getChatMessages = async (req, res) => {
     try {
         const { chatId } = req.params;
-        const userId = req.user._id;
+        const userId = req.user.id;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 50;
         const skip = (page - 1) * limit;
@@ -160,7 +160,7 @@ exports.getChatMessages = async (req, res) => {
 exports.markMessagesAsRead = async (req, res) => {
     try {
         const { chatId } = req.params;
-        const userId = req.user._id;
+        const userId = req.user.id;
 
         // if user is participant in the chat
         const chat = await Chat.findOne({
@@ -201,7 +201,7 @@ exports.markMessagesAsRead = async (req, res) => {
 exports.deleteChat = async (req, res) => {
     try {
         const { chatId } = req.params;
-        const userId = req.user._id;
+        const userId = req.user.id;
 
         const chat = await Chat.findOne({
             _id: chatId,
@@ -247,14 +247,14 @@ exports.getOnlineUsers = async (req, res) => {
 exports.searchUsers = async (req, res) => {
     try {
         const { query } = req.query;
-        const currentUserId = req.user._id;
+        const userId = req.user.id;
 
         if (!query || query.length < 2) {
             return res.status(400).json({ message: 'Search query must be at least 2 characters' });
         }
 
         const users = await User.find({
-            _id: { $ne: currentUserId },
+            _id: { $ne: userId },
             $or: [
                 { name: { $regex: query, $options: 'i' } },
                 { email: { $regex: query, $options: 'i' } }
@@ -273,7 +273,7 @@ exports.searchUsers = async (req, res) => {
 // Get chat statistics
 exports.getChatStats = async (req, res) => {
     try {
-        const userId = req.user._id;
+        const userId = req.user.id;
 
         const totalChats = await Chat.countDocuments({
             'participants.user': userId,

@@ -27,14 +27,12 @@ const ChatButton = ({
     if (!user) {
       navigate('/auth');
       return;
-    }
-
-    if (!recipientId || recipientId === user.id || recipientId === user._id) {
+    }    if (!recipientId || recipientId === (user.id || user.id)) {
       setError('Cannot start chat with yourself');
       return;
     }
 
-    console.log('Starting chat with:', { recipientId, recipientName, currentUser: user });
+    console.log('Starting chat with:', { recipientId, recipientName, user: user });
     setLoading(true);
     setError(null);
 

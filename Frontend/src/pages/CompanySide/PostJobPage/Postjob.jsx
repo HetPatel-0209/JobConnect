@@ -80,7 +80,7 @@ const Postjob = () => {
   }, [isEditMode, editJobId]);
 
   const loadOrganization = async () => {
-    const organizationId = user?.recruiterProfile?.organizationId?._id || user?.recruiterProfile?.organizationId || user?.organizationId;
+    const organizationId = user?.recruiterProfile?.organizationId?.id || user?.recruiterProfile?.organizationId || user?.organizationId;
     if (!organizationId) {
       setErrors({ organization: 'No organization found. Please register your organization first.' });
       setLoading(false);
@@ -321,7 +321,7 @@ const Postjob = () => {
         description: formData.description,
         applicationDeadline: formData.applicationDeadline ? new Date(formData.applicationDeadline) : null,
         status: formData.status,
-        organization: organization._id,
+        organization: organization.id,
         atsCriteria: formData.atsCriteria
       };
 
@@ -331,7 +331,7 @@ const Postjob = () => {
         : await JobService.postJob(jobData);
 
       // Handle different response formats
-      const isSuccess = response.success !== undefined ? response.success : !!response.data || !!response._id;
+      const isSuccess = response.success !== undefined ? response.success : !!response.data || !!response.id;
 
       if (isSuccess) {
         setSubmitSuccess(true);

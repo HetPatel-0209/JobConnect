@@ -18,35 +18,72 @@ export const AuthService = {
         } catch (error) {
             throw error;
         }
-    },
-
-    /**
+    },    /**
      * Login a user
      * @param {Object} credentials - Login credentials
      * @returns {Promise<Object>} User data and token
      */
     login: async (credentials) => {
         try {
+            console.log('🔑 Attempting login with credentials:', { email: credentials.email });
             const response = await api.post('/auth/login', credentials);
-            if (response.token) {
+            console.log('✅ Login response received:', response);
+
+            if (response.token && response.user) {
+                // Store token and user data synchronously
                 localStorage.setItem('token', response.token);
                 localStorage.setItem('user', JSON.stringify(response.user));
+
+                // Verify storage was successful
+                const storedToken = localStorage.getItem('token');
+                const storedUser = localStorage.getItem('user');
+
+                if (storedToken && storedUser) {
+                    console.log('💾 Successfully stored in localStorage:', {
+                        token: !!storedToken,
+                        user: response.user,
+                        tokenLength: storedToken.length
+                    });
+                } else {
+                    console.error('❌ Failed to store auth data in localStorage');
+                    throw new Error('Failed to store authentication data');
+                }
+            } else {
+                console.warn('⚠️ Invalid login response - missing token or user data');
+                throw new Error('Invalid login response from server');
             }
             return response;
         } catch (error) {
+            console.error('❌ Login failed:', error);
+            // Clear any partial data on login failure
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
             throw error;
         }
     },
-
-
 
     /**
      * Get the current user from localStorage
      * @returns {Object|null} User object or null
      */
     getCurrentUser: () => {
-        const user = localStorage.getItem('user');
-        return user ? JSON.parse(user) : null;
+        const userString = localStorage.getItem('user');
+        console.log('🔍 getCurrentUser - Raw localStorage user:', userString);
+        
+        if (userString) {
+            try {
+                const user = JSON.parse(userString);
+                console.log('✅ getCurrentUser - Parsed user:', user);
+                return user;
+            } catch (error) {
+                console.error('❌ getCurrentUser - Parse error:', error);
+                localStorage.removeItem('user');
+                return null;
+            }
+        }
+        
+        console.log('⚠️ getCurrentUser - No user in localStorage');
+        return null;
     },
 
     /**
@@ -62,26 +99,84 @@ export const AuthService = {
      * @returns {boolean} True if authenticated
      */
     isAuthenticated: () => {
-        return !!localStorage.getItem('token');
+        const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
+        const isAuth = !!(token && user);
+
+        console.log('🔍 Authentication check:', {
+            hasToken: !!token,
+            hasUser: !!user,
+            isAuthenticated: isAuth,
+            tokenLength: token?.length || 0
+        });
+
+        return isAuth;
+    },
+
+    /**
+     * Debug authentication state
+     * @returns {Object} Debug information about auth state
+     */
+    debugAuthState: () => {
+        const token = localStorage.getItem('token');
+        const userString = localStorage.getItem('user');
+        let user = null;
+
+        try {
+            user = userString ? JSON.parse(userString) : null;
+        } catch (e) {
+            console.error('Failed to parse user from localStorage:', e);
+        }
+
+        const debugInfo = {
+            hasToken: !!token,
+            tokenLength: token?.length || 0,
+            tokenPreview: token ? `${token.substring(0, 20)}...` : null,
+            hasUser: !!user,
+            userId: user?.id || user?._id || null,
+            userRole: user?.role || null,
+            userName: user?.name || null,
+            rawUserString: userString,
+            localStorageKeys: Object.keys(localStorage)
+        };
+
+        console.log('🔍 Auth Debug State:', debugInfo);
+        return debugInfo;
     },
 
     /**
      * Get user profile
      * @returns {Promise<Object>} User profile
-     */
-    getProfile: async () => {
+     */    getProfile: async () => {
         try {
             // Get current user ID from localStorage for cache key
-            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-            const userId = currentUser._id || 'anonymous';
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
+            // Handle both _id (MongoDB) and id fields
+            const userId = user.id || user.id;
+            if (!userId) {
+                console.warn('User ID not found, attempting to fetch profile without cache key');
+                // Try to fetch profile directly without cache key
+                const response = await api.get('/auth/profile');
+                console.log('Raw API response in AuthService (no cache):', response);
+                return response;
+            }
 
             const cacheKey = CacheKeys.USER_PROFILE(userId);
 
             // Use request deduplication to prevent multiple simultaneous calls
             return await cacheService.getOrFetch(cacheKey, async () => {
-                return await api.get('/auth/profile');
+                const response = await api.get('/auth/profile');
+                console.log('Raw API response in AuthService:', response);
+                return response;
             });
         } catch (error) {
+            console.error('AuthService.getProfile error:', error);
             throw error;
         }
     },
@@ -94,28 +189,31 @@ export const AuthService = {
     updateProfile: async (profileData) => {
         try {
             // Get current user to determine the correct endpoint
-            const currentUser = AuthService.getCurrentUser();
-            if (!currentUser) {
+            const user = AuthService.getCurrentUser();
+            if (!user) {
                 throw new Error('No user found. Please login again.');
             }
 
             // Determine the correct endpoint based on user role
             let endpoint;
-            if (currentUser.role === 'jobseeker') {
+            if (user.role === 'jobseeker') {
                 endpoint = '/auth/profile-jobseeker';
-            } else if (currentUser.role === 'recruiter') {
+            } else if (user.role === 'recruiter') {
                 endpoint = '/auth/profile-recruiter';
             } else {
-                throw new Error(`Unsupported user role: ${currentUser.role}`);
+                throw new Error(`Unsupported user role: ${user.role}`);
             }
 
             const response = await api.put(endpoint, profileData);
-            if (response.user) {
-                localStorage.setItem('user', JSON.stringify(response.user));
-                localStorage.setItem('currentUser', JSON.stringify(response.user));
+            console.log('AuthService updateProfile response:', response);
 
-                // Invalidate user cache since profile was updated
-                CacheInvalidation.invalidateUserCache(response.user._id);
+            if (response.user) {                // Update localStorage with the new user data
+                localStorage.setItem('user', JSON.stringify(response.user));
+
+                // Use targeted profile cache invalidation instead of broad user cache clearing
+                CacheInvalidation.invalidateUserProfile(response.user.id);
+
+                console.log('Profile cache invalidated for user:', response.user.id);
             }
             return response;
         } catch (error) {
@@ -135,12 +233,11 @@ export const AuthService = {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
-            });
-            if (response.user) {
+            });            if (response.user) {
                 localStorage.setItem('user', JSON.stringify(response.user));
 
-                // Invalidate user cache since profile picture was updated
-                CacheInvalidation.invalidateUserCache(response.user._id);
+                // Use targeted profile cache invalidation for profile picture updates
+                CacheInvalidation.invalidateUserProfile(response.user.id);
             }
             return response;
         } catch (error) {
@@ -175,7 +272,6 @@ export const AuthService = {
             });
             if (response.user) {
                 localStorage.setItem('user', JSON.stringify(response.user));
-                localStorage.setItem('currentUser', JSON.stringify(response.user));
             }
             return response;
         } catch (error) {
@@ -190,7 +286,7 @@ export const AuthService = {
     logout: () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        localStorage.removeItem('currentUser');
+        localStorage.removeItem('currentUser'); // Remove legacy key if exists
 
         // Clear all cache on logout
         cacheService.clear();

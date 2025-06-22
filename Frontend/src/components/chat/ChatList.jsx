@@ -8,7 +8,7 @@ const ChatList = ({
   onChatSelect,
   loading = false,
   onDeleteChat = null,
-  currentUserId
+  userId
 }) => {
   const { isUserOnline } = useChat();
 
@@ -24,8 +24,7 @@ const ChatList = ({
   const getOtherParticipant = (chat) => {
     if (!chat.participants || !Array.isArray(chat.participants)) return null;
     return chat.participants.find(p =>
-      p.user._id !== currentUserId &&
-      p.user.id !== currentUserId
+      p.user.id !== userId
     )?.user;
   };
 

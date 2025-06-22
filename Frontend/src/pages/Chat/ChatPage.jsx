@@ -30,7 +30,7 @@ const ChatPage = () => {
   useEffect(() => {
     if (activeChat) {
       setMessagesLoading(true);
-      fetchMessages(activeChat._id).finally(() => {
+      fetchMessages(activeChat.id).finally(() => {
         setMessagesLoading(false);
       });
     }
@@ -137,7 +137,7 @@ const ChatPage = () => {
             activeChat={activeChat}
             onChatSelect={handleChatSelect}
             onDeleteChat={handleDeleteChat}
-            currentUserId={user?.id}
+            userId={user?.id}
             loading={loading && chats.length === 0} // Only show loading if we have no chats
           />
         </div>
@@ -164,7 +164,7 @@ const ChatPage = () => {
         <ChatWindow
           chat={activeChat}
           messages={messages}
-          currentUserId={user?.id}
+          userId={user?.id}
           onSendMessage={handleSendMessage}
           onMarkAsRead={handleMarkAsRead}
           onTyping={handleTyping}

@@ -1,11 +1,13 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useMemo } from 'react';
 import UploadResume from '../UserResume/UploadResume';
 import { ProfileContext } from '../../../contexts/ProfileContext';
-import { AuthService } from '../../../services/auth.service';
 import { ResumeService } from '../../../services/resume.service';
 import { JobService } from '../../../services/job.service';
 import { useNavigate } from 'react-router-dom';
 import { usePreventAltArrowNavigation } from '../../../hooks/usePreventAltArrowNavigation';
+import { useSmartFetch, useSmartPaginatedFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys } from '../../../services/cache.service';
+import { useAuth } from '../../../contexts/AuthContext';
 import {
   Upload,
   Search,
@@ -41,7 +43,7 @@ const JobCard = ({ job, onApply }) => {
   const handleEvaluate = async () => {
     try {
       setIsEvaluating(true);
-      const result = await JobService.calculateATSScore(job._id);
+      const result = await JobService.calculateATSScore(job._id || job._id);
       setEvaluationResult(result);
       setShowEvaluation(true);
     } catch (error) {
@@ -247,21 +249,21 @@ const JobCard = ({ job, onApply }) => {
         <div className="flex flex-col gap-3 lg:min-w-0 lg:w-auto w-full">
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2">
             <button
-              onClick={() => navigate(`/jobs/${job._id}`)}
+              onClick={() => navigate(`/jobs/${job._id || job._id}`)}
               className="flex items-center justify-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200 font-medium text-sm"
             >
               <Eye className="w-4 h-4" />
               Job Details
             </button>
             <button
-              onClick={() => navigate(`/recruiter-details/${job.recruiter._id}`)}
+              onClick={() => navigate(`/recruiter-details/${job.recruiter.id}`)}
               className="flex items-center justify-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200 font-medium text-sm"
             >
               <User className="w-4 h-4" />
               Recruiter Details
             </button>
             <button
-              onClick={() => navigate(`/company-details/${job.organization._id}`)}
+              onClick={() => navigate(`/company-details/${job.organization.id}`)}
               className="flex items-center justify-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200 font-medium text-sm"
             >
               <Users className="w-4 h-4" />
@@ -304,7 +306,7 @@ const JobCard = ({ job, onApply }) => {
             return userScore >= requiredScore;
           })() && (
               <button
-                onClick={() => onApply(job._id)}
+                onClick={() => onApply(job._id || job._id)}
                 className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 font-semibold shadow-md hover:shadow-lg"
               >
                 <CheckCircle className="w-5 h-5" />
@@ -347,30 +349,11 @@ const JobCard = ({ job, onApply }) => {
 export default function JobDashboard() {
   const [showUploadScreen, setShowUploadScreen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { applications, profileData, fetchProfile } = useContext(ProfileContext);
-  const safeApplications = Array.isArray(applications) ? applications : [];
+  const { user } = useAuth();
+  const { profileData, fetchProfile } = useContext(ProfileContext);
 
-  const [user, setUser] = useState({ name: 'User' });
-  const [allJobs, setAllJobs] = useState([]);
-  const [recommendedJobs, setRecommendedJobs] = useState([]);
-  const [appliedJobs, setAppliedJobs] = useState([]);
-  const [dashboardStats, setDashboardStats] = useState({
-    appliedJobs: 0,
-    savedJobs: 0,
-    interview: 0,
-    unreadMessages: 0
-  });
   const [profileCompleted, setProfileCompleted] = useState(false);
   const [hasResume, setHasResume] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  // Pagination states
-  const [allJobsPage, setAllJobsPage] = useState(1);
-  const [recommendedJobsPage, setRecommendedJobsPage] = useState(1);
-  const [appliedJobsPage, setAppliedJobsPage] = useState(1);
-  const [allJobsPagination, setAllJobsPagination] = useState({});
-  const [recommendedJobsPagination, setRecommendedJobsPagination] = useState({});
-  const [appliedJobsPagination, setAppliedJobsPagination] = useState({});
 
   // Filter states
   const [showFilters, setShowFilters] = useState(false);
@@ -380,101 +363,129 @@ export default function JobDashboard() {
     workMode: '',
     salaryMin: '',
     salaryMax: '',
-    skills: ''
-  });
+    skills: ''  });
 
-  const navigate = useNavigate(); useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        setLoading(true);
+  const navigate = useNavigate();
+  // Debug logging for development
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      const userId = user?.id || user?.id;
+      console.log('� JobDashboard mounted with user ID:', userId);
+    }
+  }, [user?.id, user?.id]);
+  // Stable user ID to prevent cache key changes
+  const userId = useMemo(() => {
+    return user?.id || user?.id;
+  }, [user?.id, user?.id]);
 
-        // Get user profile from ProfileContext or fetch if needed
-        let userData = profileData;
-        if (!userData) {
-          try {
-            userData = await fetchProfile();
-          } catch (error) {
-            console.error('Failed to fetch profile:', error);
-          }
-        }
+  // Memoize cache keys and fetch functions to prevent unnecessary re-renders
+  const cacheKeys = useMemo(() => {
+    if (!userId) {
+      console.log('⚠️ No user ID found for cache keys', { user });
+      return null;
+    }
+    return {
+      userStats: CacheKeys.USER_STATS(userId),
+      userActiveResume: CacheKeys.USER_ACTIVE_RESUME(userId),
+      allJobs: (page, filters) => CacheKeys.ALL_JOBS(page, { ...filters, search: searchQuery }),
+      recommendedJobs: (page) => CacheKeys.USER_RECOMMENDED_JOBS(userId, page),
+      appliedJobs: (page) => CacheKeys.USER_APPLIED_JOBS(userId, page)
+    };  }, [userId, searchQuery]);
+  // Smart fetch for dashboard stats
+  const {
+    data: dashboardStats,
+    loading: statsLoading
+  } = useSmartFetch(
+    cacheKeys?.userStats,
+    () => {
+      return JobService.getJobseekerStats(userId);
+    },
+    {
+      enabled: !!userId && !!cacheKeys,
+      ttl: 2 * 60 * 1000, // 2 minutes
+      realtime: true
+    }
+  );
 
-        if (userData) {
-          setUser({ name: userData.name, email: userData.email });
-          setProfileCompleted(userData.profileCompleted || false);          // Check if user has a resume
-          if (userData.activeResume) {
-            setHasResume(true);
-          } else {
-            try {
-              const resumeResponse = await ResumeService.getUserActiveResume();
-              // Check if the response indicates an active resume exists
-              if (resumeResponse.hasActiveResume && resumeResponse.activeResume) {
-                setHasResume(true);
-              } else {
-                setHasResume(false);
-              }
-            } catch (error) {
-              console.log(error.message);
-              setHasResume(false);
-            }
-          }// Get dashboard stats
-          try {
-            const statsResponse = await JobService.getJobseekerStats();
-            setDashboardStats(statsResponse);
-          } catch (error) {
-            console.error(error);
-            // Use fallback values
-            setDashboardStats({
-              appliedJobs: 0,
-              savedJobs: 0,
-              interview: 0,
-              unreadMessages: 0
-            });
-          }
-
-          // Get applied jobs
-          try {
-            const appliedResponse = await JobService.getAppliedJobs({ page: appliedJobsPage });
-            setAppliedJobs(appliedResponse.applications || []);
-            setAppliedJobsPagination(appliedResponse.pagination || {});
-          } catch (error) {
-            console.error(error);
-            setAppliedJobs([]);
-          }
-        }
-      } catch (error) {
-        console.error(error);
-        // Fallback to localStorage
-        const storedUser = JSON.parse(localStorage.getItem('currentUser'));
-        if (storedUser) {
-          setUser(storedUser);
-          // Check localStorage for resume data
-          const resumeData = localStorage.getItem('userResume');
-          setHasResume(!!resumeData);
-        }
-      } finally {
-        setLoading(false);
+  // Smart fetch for user resume status
+  const {
+    loading: resumeLoading
+  } = useSmartFetch(
+    cacheKeys?.userActiveResume,    () => {
+      return ResumeService.getUserActiveResume();
+    },
+    {
+      enabled: !!userId && !!cacheKeys,
+      ttl: 5 * 60 * 1000, // 5 minutes
+      onSuccess: (data) => {
+        setHasResume(data?.hasActiveResume && data?.activeResume);
+      },
+      onError: () => {
+        setHasResume(false);
       }
-    };
+    }
+  );
 
-    // Load jobs from backend
-    const fetchJobs = async () => {
-      try {
-        // Get all jobs
-        const allJobsResponse = await JobService.getAllJobs({ page: allJobsPage, ...filters, search: searchQuery });
-        setAllJobs(allJobsResponse.jobs || []);
-        setAllJobsPagination(allJobsResponse.pagination || {});        // Get recommended jobs
-        const recommendedResponse = await JobService.getRecommendedJobs({ page: recommendedJobsPage });
-        setRecommendedJobs(recommendedResponse.jobs || []);
-        setRecommendedJobsPagination(recommendedResponse.pagination || {});
-      } catch (error) {
-        console.error(error);
-        const jobs = JSON.parse(localStorage.getItem('jobs')) || [];
-        setAllJobs(jobs);
-        setRecommendedJobs(jobs);
-      }
-    }; fetchUserData();
-    fetchJobs();
-  }, [allJobsPage, recommendedJobsPage, appliedJobsPage, filters, searchQuery]);
+  // Smart paginated fetch for all jobs
+  const {
+    data: allJobs,
+    pagination: allJobsPagination,
+    loading: allJobsLoading,
+    setPage: setAllJobsPage
+  } = useSmartPaginatedFetch(
+    (page) => cacheKeys?.allJobs(page, filters),
+    ({ page }) => JobService.getAllJobs({ page, ...filters, search: searchQuery }),
+    {
+      enabled: !!cacheKeys,
+      dependencies: [filters, searchQuery],
+      ttl: 3 * 60 * 1000, // 3 minutes
+    }
+  );
+
+  // Smart paginated fetch for recommended jobs
+  const {
+    data: recommendedJobs,
+    pagination: recommendedJobsPagination,
+    loading: recommendedJobsLoading,
+    setPage: setRecommendedJobsPage
+  } = useSmartPaginatedFetch(
+    (page) => cacheKeys?.recommendedJobs(page),
+    ({ page }) => JobService.getRecommendedJobs({ page }, userId),
+    {
+      enabled: !!userId && !!cacheKeys,
+      ttl: 5 * 60 * 1000, // 5 minutes
+      realtime: true
+    }
+  );
+
+  // Smart paginated fetch for applied jobs
+  const {
+    data: appliedJobs,
+    pagination: appliedJobsPagination,
+    loading: appliedJobsLoading,
+    setPage: setAppliedJobsPage
+  } = useSmartPaginatedFetch(
+    (page) => cacheKeys?.appliedJobs(page),
+    ({ page }) => JobService.getAppliedJobs({ page }, userId),
+    {
+      enabled: !!userId && !!cacheKeys,
+      ttl: 3 * 60 * 1000, // 3 minutes
+      realtime: true
+    }
+  );
+
+  // Combined loading state
+  const loading = statsLoading || resumeLoading || allJobsLoading || recommendedJobsLoading || appliedJobsLoading;
+
+  // Update profile completion status when profile data changes
+  useEffect(() => {
+    if (profileData) {
+      setProfileCompleted(profileData.profileCompleted || false);
+    }
+  }, [profileData]);
+
+  // Legacy useEffect - to be removed after testing
+
   const dashboardStatsArray = [
     {
       title: 'Applications',
@@ -518,6 +529,7 @@ export default function JobDashboard() {
     setFilters(prev => ({ ...prev, [key]: value }));
     setAllJobsPage(1); // Reset to first page when filtering
   };
+
   const clearFilters = () => {
     setFilters({
       location: '',
@@ -532,16 +544,12 @@ export default function JobDashboard() {
 
   const handleApply = async (jobId) => {
     try {
-      // Apply for job logic
-      const response = await JobService.applyForJob(jobId);
+      // Apply for job logic - the service will handle cache updates automatically
+      await JobService.applyForJob(jobId);
       alert('Application submitted successfully!');
 
-      // Refresh applied jobs
-      const appliedResponse = await JobService.getAppliedJobs({ page: appliedJobsPage });
-      setAppliedJobs(appliedResponse.applications || []);
-
-      const statsResponse = await JobService.getJobseekerStats();
-      setDashboardStats(statsResponse.stats || {});
+      // The smart fetching hooks will automatically update due to real-time cache updates
+      // No need to manually refetch data
     } catch (error) {
       console.error('Error applying for job:', error);
       alert('Failed to apply for job. ' + (error.message));
@@ -562,8 +570,8 @@ export default function JobDashboard() {
         onClose={() => setShowUploadScreen(false)}
         onSuccess={handleResumeUploadSuccess}
       />
-    ) : (
-      <main className="pt-24 px-4 pb-8 max-w-7xl mx-auto">
+    ) : (      <main className="pt-24 px-4 pb-8 max-w-7xl mx-auto">
+        
         {/* Header Section */}
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
@@ -710,7 +718,7 @@ export default function JobDashboard() {
                   </div>
                   <div className="mt-4 md:mt-0 md:ml-6">
                     <button
-                      onClick={() => navigate(`/jobs/${application.job._id}`)}
+                      onClick={() => navigate(`/jobs/${application.job._id || application.job._id}`)}
                       className="flex items-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200 font-medium"
                     >
                       <Eye className="w-4 h-4" />
@@ -875,7 +883,7 @@ export default function JobDashboard() {
           ) : (
             <div className="space-y-6">
               {allJobs.map(job => (
-                <JobCard key={job._id} job={job} onApply={handleApply} />
+                <JobCard key={job._id || job._id} job={job} onApply={handleApply} />
               ))}
             </div>
           )}
@@ -919,7 +927,7 @@ export default function JobDashboard() {
           ) : (
             <div className="space-y-6">
               {recommendedJobs.map(job => (
-                <JobCard key={job._id} job={job} onApply={handleApply} />
+                <JobCard key={job._id || job._id} job={job} onApply={handleApply} />
               ))}          </div>)}
         </div>
       </main>

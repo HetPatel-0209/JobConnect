@@ -24,6 +24,7 @@ class SocketService {
         }
 
         this.isConnecting = true;
+        this.token = token; // Store token for authentication
 
         if (this.socket) {
             this.disconnect();
@@ -37,41 +38,75 @@ class SocketService {
             localStorage.setItem('socketToken', token);
         }
 
-        const serverUrl = (import.meta.env.VITE_BACKEND_API_BASE_URL || 'https://jobconnect-xwh3.onrender.com')
+        // Use the base URL without /api for Socket.IO connection
+        const baseUrl = import.meta.env.VITE_BACKEND_API_URL || 'https://jobconnect-xwh3.onrender.com';
+        const serverUrl = baseUrl;
 
         // Debug logging for socket connection
         console.log('🔌 Socket Service Debug:');
         console.log('VITE_BACKEND_API_BASE_URL:', import.meta.env.VITE_BACKEND_API_BASE_URL);
+        console.log('VITE_BACKEND_API_URL:', import.meta.env.VITE_BACKEND_API_URL);
         console.log('Socket Server URL:', serverUrl);
 
         this.socket = io(serverUrl, {
+            // Use polling first for better compatibility with Render
             transports: ['polling', 'websocket'],
             upgrade: true,
-            timeout: 20000,
+            timeout: 30000, // Increased timeout for Render
             forceNew: true,
             autoConnect: true,
             reconnection: true,
             reconnectionAttempts: this.maxReconnectAttempts,
             reconnectionDelay: this.reconnectDelay,
-            reconnectionDelayMax: 5000,
+            reconnectionDelayMax: 10000, // Increased for Render
             maxReconnectionAttempts: this.maxReconnectAttempts,
-            auth: {
-                token: token // Send token with initial connection
-            }
+            // Configure for cross-origin requests to Render
+            withCredentials: true, // Enable credentials for CORS
+            // Ensure proper Socket.IO path for Render deployment
+            path: '/socket.io/',
+            // Additional options for Render compatibility
+            rememberUpgrade: false,
+            // Disable auto-connect initially to handle connection manually
+            autoConnect: false
         });
 
         this.setupEventHandlers();
+
+        // Manually connect since autoConnect is disabled
+        console.log('🚀 Attempting to connect to Render backend...');
+        this.socket.connect();
+
+        // Add a timeout for initial connection to handle Render cold starts
+        const connectionTimeout = setTimeout(() => {
+            if (!this.isConnected && this.socket && !this.socket.connected) {
+                console.warn('⚠️ Initial connection timeout - Render backend might be cold starting. Retrying...');
+                this.socket.disconnect();
+                setTimeout(() => {
+                    if (this.socket) {
+                        this.socket.connect();
+                    }
+                }, 5000);
+            }
+        }, 15000); // 15 second timeout for Render cold start
+
+        // Clear timeout if connection succeeds
+        this.socket.once('connect', () => {
+            clearTimeout(connectionTimeout);
+        });
+
         return this.socket;
     }
 
     setupEventHandlers() {        // Handle connection events
         this.socket.on('connect', () => {
+            console.log('✅ Socket connected successfully to Render backend:', this.socket.id);
             this.isConnected = true;
             this.isConnecting = false;
             this.reconnectAttempts = 0;
 
-            // Authenticate the socket connection
+            // Authenticate the socket connection after successful connection
             if (this.token) {
+                console.log('🔐 Authenticating socket after connection...');
                 this.authenticate(this.token);
             }
 
@@ -116,18 +151,36 @@ class SocketService {
         this.socket.on('reconnect_failed', () => {
             this.isConnected = false;
             this.isAuthenticated = false;
-        }); this.socket.on('connect_error', (error) => {
+        });
+
+        this.socket.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
             this.isConnected = false;
             this.isAuthenticated = false;
             this.isConnecting = false;
             this.triggerHandler('connect_error', error);
 
+            // Handle specific errors for Render deployment
+            if (error.message && (
+                error.message.includes('Invalid namespace') ||
+                error.message.includes('xhr poll error') ||
+                error.message.includes('websocket error') ||
+                error.type === 'TransportError'
+            )) {
+                console.warn('Connection error detected (possibly Render-related), attempting to reconnect...', error.message);
+                // Force a complete reconnection with fresh socket instance
+                setTimeout(() => {
+                    this.forceReconnect();
+                }, 3000); // Longer delay for Render
+                return;
+            }
+
             // Try to reconnect after a delay if not already reconnecting
             if (!this.socket.connected && this.reconnectAttempts < this.maxReconnectAttempts) {
                 setTimeout(() => {
                     if (!this.isConnected && this.socket && this.token && !this.isConnecting) {
                         this.reconnectAttempts++;
+                        console.log(`Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
                         this.socket.connect();
                     }
                 }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts));
@@ -136,7 +189,7 @@ class SocketService {
 
         // Handle authentication responses
         this.socket.on('authenticated', (data) => {
-            this.userId = data.user?.id || data.user?._id;
+            this.userId = data.user?.id;
             this.isConnected = true;
             this.isAuthenticated = true;
 
@@ -199,6 +252,21 @@ class SocketService {
 
         this.socket.on('error', (error) => {
             console.error('Socket error:', error);
+
+            // Handle various connection errors for Render deployment
+            if (error.message && (
+                error.message.includes('Invalid namespace') ||
+                error.message.includes('xhr poll error') ||
+                error.message.includes('websocket error') ||
+                error.type === 'TransportError'
+            )) {
+                console.warn('Socket communication error (possibly Render-related), attempting reconnection...', error.message);
+                setTimeout(() => {
+                    this.forceReconnect();
+                }, 2000);
+                return;
+            }
+
             this.triggerHandler('error', error);
         });
 
@@ -349,6 +417,25 @@ class SocketService {
         return this.isConnected && this.isAuthenticated && this.socket && this.socket.connected;
     }
 
+    // Check connection health and attempt recovery if needed
+    checkConnectionHealth() {
+        if (!this.socket || !this.socket.connected) {
+            console.log('Socket not connected, attempting auto-reconnect...');
+            return this.autoReconnect();
+        }
+
+        if (this.isConnected && !this.isAuthenticated) {
+            console.log('Socket connected but not authenticated, re-authenticating...');
+            const token = localStorage.getItem('token');
+            if (token) {
+                this.authenticate(token);
+                return true;
+            }
+        }
+
+        return this.isSocketConnected();
+    }
+
     // Get socket ID
     getSocketId() {
         return this.socket ? this.socket.id : null;
@@ -379,6 +466,14 @@ class SocketService {
 
     // Force reconnect
     forceReconnect() {
+        console.log('Force reconnecting socket...');
+
+        // Reset all connection states
+        this.isConnected = false;
+        this.isAuthenticated = false;
+        this.isConnecting = false;
+        this.reconnectAttempts = 0;
+
         if (this.socket) {
             this.disconnect();
         }
@@ -386,8 +481,11 @@ class SocketService {
         const token = localStorage.getItem('token');
         if (token) {
             setTimeout(() => {
+                console.log('Attempting fresh connection after force reconnect...');
                 this.connect(token);
             }, 1000);
+        } else {
+            console.warn('No token found for reconnection');
         }
     }
 }

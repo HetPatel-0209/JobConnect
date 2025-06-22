@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { AuthService } from '../../../services/auth.service';
+import { useSmartFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys } from '../../../services/cache.service';
 import {
   User,
   Phone,
@@ -21,32 +23,33 @@ import {
 export default function RecruiterProfile() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    loadProfile();
-  }, [user]);
-
-  const loadProfile = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await AuthService.getProfile();
-      if (response.success || response.user) {
-        setProfile(response.user || response.data);
-      } else {
-        setError('Failed to load profile');
+  // Smart fetch for recruiter profile
+  const {
+    data: profileResponse,
+    loading,
+    error: fetchError,
+    refetch: loadProfile
+  } = useSmartFetch(
+    user ? CacheKeys.USER_PROFILE(user.id || user.id) : null,
+    () => AuthService.getProfile(),
+    {
+      enabled: !!user,
+      ttl: 5 * 60 * 1000, // 5 minutes cache
+      onSuccess: (data) => {
+        console.log('Recruiter profile loaded:', data);
+      },
+      onError: (err) => {
+        console.error('Failed to load recruiter profile:', err);
       }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load profile');
-    } finally {
-      setLoading(false);
     }
-  };
+  );
+
+  // Extract profile data and handle response structure
+  const profile = profileResponse?.success ?
+    (profileResponse.user || profileResponse.data) :
+    (profileResponse?.user || profileResponse);
+  const error = fetchError || (!profileResponse?.success && profileResponse?.message ? profileResponse.message : null);
 
   if (loading) {
     return (

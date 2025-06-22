@@ -6,7 +6,7 @@ import { useChat } from '../../contexts/ChatContext';
 const ChatWindow = ({
   chat,
   messages = [],
-  currentUserId,
+  userId,
   onSendMessage,
   onMarkAsRead,
   onTyping = null,
@@ -32,15 +32,15 @@ const ChatWindow = ({
   useEffect(() => {
     if (chat && messages.length > 0 && onMarkAsRead) {
       const unreadMessages = messages.filter(msg => 
-        msg.sender._id !== currentUserId && 
-        !msg.readBy?.some(read => read.user === currentUserId)
+        msg.sender.id !== userId && 
+        !msg.readBy?.some(read => read.user === userId)
       );
       
       if (unreadMessages.length > 0) {
-        onMarkAsRead(chat._id);
+        onMarkAsRead(chat.id);
       }
     }
-  }, [chat, messages, currentUserId, onMarkAsRead]);
+  }, [chat, messages, userId, onMarkAsRead]);
 
   // Handle scroll to detect if user is at bottom
   const handleScroll = () => {
@@ -59,11 +59,10 @@ const ChatWindow = ({
   const handleSendMessage = (content) => {
     if (onSendMessage && chat) {
       const otherParticipant = chat.participants.find(p =>
-        p.user._id !== currentUserId &&
-        p.user.id !== currentUserId
+        p.user.id !== userId
       );
       if (otherParticipant) {
-        onSendMessage(otherParticipant.user._id, content);
+        onSendMessage(otherParticipant.user.id, content);
         setShouldScrollToBottom(true);
       }
     }
@@ -72,15 +71,15 @@ const ChatWindow = ({
   const handleTyping = (typing) => {
     setIsTyping(typing);
     if (onTyping && chat) {
-      onTyping(chat._id, typing);
+      onTyping(chat.id, typing);
     }
   };
 
   const getOtherParticipant = () => {
     if (!chat || !chat.participants) return null;
     return chat.participants.find(p =>
-      p.user._id !== currentUserId &&
-      p.user.id !== currentUserId
+      p.user.id !== userId &&
+      p.user.id !== userId
     )?.user;
   };
 
@@ -97,7 +96,7 @@ const ChatWindow = ({
 
     messages.forEach((message, index) => {
       const timeDiff = lastTimestamp ? new Date(message.timestamp) - new Date(lastTimestamp) : 0;
-      const shouldGroup = message.sender._id === lastSenderId && timeDiff < 5 * 60 * 1000; // 5 minutes
+      const shouldGroup = message.sender.id === lastSenderId && timeDiff < 5 * 60 * 1000; // 5 minutes
 
       if (shouldGroup) {
         currentGroup.push(message);
@@ -108,7 +107,7 @@ const ChatWindow = ({
         currentGroup = [message];
       }
 
-      lastSenderId = message.sender._id;
+      lastSenderId = message.sender.id;
       lastTimestamp = message.timestamp;
 
       // Add the last group
@@ -146,7 +145,7 @@ const ChatWindow = ({
             {getInitials(otherParticipant?.name)}
           </div>
           {/* Online indicator */}
-          {isUserOnline(otherParticipant?._id) && (
+          {isUserOnline(otherParticipant?.id) && (
             <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
           )}
         </div>
@@ -155,7 +154,7 @@ const ChatWindow = ({
             {otherParticipant?.name || 'Unknown User'}
           </h2>
           <p className="text-sm text-gray-500">
-            {isUserOnline(otherParticipant?._id) ? (
+            {isUserOnline(otherParticipant?.id) ? (
               <span className="text-green-600">Online</span>
             ) : (
               <span>{otherParticipant?.role === 'recruiter' ? 'Recruiter' : 'Job Seeker'}</span>
@@ -191,9 +190,9 @@ const ChatWindow = ({
           <div key={groupIndex} className="mb-4">
             {group.map((message, messageIndex) => (
               <MessageBubble
-                key={message._id}
+                key={message.id}
                 message={message}
-                isOwnMessage={message.sender._id === currentUserId}
+                isOwnMessage={message.sender.id === userId}
                 showAvatar={messageIndex === 0}
                 isLastInGroup={messageIndex === group.length - 1}
               />

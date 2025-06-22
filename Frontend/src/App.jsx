@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { usePreventAltArrowNavigation } from './hooks/usePreventAltArrowNavigation';
+import realtimeCacheService from './services/realtimeCache.service';
 
 import { AuthProvider } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
@@ -28,6 +29,7 @@ import PublicCompanyProfile from './pages/CompanySide/PublicProfile/PublicCompan
 import GenericJobDetails from './components/common/GenericJobDetails';
 import ChatPage from './pages/Chat/ChatPage';
 import NotificationManager from './components/chat/NotificationManager';
+import LocalStorageFix from './components/test/LocalStorageFix';
 
 import Home from './pages/Home/Home';
 import AuthPage from './pages/Auth/AuthPage';
@@ -39,7 +41,7 @@ import UserProfile from './pages/UserSide/UserProfile/UserProfile';
 import JobseekerProfile from './pages/UserSide/UserProfile/JobseekerProfile';
 import UserJobDetails from './pages/UserSide/UserJobDetails/UserJobDetails';
 import HRDetails from './pages/UserSide/UserJobDetails/HRDetails';
-import CompanyDetails from './pages/UserSide/UserJobDetails/CompanyDetails'; // ✅ User Side Details Page
+import CompanyDetails from './pages/UserSide/UserJobDetails/CompanyDetails';
 import UploadResume from './pages/UserSide/UserResume/UploadResume';
 import SavedJobs from './pages/UserSide/SavedJobs/SavedJobs';
 import OrganizationListing from './pages/Common/OrganizationListing/OrganizationListing';
@@ -58,6 +60,15 @@ function App() {
 
   // Use our custom hook to prevent Alt + Arrow key navigation
   usePreventAltArrowNavigation();
+
+  // Initialize real-time cache service
+  useEffect(() => {
+    realtimeCacheService.initialize();
+
+    return () => {
+      realtimeCacheService.cleanup();
+    };
+  }, []);
 
   useEffect(() => {
     document.body.classList.toggle('no-scroll', isAuthPage);
@@ -83,6 +94,9 @@ function App() {
                   <Route path="/auth/reset-password" element={<ResetPassword />} />
                   <Route path="/register-organization" element={<RegisterOrganization />} />
                   <Route path="/registration-success" element={<RegistrationSuccess />} />
+
+                  {/* Debug Route - accessible without authentication */}
+                  <Route path="/debug/localStorage" element={<LocalStorageFix />} />
 
                   {/* Public Organization Routes */}
                   <Route path="/organizations" element={<OrganizationListing />} />
@@ -229,11 +243,10 @@ function App() {
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </main>
-              {isHomePage && <Footer />}
-            </div>
+              {isHomePage && <Footer />}            </div>
           </OrganizationProvider>
         </ChatProvider>
-      </ProfileProvider>
+      </ProfileProvider>      
     </AuthProvider>
   );
 }

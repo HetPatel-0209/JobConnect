@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Briefcase,
   Users,
@@ -19,103 +19,116 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { JobService } from '../../../services/job.service';
 import { ApplicationService } from '../../../services/application.service';
+import { useSmartFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys, CacheInvalidation } from '../../../services/cache.service';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [jobs, setJobs] = useState([]);
-  const [stats, setStats] = useState({
-    jobs: { total: 0, active: 0, draft: 0, closed: 0 },
-    applications: { total: 0, pending: 0, reviewed: 0, shortlisted: 0, interview: 0, hired: 0, rejected: 0, newToday: 0 }
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [updatingJobStatus, setUpdatingJobStatus] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-
-  // Load recruiter's jobs and stats from API
-  useEffect(() => {
-    const loadDashboardData = async () => {
-      if (!user) return;
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // Load jobs and stats in parallel
-        const [jobsResponse, statsResponse] = await Promise.all([
-          JobService.getRecruiterJobs(),
-          JobService.getRecruiterStats()
-        ]);
-
-        setJobs(jobsResponse.jobs || []);
-        setStats(statsResponse);
-      } catch (err) {
-        console.error(err);
-        setError(err.message || 'Failed to load dashboard data');
-      } finally {
-        setIsLoading(false);
-      }
+  // Memoize cache keys to prevent unnecessary re-renders
+  const cacheKeys = useMemo(() => {
+    const userId = user?.id || user?._id;
+    if (!userId) return null;
+    return {
+      recruiterJobs: CacheKeys.RECRUITER_JOBS(userId, 1),
+      recruiterStats: CacheKeys.RECRUITER_STATS(userId)
     };
+  }, [user?.id, user?._id]);
 
-    loadDashboardData();
-  }, [user]);
+  // Smart fetch for recruiter jobs
+  const {
+    data: jobsData,
+    loading: jobsLoading,
+    error: jobsError,
+    refetch: refetchJobs
+  } = useSmartFetch(
+    cacheKeys?.recruiterJobs,
+    () => JobService.getRecruiterJobs(),
+    {
+      enabled: !!user && !!cacheKeys,
+      ttl: 3 * 60 * 1000, // 3 minutes
+      realtime: true,
+      onSuccess: (data) => {
+        console.log('Recruiter jobs loaded:', data);
+      }
+    }
+  );
+
+  // Smart fetch for recruiter stats
+  const {
+    data: stats,
+    loading: statsLoading,
+    error: statsError,
+    refetch: refetchStats
+  } = useSmartFetch(
+    cacheKeys?.recruiterStats,
+    () => JobService.getRecruiterStats(),
+    {
+      enabled: !!user && !!cacheKeys,
+      ttl: 2 * 60 * 1000, // 2 minutes
+      realtime: true,
+      onSuccess: (data) => {
+        console.log('Recruiter stats loaded:', data);
+      }
+    }
+  );
+
+  // Extract jobs and handle loading/error states
+  const jobs = jobsData?.jobs || [];
+  const isLoading = jobsLoading || statsLoading;
+  const error = jobsError || statsError;
+
+  // Provide default stats structure
+  const safeStats = stats || {
+    jobs: { total: 0, active: 0, draft: 0, closed: 0 },
+    applications: { total: 0, pending: 0, reviewed: 0, shortlisted: 0, interview: 0, hired: 0, rejected: 0, newToday: 0 }
+  };
 
   const handleRemoveJob = async (jobId) => {
     try {
-      await JobService.deleteJob(jobId);
-      // Remove job from local state
-      setJobs(prevJobs => prevJobs.filter(job => job._id !== jobId));
-      // Update stats
-      setStats(prevStats => ({
-        ...prevStats,
-        jobs: {
-          ...prevStats.jobs,
-          total: prevStats.jobs.total - 1,
-          active: prevStats.jobs.active - 1 // Assuming deleted job was active
-        }
-      }));
+      await JobService.deleteJob(jobId);      // Smart cache invalidation - the service will handle cache updates automatically
+      CacheInvalidation.invalidateByEvent('job_deleted', {
+        jobId,
+        recruiterId: user.id || user.id
+      });
+
       setShowDeleteConfirm(null);
       setSuccessMessage('Job deleted successfully');
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       console.error(err);
-      setError('Failed to delete job');
-      setTimeout(() => setError(null), 5000);
+      setSuccessMessage('Failed to delete job');
+      setTimeout(() => setSuccessMessage(null), 5000);
     }
   };
 
   const handleStatusChange = async (jobId, newStatus) => {
     setUpdatingJobStatus(jobId);
     try {
-      await JobService.updateJob(jobId, { status: newStatus });
-
-      // Update job in local state
-      setJobs(prevJobs =>
-        prevJobs.map(job =>
-          job._id === jobId ? { ...job, status: newStatus } : job
-        )
-      );
-
-      // Refresh stats to reflect the change
-      const statsResponse = await JobService.getRecruiterStats();
-      setStats(statsResponse);
+      await JobService.updateJob(jobId, { status: newStatus });      // Smart cache invalidation - the service will handle cache updates automatically
+      CacheInvalidation.invalidateByEvent('job_updated', {
+        jobId,
+        recruiterId: user.id || user.id,
+        jobData: { status: newStatus }
+      });
 
       setSuccessMessage(`Job status updated to ${newStatus}`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       console.error(err);
-      setError('Failed to update job status');
-      setTimeout(() => setError(null), 5000);
+      setSuccessMessage('Failed to update job status');
+      setTimeout(() => setSuccessMessage(null), 5000);
     } finally {
       setUpdatingJobStatus(null);
     }
   };
 
-  const activeJobs = stats.jobs.active;
-  const totalApplications = stats.applications.total;
-  const newTodayCount = stats.applications.newToday;
+  const activeJobs = safeStats.jobs.active;
+  const totalApplications = safeStats.applications.total;
+  const newTodayCount = safeStats.applications.newToday;
 
   const getJobTypeColor = (type) => {
     switch (type?.toLowerCase()) {
@@ -355,7 +368,7 @@ const Dashboard = () => {
           </div>
 
           {/* Analytics Section */}
-          {!error && stats.applications.total > 0 && (
+          {!error && safeStats.applications.total > 0 && (
             <div className="mt-8 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h3 className="text-xl font-semibold text-gray-900 mb-6">Application Analytics</h3>
 
@@ -365,7 +378,7 @@ const Dashboard = () => {
                     <Users className="w-5 h-5 text-blue-600" />
                     <div>
                       <p className="text-sm text-blue-600 font-medium">Pending Review</p>
-                      <p className="text-2xl font-bold text-blue-900">{stats.applications.pending}</p>
+                      <p className="text-2xl font-bold text-blue-900">{safeStats.applications.pending}</p>
                     </div>
                   </div>
                 </div>
@@ -375,7 +388,7 @@ const Dashboard = () => {
                     <Eye className="w-5 h-5 text-yellow-600" />
                     <div>
                       <p className="text-sm text-yellow-600 font-medium">Reviewed</p>
-                      <p className="text-2xl font-bold text-yellow-900">{stats.applications.reviewed}</p>
+                      <p className="text-2xl font-bold text-yellow-900">{safeStats.applications.reviewed}</p>
                     </div>
                   </div>
                 </div>
@@ -385,7 +398,7 @@ const Dashboard = () => {
                     <Calendar className="w-5 h-5 text-purple-600" />
                     <div>
                       <p className="text-sm text-purple-600 font-medium">Interviews</p>
-                      <p className="text-2xl font-bold text-purple-900">{stats.applications.interview}</p>
+                      <p className="text-2xl font-bold text-purple-900">{safeStats.applications.interview}</p>
                     </div>
                   </div>
                 </div>
@@ -395,7 +408,7 @@ const Dashboard = () => {
                     <TrendingUp className="w-5 h-5 text-green-600" />
                     <div>
                       <p className="text-sm text-green-600 font-medium">Hired</p>
-                      <p className="text-2xl font-bold text-green-900">{stats.applications.hired}</p>
+                      <p className="text-2xl font-bold text-green-900">{safeStats.applications.hired}</p>
                     </div>
                   </div>
                 </div>
@@ -410,21 +423,21 @@ const Dashboard = () => {
                         <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                         <span className="text-gray-700">Active Jobs</span>
                       </div>
-                      <span className="font-semibold text-gray-900">{stats.jobs.active}</span>
+                      <span className="font-semibold text-gray-900">{safeStats.jobs.active}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                         <span className="text-gray-700">Draft Jobs</span>
                       </div>
-                      <span className="font-semibold text-gray-900">{stats.jobs.draft}</span>
+                      <span className="font-semibold text-gray-900">{safeStats.jobs.draft}</span>
                     </div>
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
                         <span className="text-gray-700">Closed Jobs</span>
                       </div>
-                      <span className="font-semibold text-gray-900">{stats.jobs.closed}</span>
+                      <span className="font-semibold text-gray-900">{safeStats.jobs.closed}</span>
                     </div>
                   </div>
                 </div>

@@ -8,8 +8,8 @@ export const ChatService = {
      */
     getChats: async () => {
         // Get current user ID from localStorage for cache key
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const userId = currentUser._id || 'anonymous';
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const userId = user.id;
 
         const cacheKey = CacheKeys.USER_CHATS(userId);
 
@@ -46,8 +46,8 @@ export const ChatService = {
         const result = await api.post('/chat/messages', { recipientId, content, messageType });
 
         // Invalidate chat cache since new message was sent
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const userId = currentUser._id;
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const userId = user.id;
 
         if (userId) {
             CacheInvalidation.invalidateChatCache(userId);

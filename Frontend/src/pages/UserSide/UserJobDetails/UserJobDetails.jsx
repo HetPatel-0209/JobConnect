@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { JobService } from '../../../services/job.service';
+import { useSmartFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys } from '../../../services/cache.service';
+import { useAuth } from '../../../contexts/AuthContext';
 import {
   ArrowLeft,
   Building2,
@@ -30,38 +33,48 @@ import ChatButton from '../../../components/chat/ChatButton';
 export default function UserJobDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [job, setJob] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isSaved, setIsSaved] = useState(false);
+  const { user } = useAuth();
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const fetchJobDetails = async () => {
-      try {
-        setLoading(true);
-        const response = await JobService.getJobById(id);
-        setJob(response.job);
-
-        // Check if job is saved
-        try {
-          const savedResponse = await JobService.checkJobSaved(id);
-          setIsSaved(savedResponse.isSaved);
-        } catch (err) {
-          console.error(err);
-        }
-      } catch (err) {
-        console.error('Error fetching job details:', err);
-        setError(err.message || 'Failed to fetch job details');
-      } finally {
-        setLoading(false);
+  // Smart fetch for job details
+  const {
+    data: jobResponse,
+    loading: jobLoading,
+    error: jobError
+  } = useSmartFetch(
+    id ? CacheKeys.JOB_DETAILS(id) : null,
+    () => JobService.getJobById(id),
+    {
+      enabled: !!id,
+      ttl: 5 * 60 * 1000, // 5 minutes cache
+      onSuccess: (data) => {
+        console.log('Job details loaded:', data);
       }
-    };
-
-    if (id) {
-      fetchJobDetails();
     }
-  }, [id]);
+  );
+
+  // Smart fetch for saved status
+  const {
+    data: savedResponse,
+    loading: savedLoading,
+    refetch: refetchSavedStatus
+  } = useSmartFetch(
+    id && user ? CacheKeys.JOB_SAVED_STATUS(id, user.id || user.id) : null,
+    () => JobService.checkJobSaved(id),
+    {
+      enabled: !!id && !!user,
+      ttl: 2 * 60 * 1000, // 2 minutes cache
+      onError: (err) => {
+        console.error('Error checking saved status:', err);
+      }
+    }
+  );
+
+  // Extract data from responses
+  const job = jobResponse?.job || jobResponse;
+  const isSaved = savedResponse?.isSaved || false;
+  const loading = jobLoading || savedLoading;
+  const error = jobError;
 
   const handleSaveJob = async () => {
     try {
@@ -69,12 +82,13 @@ export default function UserJobDetails() {
       if (isSaved) {
         // Unsave the job
         await JobService.unsaveJob(job._id);
-        setIsSaved(false);
       } else {
         // Save the job
         await JobService.saveJob(job._id);
-        setIsSaved(true);
       }
+      // The smart cache will automatically update the saved status
+      // Refetch to get the updated status
+      refetchSavedStatus();
     } catch (error) {
       console.error('Error saving/unsaving job:', error);
       alert(`Failed to ${isSaved ? 'remove' : 'save'} job. Please try again.`);
@@ -480,25 +494,25 @@ export default function UserJobDetails() {
                 <p className="font-medium text-gray-900 ml-7">{job.location}</p>
 
                 <div className="space-y-2 mt-6">
-                  {job.organization?._id && (
+                  {job.organization?.id && (
                     <button
-                      onClick={() => navigate(`/company-details/${job.organization._id}`)}
+                      onClick={() => navigate(`/company-details/${job.organization.id}`)}
                       className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
                     >
                       Company Details
                     </button>
                   )}
-                  {job.recruiter?._id && (
+                  {job.recruiter?.id && (
                     <button
-                      onClick={() => navigate(`/recruiter-details/${job.recruiter._id}`)}
+                      onClick={() => navigate(`/recruiter-details/${job.recruiter.id}`)}
                       className="w-full px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
                     >
                       Recruiter Details
                     </button>
                   )}
-                  {job.recruiter?._id && (
+                  {job.recruiter?.id && (
                     <ChatButton
-                      recipientId={job.recruiter._id}
+                      recipientId={job.recruiter.id}
                       recipientName={job.recruiter.name}
                       recipientRole="recruiter"
                       variant="secondary"

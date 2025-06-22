@@ -269,7 +269,7 @@ export default function RegisterOrganization() {
           if (form.banner) formData.append('banner', form.banner);
 
           try {
-            await OrganizationService.uploadImages(response.data._id, formData);
+            await OrganizationService.uploadImages(response.data.id, formData);
           } catch (uploadError) {
             console.warn(uploadError);
             // Continue anyway, organization is created
@@ -280,13 +280,13 @@ export default function RegisterOrganization() {
         // The backend should handle creating the recruiter profile, but we can update locally for now
         const userData = {
           ...user,
-          organizationId: response.data._id,
+          organizationId: response.data.id,
           recruiterProfile: {
             ...user.recruiterProfile,
             organizationId: response.data
           }
         };
-        localStorage.setItem('currentUser', JSON.stringify(userData));
+        localStorage.setItem('user', JSON.stringify(userData));
 
         navigate('/registration-success', {
           state: {

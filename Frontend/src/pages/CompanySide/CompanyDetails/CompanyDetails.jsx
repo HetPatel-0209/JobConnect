@@ -70,7 +70,7 @@ const CompanyDetails = () => {
   }, [user]);
 
   const loadOrganization = async () => {
-    const organizationId = user?.recruiterProfile?.organizationId?._id || user?.recruiterProfile?.organizationId || user?.organizationId;
+    const organizationId = user?.recruiterProfile?.organizationId?.id || user?.recruiterProfile?.organizationId || user?.organizationId;
     if (!organizationId) {
       setErrors({ general: 'No organization found for this user' });
       setLoading(false);
@@ -154,7 +154,7 @@ const CompanyDetails = () => {
   const handleImageUpload = async (file, type) => {
     if (!file) return;
 
-    const organizationId = organization?._id;
+    const organizationId = organization?.id;
     if (!organizationId) {
       setErrors({ [type]: 'Organization not found' });
       return;
@@ -195,7 +195,7 @@ const CompanyDetails = () => {
   };
 
   const handleSave = async () => {
-    if (!organization?._id) {
+    if (!organization?.id) {
       setErrors({ general: 'Organization not found' });
       return;
     }
@@ -204,7 +204,7 @@ const CompanyDetails = () => {
     setErrors({});
 
     try {
-      const response = await OrganizationService.updateOrganization(organization._id, formData);
+      const response = await OrganizationService.updateOrganization(organization.id, formData);
 
       if (response.success) {
         setOrganization(response.data);

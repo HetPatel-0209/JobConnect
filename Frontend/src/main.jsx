@@ -6,6 +6,7 @@ import './index.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProfileProvider } from './contexts/ProfileContext';
 import { ChatProvider } from './contexts/ChatContext';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 // Import debug utilities in development
 if (import.meta.env.DEV) {
@@ -14,6 +15,8 @@ if (import.meta.env.DEV) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </BrowserRouter>
 );

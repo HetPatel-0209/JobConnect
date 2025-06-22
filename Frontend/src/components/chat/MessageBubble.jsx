@@ -19,7 +19,7 @@ const MessageBubble = ({ message, isOwnMessage, showAvatar = true, isLastInGroup
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const messageStatus = getMessageStatus(message._id);
+  const messageStatus = getMessageStatus(message.id);
 
   const getStatusIcon = () => {
     if (!isOwnMessage) return null;

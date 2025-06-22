@@ -218,7 +218,7 @@ export default function ApplicantProfile() {
               {/* Action Buttons */}
               <div className="flex gap-3">
                 <ChatButton
-                  recipientId={applicant._id}
+                  recipientId={applicant.id}
                   recipientName={applicant.name}
                   recipientRole="jobseeker"
                   variant="primary"

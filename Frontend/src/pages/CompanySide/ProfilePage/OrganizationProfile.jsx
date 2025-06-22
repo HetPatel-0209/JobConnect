@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { OrganizationService } from '../../../services/organization.service';
+import { useSmartFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys, CacheInvalidation } from '../../../services/cache.service';
 import {
   Building2,
   Edit3,
@@ -27,8 +29,6 @@ import { FaXTwitter } from 'react-icons/fa6';
 export default function OrganizationProfile() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [organization, setOrganization] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -61,59 +61,62 @@ export default function OrganizationProfile() {
     companySize: ''
   });
 
-  useEffect(() => {
-    loadOrganization();
-  }, [user]);
+  // Get organization ID from user
+  const organizationId = user?.recruiterProfile?.organizationId?.id || user?.recruiterProfile?.organizationId || user?.organizationId;
 
-  const loadOrganization = async () => {
-    const organizationId = user?.recruiterProfile?.organizationId?._id || user?.recruiterProfile?.organizationId || user?.organizationId;
-    if (!organizationId) {
-      setError('No organization found for this user');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const response = await OrganizationService.getOrganization(organizationId);
-      if (response.success) {
-        setOrganization(response.data);
+  // Smart fetch for organization data
+  const {
+    data: organizationResponse,
+    loading,
+    error: fetchError,
+    refetch: loadOrganization
+  } = useSmartFetch(
+    organizationId ? CacheKeys.ORGANIZATION_DETAILS(organizationId) : null,
+    () => OrganizationService.getOrganization(organizationId),
+    {
+      enabled: !!organizationId,
+      ttl: 5 * 60 * 1000, // 5 minutes cache
+      onSuccess: (data) => {
+        console.log('Organization data loaded:', data);
+        const orgData = data.success ? data.data : data;
         setFormData({
-          name: response.data.name || '',
-          website: response.data.website || '',
+          name: orgData.name || '',
+          website: orgData.website || '',
           description: {
-            about: response.data.description?.about || '',
-            vision: response.data.description?.vision || '',
-            mission: response.data.description?.mission || '',
-            benefits: response.data.description?.benefits || []
+            about: orgData.description?.about || '',
+            vision: orgData.description?.vision || '',
+            mission: orgData.description?.mission || '',
+            benefits: orgData.description?.benefits || []
           },
           contact: {
-            email: response.data.contact?.email || '',
-            phone: response.data.contact?.phone || '',
+            email: orgData.contact?.email || '',
+            phone: orgData.contact?.phone || '',
             address: {
-              street: response.data.contact?.address?.street || '',
-              city: response.data.contact?.address?.city || '',
-              state: response.data.contact?.address?.state || '',
-              pincode: response.data.contact?.address?.pincode || '',
-              country: response.data.contact?.address?.country || 'India'
+              street: orgData.contact?.address?.street || '',
+              city: orgData.contact?.address?.city || '',
+              state: orgData.contact?.address?.state || '',
+              pincode: orgData.contact?.address?.pincode || '',
+              country: orgData.contact?.address?.country || 'India'
             }
           },
           socialMedia: {
-            linkedin: response.data.socialMedia?.linkedin || '',
-            twitter: response.data.socialMedia?.twitter || '',
-            instagram: response.data.socialMedia?.instagram || ''
+            linkedin: orgData.socialMedia?.linkedin || '',
+            twitter: orgData.socialMedia?.twitter || '',
+            instagram: orgData.socialMedia?.instagram || ''
           },
-          companySize: response.data.companySize || ''
+          companySize: orgData.companySize || ''
         });
-      } else {
+      },
+      onError: (err) => {
+        console.error('Failed to load organization:', err);
         setError('Failed to load organization details');
       }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load organization details');
-    } finally {
-      setLoading(false);
     }
-  };
+  );
+
+  // Extract organization data and handle response structure
+  const organization = organizationResponse?.success ? organizationResponse.data : organizationResponse;
+  const actualError = error || fetchError || (!organizationId ? 'No organization found for this user' : null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -154,9 +157,14 @@ export default function OrganizationProfile() {
     setSuccess(null);
 
     try {
-      const response = await OrganizationService.updateOrganization(organization._id, formData);
+      const response = await OrganizationService.updateOrganization(organization.id, formData);
       if (response.success) {
-        setOrganization(response.data);
+        // Smart cache invalidation - the cache will automatically update
+        CacheInvalidation.invalidateByEvent('organization_updated', {
+          organizationId: organization.id,
+          organizationData: response.data
+        });
+
         setEditing(false);
         setSuccess('Organization profile updated successfully!');
         setTimeout(() => setSuccess(null), 3000);
@@ -189,7 +197,7 @@ export default function OrganizationProfile() {
     );
   }
 
-  if (!organization) {
+  if (!organization && !loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -267,11 +275,11 @@ export default function OrganizationProfile() {
         </div>
 
         {/* Messages */}
-        {error && (
+        {actualError && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-5 h-5 text-red-600" />
-              <p className="text-red-800">{error}</p>
+              <p className="text-red-800">{actualError}</p>
             </div>
           </div>
         )}

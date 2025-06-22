@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { AuthService } from '../../../services/auth.service';
 import { ResumeService } from '../../../services/resume.service';
+import { useSmartMultiFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys } from '../../../services/cache.service';
 import {
   User,
   Mail,
@@ -27,42 +29,99 @@ import {
 export default function JobseekerProfile() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
-  const [resume, setResume] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
+  // Debug user data
   useEffect(() => {
-    loadProfile();
-  }, [user]);
-
-  const loadProfile = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Get current user profile data and resume in parallel
-      const [profileResponse, resumeResponse] = await Promise.all([
-        AuthService.getProfile(),
-        ResumeService.getUserActiveResume().catch(() => ({ hasActiveResume: false }))
-      ]);
-
-      if (profileResponse.success || profileResponse.user) {
-        setProfile(profileResponse.user || profileResponse.data);
-      } else {
-        setError('Failed to load profile');
+    console.log('🔍 JobseekerProfile Debug:');
+    console.log('User from context:', user);
+    console.log('User ID:', user?.id);
+    console.log('User _ID:', user?._id);
+    
+    const storedUser = localStorage.getItem('user');
+    console.log('Stored user string:', storedUser);
+    
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        console.log('Parsed stored user:', parsedUser);
+      } catch (err) {
+        console.error('Error parsing stored user:', err);
       }
-
-      if (resumeResponse.hasActiveResume) {
-        const resumeData = resumeResponse.activeResume || resumeResponse;
-        setResume(resumeData);
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load profile');
-    } finally {
-      setLoading(false);
     }
+  }, [user]);
+  
+  // Redirect to login if no user is authenticated
+  useEffect(() => {
+    if (!user) {
+      console.warn('No authenticated user found, redirecting to login');
+      navigate('/auth', { replace: true });
+    }
+  }, [user, navigate]);
+
+  // Smart multi-fetch for profile and resume data
+  const { results, loading, errors } = useSmartMultiFetch({
+    profile: {
+      cacheKey: user ? CacheKeys.USER_PROFILE(user.id || user.id || 'fallback') : null,
+      fetchFunction: () => AuthService.getProfile(),
+      enabled: !!user,
+      ttl: 5 * 60 * 1000 // 5 minutes cache
+    },
+    resume: {
+      cacheKey: user ? CacheKeys.USER_RESUMES(user.id || user.id || 'fallback') : null,
+      fetchFunction: () => ResumeService.getUserActiveResume().catch(() => ({ hasActiveResume: false })),
+      enabled: !!user,
+      ttl: 3 * 60 * 1000 // 3 minutes cache
+    }
+  });
+
+  // Extract data from results
+  const profileResponse = results.profile;
+  const resumeResponse = results.resume;
+
+  const profile = profileResponse?.success ?
+    (profileResponse.user || profileResponse.data) :
+    (profileResponse?.user || profileResponse);
+
+  const resume = resumeResponse?.hasActiveResume ?
+    (resumeResponse.activeResume || resumeResponse) :
+    null;  // Handle errors - ensure we convert Error objects to strings safely
+  const getErrorMessage = (error) => {
+    if (!error) return null;
+    
+    // Handle Error objects
+    if (error instanceof Error) {
+      return error.message || 'An unknown error occurred';
+    }
+    
+    // Handle string errors
+    if (typeof error === 'string') {
+      return error;
+    }
+    
+    // Handle objects with message property
+    if (error && typeof error === 'object' && error.message) {
+      return typeof error.message === 'string' ? error.message : 'An error occurred';
+    }
+    
+    // Handle other types
+    try {
+      return String(error);
+    } catch {
+      return 'An unknown error occurred';
+    }
+  };
+
+  const profileError = getErrorMessage(errors.profile);
+  const resumeError = getErrorMessage(errors.resume);
+  const responseError = (!profileResponse?.success && profileResponse?.message) ? 
+    getErrorMessage(profileResponse.message) : null;
+  
+  const error = profileError || resumeError || responseError;
+
+  // Create a loadProfile function for retry functionality
+  const loadProfile = () => {
+    // The smart fetch will automatically refetch when called
+    window.location.reload();
   };
 
   const formatDate = (dateString) => {
@@ -157,6 +216,18 @@ export default function JobseekerProfile() {
           >
             Go to Dashboard
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if there's no user
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+          <p className="text-gray-600">Checking authentication...</p>
         </div>
       </div>
     );

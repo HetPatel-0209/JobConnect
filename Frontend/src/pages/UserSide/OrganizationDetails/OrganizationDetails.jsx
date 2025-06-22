@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { OrganizationService } from '../../../services/organization.service';
 import { JobService } from '../../../services/job.service';
+import { useSmartMultiFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys } from '../../../services/cache.service';
 import {
   ArrowLeft,
   Building2,
@@ -24,45 +26,34 @@ import {
 export default function OrganizationDetails() {
   const { orgId } = useParams();
   const navigate = useNavigate();
-  const [organization, setOrganization] = useState(null);
-  const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('about');
 
-  useEffect(() => {
-    if (orgId) {
-      loadOrganizationData();
+  // Smart multi-fetch for organization data and jobs
+  const { results, loading, errors } = useSmartMultiFetch({
+    organization: {
+      cacheKey: orgId ? CacheKeys.ORGANIZATION_DETAILS(orgId) : null,
+      fetchFunction: () => OrganizationService.getOrganization(orgId),
+      enabled: !!orgId,
+      ttl: 5 * 60 * 1000 // 5 minutes cache
+    },
+    jobs: {
+      cacheKey: orgId ? CacheKeys.ORGANIZATION_JOBS(orgId) : null,
+      fetchFunction: () => JobService.getJobsByOrganization(orgId, { status: 'active' }),
+      enabled: !!orgId,
+      ttl: 3 * 60 * 1000 // 3 minutes cache
     }
-  }, [orgId]);
+  });
 
-  const loadOrganizationData = async () => {
-    setLoading(true);
-    setError(null);
+  // Extract data from results
+  const organizationResponse = results.organization;
+  const jobsResponse = results.jobs;
 
-    try {
-      // Load organization details and jobs in parallel
-      const [orgResponse, jobsResponse] = await Promise.all([
-        OrganizationService.getOrganization(orgId),
-        JobService.getJobsByOrganization(orgId, { status: 'active' }).catch(() => ({ data: [] }))
-      ]);
+  const organization = organizationResponse?.success ? organizationResponse.data : organizationResponse;
+  const jobs = jobsResponse?.success ? (jobsResponse.data || []) : (jobsResponse?.data || []);
 
-      if (orgResponse.success) {
-        setOrganization(orgResponse.data);
-      } else {
-        setError('Organization not found');
-      }
-
-      if (jobsResponse.success) {
-        setJobs(jobsResponse.data || []);
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load organization information');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Handle errors
+  const error = errors.organization || errors.jobs ||
+    (!organizationResponse?.success && organizationResponse?.message ? organizationResponse.message : null);
 
   const formatSalary = (salary) => {
     if (!salary || (!salary.min && !salary.max)) return 'Not disclosed';

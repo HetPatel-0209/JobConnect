@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { JobService } from '../../../services/job.service';
+import { useSmartFetch } from '../../../hooks/useSmartFetch';
+import { CacheKeys } from '../../../services/cache.service';
 import {
   BarChart3,
   TrendingUp,
@@ -17,37 +19,43 @@ import {
 
 export default function AnalyticsDashboard() {
   const { user } = useAuth();
-  const [analytics, setAnalytics] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState({
     startDate: '', // No start date filter by default
     endDate: '' // No end date filter by default
   });
   const navigate = useNavigate();
+  // Memoize cache key to prevent unnecessary re-renders
+  const cacheKey = useMemo(() => {
+    const userId = user?.id || user?._id;
+    if (!userId) return null;
+    return CacheKeys.RECRUITER_ANALYTICS(userId, dateRange);
+  }, [user?.id, user?._id, dateRange]);
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [user, dateRange]);
-
-  const loadAnalytics = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await JobService.getRecruiterAnalytics(dateRange);
-      if (response.success) {
-        setAnalytics(response.data);
-      } else {
-        setError(response.message || 'Failed to load analytics data');
+  // Smart fetch for analytics data
+  const {
+    data: analyticsResponse,
+    loading,
+    error: fetchError,
+    refetch: loadAnalytics
+  } = useSmartFetch(
+    cacheKey,
+    () => JobService.getRecruiterAnalytics(dateRange),
+    {
+      enabled: !!user && !!cacheKey,
+      ttl: 5 * 60 * 1000, // 5 minutes cache
+      dependencies: [dateRange],
+      onSuccess: (data) => {
+        console.log('Analytics data loaded:', data);
+      },
+      onError: (err) => {
+        console.error('Failed to load analytics:', err);
       }
-    } catch (err) {
-      console.error(err);
-      setError(err.message || 'Failed to load analytics data');
-    } finally {
-      setLoading(false);
     }
-  };
+  );
+
+  // Extract analytics data and handle response structure
+  const analytics = analyticsResponse?.success ? analyticsResponse.data : analyticsResponse;
+  const error = fetchError || (!analyticsResponse?.success ? analyticsResponse?.message : null);
 
   const handleDateRangeChange = (field, value) => {
     setDateRange(prev => ({ ...prev, [field]: value }));
@@ -203,7 +211,7 @@ export default function AnalyticsDashboard() {
                 {analytics.jobsOverTime.map((item, index) => (
                   <div key={index} className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">
-                      {item._id.month}/{item._id.year}
+                      {item.id.month}/{item.id.year}
                     </span>
                     <div className="flex items-center gap-3">
                       <div className="w-32 bg-gray-200 rounded-full h-2">
@@ -238,7 +246,7 @@ export default function AnalyticsDashboard() {
                 {analytics.applicationsOverTime.map((item, index) => (
                   <div key={index} className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">
-                      {item._id.month}/{item._id.year}
+                      {item.id.month}/{item.id.year}
                     </span>
                     <div className="flex items-center gap-3">
                       <div className="w-32 bg-gray-200 rounded-full h-2">

@@ -24,9 +24,9 @@ const RegistrationSuccess = () => {
 
   useEffect(() => {
     // Check if user is authenticated
-    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    const user = JSON.parse(localStorage.getItem('user'));
     const token = localStorage.getItem('token');
-    setIsAuthenticated(!!(currentUser && token));
+    setIsAuthenticated(!!(user && token));
 
     // Get organization data from navigation state
     if (location.state?.organization) {

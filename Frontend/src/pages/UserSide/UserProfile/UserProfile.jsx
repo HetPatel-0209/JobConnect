@@ -59,84 +59,140 @@ export default function UserProfile() {
     score: ''
   }]);
 
-  const [currentUserEmail, setCurrentUserEmail] = useState('');
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setLoading(true);
+  const [userEmail, setCurrentUserEmail] = useState('');
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-        // Get user profile from backend
-        const profileResponse = await AuthService.getProfile();
-        const user = profileResponse.user; if (user) {
-          setCurrentUserEmail(user.email);
-          setFormData({
-            fullName: user.name || '',
-            phone: user.phone || '',
-            email: user.email || '',
-            location: user.location || '',
-            title: user.jobseekerProfile?.jobPreferences?.titles?.[0] || '',
-            bio: user.jobseekerProfile?.bio || '',
-          });
-
-          // Set skills, education, and experience from jobseeker profile
-          if (user.jobseekerProfile?.skills?.length > 0) {
-            setSkills(user.jobseekerProfile.skills);
-          }
-          if (user.jobseekerProfile?.experience?.length > 0) {
-            setExperience(user.jobseekerProfile.experience.map(exp => ({
-              ...exp,
-              startDate: exp.startDate ? new Date(exp.startDate).toISOString().split('T')[0] : '',
-              endDate: exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : ''
-            })));
-          }
-          if (user.jobseekerProfile?.education?.length > 0) {
-            setEducation(user.jobseekerProfile.education);
-          }
-
-          if (user.profilePic) {
-            setProfileImage(user.profilePic);
-          }
-
-          setProfileCompleted(user.profileCompleted || false);          // Set active resume if available
-          if (user.activeResume) {
-            setActiveResume(user.activeResume);
-          } else {
-            // Try to fetch active resume separately
-            try {
-              const resumeResponse = await ResumeService.getUserActiveResume();
-              // Handle the new response format
-              if (resumeResponse.hasActiveResume && resumeResponse.activeResume) {
-                setActiveResume(resumeResponse.activeResume);
-              } else if (resumeResponse._id) {
-                // Handle backward compatibility if the response is the resume object directly
-                setActiveResume(resumeResponse);
-              } else {
-                setActiveResume(null);
-              }
-            } catch (resumeError) {
-              
-            }
+  // Function to refresh profile data
+  const refreshProfile = async (force = false) => {
+    try {
+      setLoading(true);      // Clear cache if force refresh
+      if (force) {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const userId = user.id || user.id;
+        if (userId) {
+          const profileCacheKey = `user_profile_${userId}`;
+          // Clear from cache service if available
+          if (window.cacheService) {
+            window.cacheService.delete(profileCacheKey);
           }
         }
+      }
+
+      const profileResponse = await AuthService.getProfile();
+      console.log('Refreshed profile response:', profileResponse);
+      const user = profileResponse.user || profileResponse.data || profileResponse;
+
+      if (user) {
+        console.log('Refreshed user data:', user);
+        setCurrentUserEmail(user.email);
+        setFormData({
+          fullName: user.name || '',
+          phone: user.phone || '',
+          email: user.email || '',
+          location: user.location || '',
+          title: user.jobseekerProfile?.jobPreferences?.titles?.[0] || '',
+          bio: user.jobseekerProfile?.bio || '',
+        });
+
+        // Set skills, education, and experience from jobseeker profile
+        if (user.jobseekerProfile?.skills?.length > 0) {
+          setSkills(user.jobseekerProfile.skills);
+        }
+        if (user.jobseekerProfile?.experience?.length > 0) {
+          setExperience(user.jobseekerProfile.experience.map(exp => ({
+            ...exp,
+            startDate: exp.startDate ? new Date(exp.startDate).toISOString().split('T')[0] : '',
+            endDate: exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : ''
+          })));
+        }
+        if (user.jobseekerProfile?.education?.length > 0) {
+          setEducation(user.jobseekerProfile.education);
+        }
+
+        if (user.profilePic) {
+          setProfileImage(user.profilePic);
+        }
+
+        setProfileCompleted(user.profileCompleted || false);
+
+        // Set active resume if available
+        if (user.activeResume) {
+          console.log('Setting active resume from user data:', user.activeResume);
+          setActiveResume(user.activeResume);
+        } else {
+          // Try to fetch active resume separately
+          try {
+            console.log('Fetching active resume separately...');
+            const resumeResponse = await ResumeService.getUserActiveResume();
+            console.log('Resume response:', resumeResponse);
+
+            // Handle the new response format
+            if (resumeResponse.hasActiveResume && resumeResponse.activeResume) {
+              console.log('Setting active resume from response.activeResume:', resumeResponse.activeResume);
+              setActiveResume(resumeResponse.activeResume);
+            } else if (resumeResponse._id) {
+              // Handle backward compatibility if the response is the resume object directly
+              console.log('Setting active resume from direct response:', resumeResponse);
+              setActiveResume(resumeResponse);
+            } else {
+              console.log('No active resume found in response');
+              setActiveResume(null);
+            }
+          } catch (resumeError) {
+            console.log('Error fetching active resume:', resumeError);
+            setActiveResume(null);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Prevent multiple initializations
+    if (hasInitialized) return;
+
+    const fetchUserProfile = async () => {
+      try {
+        await refreshProfile();
       } catch (error) {
-        console.error('Error fetching profile:', error);
+        console.error('Error in fetchUserProfile:', error);
         // Fallback to localStorage if backend is not available
-        const user = JSON.parse(localStorage.getItem('currentUser'));
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        console.log('Fallback to localStorage user:', user);
         if (user?.email) {
           setCurrentUserEmail(user.email);
-          const userProfile = JSON.parse(localStorage.getItem(`user_profile_${user.email}`));
-          if (userProfile) {
-            setFormData(userProfile.formData || {});
+          const userProfile = JSON.parse(localStorage.getItem(`user_profile_${user.email}`) || '{}');
+          console.log('Loaded profile from localStorage:', userProfile);
+          if (userProfile.formData) {
+            setFormData(userProfile.formData);
             setProfileImage(userProfile.profileImage || '');
+            if (userProfile.skills) setSkills(userProfile.skills);
+            if (userProfile.experience) setExperience(userProfile.experience);
+            if (userProfile.education) setEducation(userProfile.education);
+          } else {
+            // Set basic user data from localStorage
+            setFormData({
+              fullName: user.name || '',
+              phone: user.phone || '',
+              email: user.email || '',
+              location: user.location || '',
+              title: '',
+              bio: '',
+            });
           }
         }
       } finally {
-        setLoading(false);
+        setHasInitialized(true);
       }
     };
 
     fetchUserProfile();
-  }, [setProfileImage]);
+  }, []); // Remove setProfileImage dependency to prevent infinite loop
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -161,10 +217,10 @@ export default function UserProfile() {
         setErrors(prev => ({ ...prev, image: '' }));
 
         // Update localStorage to sync with navbar
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        currentUser.profilePic = response.user.profilePic;
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        localStorage.setItem('user', JSON.stringify(currentUser));
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        user.profilePic = response.user.profilePic;
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('user', JSON.stringify(user));
 
         // Also set as preview
         const imageUrl = URL.createObjectURL(file);
@@ -280,7 +336,7 @@ export default function UserProfile() {
       return;
     }
 
-    if (!currentUserEmail) {
+    if (!userEmail) {
       setErrors(prev => ({ ...prev, general: 'No user found!' }));
       return;
     }
@@ -307,14 +363,89 @@ export default function UserProfile() {
       };
 
       const response = await AuthService.updateProfile(updateData);
+      console.log('Profile update response:', response);
 
       setProfileCompleted(true);
 
-      // Also save to localStorage as backup
+      // Update localStorage with the updated user data
+      if (response.user) {
+        // Update the main user object in localStorage
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUser = {
+          ...currentUser,
+          ...response.user,
+          // Ensure we preserve the jobseeker profile data
+          jobseekerProfile: response.jobseekerProfile || currentUser.jobseekerProfile
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        console.log('Updated user in localStorage:', updatedUser);
+      }
+
+      // Also save profile data as backup
       const profileData = {
         formData,
         profileImage,
+        skills,
+        experience,
+        education
       };
+      localStorage.setItem(`user_profile_${userEmail}`, JSON.stringify(profileData));
+      console.log('Saved profile backup to localStorage');
+
+      // Optionally refetch the profile to ensure we have the latest data
+      try {
+        const freshProfile = await AuthService.getProfile();
+        console.log('Fresh profile after update:', freshProfile);
+        const freshUser = freshProfile.user || freshProfile.data || freshProfile;
+        if (freshUser) {
+          // Update form data with fresh data from server
+          setFormData({
+            fullName: freshUser.name || '',
+            phone: freshUser.phone || '',
+            email: freshUser.email || '',
+            location: freshUser.location || '',
+            title: freshUser.jobseekerProfile?.jobPreferences?.titles?.[0] || '',
+            bio: freshUser.jobseekerProfile?.bio || '',
+          });
+
+          if (freshUser.jobseekerProfile?.skills?.length > 0) {
+            setSkills(freshUser.jobseekerProfile.skills);
+          }
+          if (freshUser.jobseekerProfile?.experience?.length > 0) {
+            setExperience(freshUser.jobseekerProfile.experience.map(exp => ({
+              ...exp,
+              startDate: exp.startDate ? new Date(exp.startDate).toISOString().split('T')[0] : '',
+              endDate: exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : ''
+            })));
+          }
+          if (freshUser.jobseekerProfile?.education?.length > 0) {
+            setEducation(freshUser.jobseekerProfile.education);
+          }
+
+          // Also refresh resume data
+          if (freshUser.activeResume) {
+            console.log('Setting fresh active resume:', freshUser.activeResume);
+            setActiveResume(freshUser.activeResume);
+          } else {
+            // Try to fetch active resume separately
+            try {
+              const resumeResponse = await ResumeService.getUserActiveResume();
+              console.log('Fresh resume response:', resumeResponse);
+              if (resumeResponse.hasActiveResume && resumeResponse.activeResume) {
+                setActiveResume(resumeResponse.activeResume);
+              } else if (resumeResponse._id) {
+                setActiveResume(resumeResponse);
+              } else {
+                setActiveResume(null);
+              }
+            } catch (resumeError) {
+              console.log('Could not fetch fresh resume:', resumeError);
+            }
+          }
+        }
+      } catch (refreshError) {
+        console.log('Could not refresh profile after update:', refreshError);
+      }
 
       alert("✅ Profile details saved successfully!");
     } catch (error) {
@@ -329,7 +460,7 @@ export default function UserProfile() {
         formData,
         profileImage,
       };
-      localStorage.setItem(`user_profile_${currentUserEmail}`, JSON.stringify(profileData));
+      localStorage.setItem(`user_profile_${userEmail}`, JSON.stringify(profileData));
       alert("✅ Profile details saved locally!");
     } finally {
       setIsUpdating(false);
@@ -339,7 +470,7 @@ export default function UserProfile() {
   const handleResumeDownload = async (resume) => {
     try {
       const filename = resume.filename || `resume-${resume._id || 'unknown'}.pdf`;
-      
+
       // First try the downloadUrl which should have the attachment flag
       if (resume.downloadUrl) {
         const link = document.createElement('a');
@@ -347,49 +478,49 @@ export default function UserProfile() {
         link.download = filename;
         link.target = '_blank';
         link.style.display = 'none';
-        
+
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         return;
       }
-      
+
       // Fallback: Use cloudinarySecureUrl with download transformation
       if (resume.cloudinarySecureUrl) {
-        // Extract public_id from the Cloudinary URL
+        // Extract publicid from the Cloudinary URL
         const url = resume.cloudinarySecureUrl;
-        
+
         // Create a direct download link with Cloudinary transformations
         const downloadLink = url.replace('/upload/', '/upload/fl_attachment/');
-        
+
         const link = document.createElement('a');
         link.href = downloadLink;
         link.download = filename;
         link.target = '_blank';
         link.style.display = 'none';
-        
+
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         return;
       }
-      
+
       // Final fallback: Use fileUrl
       if (resume.fileUrl) {
         window.open(resume.fileUrl, '_blank');
         return;
       }
-      
+
       throw new Error('No download URL available');
-        } catch (error) {
+    } catch (error) {
       console.error(error);
-      
+
       // Try alternative download method
       try {
         await handleResumeDownloadAlternative(resume);
       } catch (altError) {
         console.error(altError);
-        
+
         // Last resort: Open any available URL in new tab
         const fallbackUrl = resume.cloudinarySecureUrl || resume.downloadUrl || resume.fileUrl;
         if (fallbackUrl) {
@@ -410,7 +541,7 @@ export default function UserProfile() {
     try {
       const downloadUrl = resume.downloadUrl || resume.cloudinarySecureUrl;
       const filename = resume.filename || `resume-${resume._id || 'unknown'}.pdf`;
-      
+
       if (!downloadUrl) {
         throw new Error('No download URL available');
       }
@@ -429,19 +560,19 @@ export default function UserProfile() {
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      
+
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
       link.style.display = 'none';
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Clean up the object URL
       window.URL.revokeObjectURL(url);
-      
+
     } catch (error) {
       console.error(error);
       // Fall back to opening in new tab
@@ -454,12 +585,41 @@ export default function UserProfile() {
 
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
-      localStorage.removeItem('currentUser');
+      // Use the proper auth service logout method
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('currentUser'); // Remove legacy key if exists
       navigate('/');
     }
   };
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
+      {/* Refresh button for testing */}
+      <div style={{ margin: '20px', textAlign: 'center' }}>
+        <button
+          onClick={() => refreshProfile(true)}
+          disabled={loading}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#2563eb',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: loading ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {loading ? 'Refreshing...' : 'Force Refresh Profile'}
+        </button>
+      </div>
+
+      {/* Debug info for activeResume */}
+      <div style={{ margin: '20px', padding: '10px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }}>
+        <h4>Debug: Active Resume State</h4>
+        <pre style={{ fontSize: '12px', overflow: 'auto' }}>
+          {JSON.stringify({ activeResume, hasActiveResume: !!activeResume }, null, 2)}
+        </pre>
+      </div>
+
       {loading ? (
         <div className="max-w-4xl mx-auto">
           <div className="text-center py-12">
@@ -647,12 +807,12 @@ export default function UserProfile() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">                      <button
-                        onClick={() => window.open(activeResume.cloudinarySecureUrl, '_blank')}
-                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors duration-200"
-                      >
-                        <ExternalLink className="w-3 h-3 mr-1" />
-                        View
-                      </button>
+                      onClick={() => window.open(activeResume.cloudinarySecureUrl, '_blank')}
+                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors duration-200"
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      View
+                    </button>
                       <button
                         onClick={() => handleResumeDownload(activeResume)}
                         className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors duration-200"
