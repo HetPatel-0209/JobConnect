@@ -34,29 +34,13 @@ const ChatPage = () => {
         setMessagesLoading(false);
       });
     }
-  }, [activeChat]); // Removed fetchMessages from dependencies to prevent infinite loop  // Simple backup mechanism for ChatPage
+  }, [activeChat]); // Removed fetchMessages from dependencies to prevent infinite loop  // Ensure chats are loaded when component mounts
   useEffect(() => {
-    if (user && !authLoading && initialized && chats.length === 0 && !loading) {
-      console.log('ChatPage: User ready but no chats, triggering fetch');
-      const timer = setTimeout(() => {
-        fetchChats(true);
-      }, 3000); // Increased delay to prevent rapid firing
-
-      return () => clearTimeout(timer);
+    if (user && !authLoading && !loading && chats.length === 0) {
+      console.log('ChatPage: Loading chats on mount');
+      fetchChats();
     }
-  }, [user, authLoading, initialized]); // Removed chats.length and loading to prevent infinite loop// Handle page reload recovery (run only when user/auth state changes)
-  useEffect(() => {
-    if (user && !authLoading && !initialized) {
-      console.log('ChatPage: Ensuring chat functionality after potential page reload');
-      // Small delay to allow context to initialize
-      const timer = setTimeout(() => {
-        console.log('ChatPage: Context not initialized, triggering initialization');
-        fetchChats(true);
-      }, 500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [user, authLoading, initialized]); // Removed fetchChats from dependencies to prevent infinite loop
+  }, [user, authLoading]); // Simple dependency array
 
   const handleChatSelect = (chat) => {
     setActiveChat(chat);
@@ -98,7 +82,8 @@ const ChatPage = () => {
     fetchChats(true);
   };
 
-  if (authLoading || loading) {
+  // Show loading state only if we're still authenticating or if we're loading and have no chats yet
+  if (authLoading || (loading && chats.length === 0)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center space-y-4">
@@ -145,26 +130,15 @@ const ChatPage = () => {
             Chats: {chats.length} | User: {user?.name || 'None'} | Auth: {authLoading ? 'Loading' : 'Ready'} | Init: {initialized ? 'Yes' : 'No'}
           </p>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto">
-          {chats.length === 0 && !loading && (
-            <div className="p-4 text-center">
-              <p className="text-gray-500 mb-4">No chats found</p>
-              <button
-                onClick={handleRefreshChats}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Load Chats
-              </button>
-            </div>
-          )}
           <ChatList
             chats={chats}
             activeChat={activeChat}
             onChatSelect={handleChatSelect}
             onDeleteChat={handleDeleteChat}
             currentUserId={user?.id}
-            loading={loading}
+            loading={loading && chats.length === 0} // Only show loading if we have no chats
           />
         </div>
       </div>
@@ -186,7 +160,7 @@ const ChatPage = () => {
             </div>
           </div>
         )}
-        
+
         <ChatWindow
           chat={activeChat}
           messages={messages}

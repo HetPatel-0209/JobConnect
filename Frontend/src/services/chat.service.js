@@ -1,4 +1,5 @@
 import api from './api';
+import cacheService, { CacheKeys, CacheInvalidation } from './cache.service';
 
 export const ChatService = {
     /**
@@ -6,8 +7,16 @@ export const ChatService = {
      * @returns {Promise<Object>} User's chats
      */
     getChats: async () => {
-        const result = await api.get('/chat/chats');
-        return result;
+        // Get current user ID from localStorage for cache key
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id || 'anonymous';
+
+        const cacheKey = CacheKeys.USER_CHATS(userId);
+
+        // Use request deduplication
+        return await cacheService.getOrFetch(cacheKey, async () => {
+            return await api.get('/chat/chats');
+        });
     },
 
     /**
@@ -18,7 +27,12 @@ export const ChatService = {
      * @returns {Promise<Object>} Chat messages
      */
     getChatMessages: async (chatId, page = 1, limit = 50) => {
-        return await api.get(`/chat/chats/${chatId}/messages`, { page, limit });
+        const cacheKey = CacheKeys.CHAT_MESSAGES(chatId, page);
+
+        // Use request deduplication
+        return await cacheService.getOrFetch(cacheKey, async () => {
+            return await api.get(`/chat/chats/${chatId}/messages`, { page, limit });
+        });
     },
 
     /**
@@ -29,7 +43,17 @@ export const ChatService = {
      * @returns {Promise<Object>} Sent message
      */
     sendMessage: async (recipientId, content, messageType = 'text') => {
-        return await api.post('/chat/messages', { recipientId, content, messageType });
+        const result = await api.post('/chat/messages', { recipientId, content, messageType });
+
+        // Invalidate chat cache since new message was sent
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id;
+
+        if (userId) {
+            CacheInvalidation.invalidateChatCache(userId);
+        }
+
+        return result;
     },
 
     /**

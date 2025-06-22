@@ -157,6 +157,11 @@ export const CacheKeys = {
     // Organization data
     ORGANIZATIONS: (page = 1) => `organizations_${page}`,
     ORGANIZATION_DETAILS: (orgId) => `organization_${orgId}`,
+
+    // Chat data
+    USER_CHATS: (userId) => `user_chats_${userId}`,
+    CHAT_MESSAGES: (chatId, page = 1) => `chat_messages_${chatId}_${page}`,
+    CHAT_STATS: (userId) => `chat_stats_${userId}`,
 };
 
 // Cache invalidation helpers
@@ -180,6 +185,18 @@ export const CacheInvalidation = {
     // Invalidate specific job
     invalidateJob: (jobId) => {
         cacheService.delete(CacheKeys.JOB_DETAILS(jobId));
+    },
+
+    // Invalidate chat cache when messages change
+    invalidateChatCache: (userId) => {
+        cacheService.clearByPattern(`user_chats_${userId}`);
+        cacheService.clearByPattern(`chat_messages_.*`);
+        cacheService.clearByPattern(`chat_stats_${userId}`);
+    },
+
+    // Invalidate specific chat messages
+    invalidateChatMessages: (chatId) => {
+        cacheService.clearByPattern(`chat_messages_${chatId}_.*`);
     }
 };
 

@@ -22,6 +22,7 @@ export const ChatProvider = ({ children }) => {
     const [initialized, setInitialized] = useState(false); // Track if we've attempted to load chats
     const [lastFetchTime, setLastFetchTime] = useState(0); // Prevent rapid-fire fetches
     const [isActive, setIsActive] = useState(true); // Track if context should be active
+    const [hasInitialLoad, setHasInitialLoad] = useState(false); // Track if we've done initial load
 
     // Helper function to check if we're on a chat page
     const isOnChatPage = useCallback(() => {
@@ -215,7 +216,7 @@ export const ChatProvider = ({ children }) => {
             if (isFromOtherUser) {
                 setUnreadCount(prev => prev + 1);
             }
-        };        const handleMessageNotification = (notification) => {
+        }; const handleMessageNotification = (notification) => {
 
             // Update unread count with the total from notification if available
             if (notification.totalUnreadCount !== undefined) {
@@ -376,15 +377,15 @@ export const ChatProvider = ({ children }) => {
                     sentAt: new Date()
                 })));
             }
-        };        const handleAuthenticated = (data) => {
+        }; const handleAuthenticated = (data) => {
             setIsSocketConnected(true);
-            
+
             // Set online users from authentication response
             if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
                 const userIds = data.onlineUsers.map(u => u.userId).filter(Boolean);
                 setOnlineUsers(new Set(userIds));
             }
-            
+
             // Request online users list after authentication
             setTimeout(() => {
                 socketService.requestOnlineUsers();
@@ -464,22 +465,16 @@ export const ChatProvider = ({ children }) => {
                 socketService.leaveChat(activeChat._id);
             }
         };
-    }, [activeChat, isSocketConnected]);    const fetchChats = useCallback(async (force = false) => {
-        const now = Date.now();
+    }, [activeChat, isSocketConnected]);
 
-        // Prevent rapid-fire calls (minimum 1 second between calls unless forced)
-        if (!force && (now - lastFetchTime) < 1000) {
-            console.log('fetchChats: Rate limited, skipping');
-            return;
-        }
-
+    const fetchChats = useCallback(async (force = false) => {
         if (!user) {
             console.log('fetchChats: No user, returning');
             return;
         }
 
-        // Only skip if we have chats AND it's not forced AND we're not loading
-        if (!force && chats.length > 0 && !loading) {
+        // If we already have chats and not forcing refresh, don't fetch again
+        if (!force && chats.length > 0 && hasInitialLoad) {
             console.log('fetchChats: Already have chats and not forced, skipping');
             return;
         }
@@ -490,27 +485,32 @@ export const ChatProvider = ({ children }) => {
             return;
         }
 
-        setLastFetchTime(now);
         setLoading(true);
-        setError(null); // Clear any previous errors
+        setError(null);
+
         try {
             console.log('fetchChats: Making API call...');
             const response = await ChatService.getChats();
 
             if (response && response.data) {
                 setChats(response.data);
+                setHasInitialLoad(true);
+                setInitialized(true);
             } else {
                 console.log('fetchChats: No data in response');
                 setChats([]);
+                setHasInitialLoad(true);
+                setInitialized(true);
             }
         } catch (err) {
             console.error('Error fetching chats:', err);
             setError('Failed to load chats');
-            setChats([]); // Clear chats on error
+            setChats([]);
+            setInitialized(true);
         } finally {
             setLoading(false);
         }
-    }, [user, loading, lastFetchTime]); // Removed chats.length to prevent infinite loop
+    }, [user, loading, chats.length, hasInitialLoad]);
 
     const fetchMessages = useCallback(async (chatId) => {
         setLoading(true);
@@ -540,7 +540,7 @@ export const ChatProvider = ({ children }) => {
             // Send via socket for real-time delivery if connected
             if (activeChat && socketService.isSocketConnected()) {
                 console.log('ChatContext: Sending message via socket');
-                
+
                 // Set initial status as sending
                 setMessageStatuses(prev => new Map(prev.set(tempMessageId, {
                     sent: false,
