@@ -1,4 +1,5 @@
 import api from './api';
+import cacheService, { CacheKeys, CacheInvalidation } from './cache.service';
 
 export const JobService = {
     /**
@@ -7,7 +8,16 @@ export const JobService = {
      * @returns {Promise<Object>} Jobs list with pagination
      */
     getAllJobs: async (filters = {}) => {
-        return await api.get('/jobs', filters);
+        const cacheKey = CacheKeys.ALL_JOBS(filters.page || 1, filters);
+        const cached = cacheService.get(cacheKey);
+
+        if (cached) {
+            return cached;
+        }
+
+        const result = await api.get('/jobs', filters);
+        cacheService.set(cacheKey, result, 3 * 60 * 1000); // Cache for 3 minutes
+        return result;
     },
 
     /**
@@ -16,7 +26,16 @@ export const JobService = {
      * @returns {Promise<Object>} Recommended jobs
      */
     getRecommendedJobs: async (filters = {}) => {
-        return await api.get('/jobs/recommended', filters);
+        // Get current user ID from localStorage for cache key
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id || 'anonymous';
+
+        const cacheKey = CacheKeys.USER_RECOMMENDED_JOBS(userId, filters.page || 1);
+
+        // Use request deduplication
+        return await cacheService.getOrFetch(cacheKey, async () => {
+            return await api.get('/jobs/recommended', filters);
+        });
     },
 
     /**
@@ -24,20 +43,38 @@ export const JobService = {
      * @returns {Promise<Object>} Dashboard stats
      */
     getJobseekerStats: async () => {
-        return await api.get('/jobs/stats');
+        // Get current user ID from localStorage for cache key
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id || 'anonymous';
+
+        const cacheKey = CacheKeys.USER_STATS(userId);
+
+        // Use request deduplication
+        return await cacheService.getOrFetch(cacheKey, async () => {
+            return await api.get('/jobs/stats');
+        });
     },
 
 
-    
+
     /**
      * Get jobs applied by the user
      * @param {Object} filters - Filter parameters
      * @returns {Promise<Object>} Applied jobs
      */
     getAppliedJobs: async (filters = {}) => {
-        return await api.get('/jobs/applied', filters);
+        // Get current user ID from localStorage for cache key
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id || 'anonymous';
+
+        const cacheKey = CacheKeys.USER_APPLIED_JOBS(userId, filters.page || 1);
+
+        // Use request deduplication
+        return await cacheService.getOrFetch(cacheKey, async () => {
+            return await api.get('/jobs/applied', filters);
+        });
     },
-    
+
     /**
      * Get a specific job by ID
      * @param {string} jobId - Job ID
@@ -66,14 +103,25 @@ export const JobService = {
     },
 
     // Recruiter endpoints
-    
+
     /**
      * Post a new job
      * @param {Object} jobData - Job data
      * @returns {Promise<Object>} Created job
      */
     postJob: async (jobData) => {
-        return await api.post('/jobs', jobData);
+        const result = await api.post('/jobs', jobData);
+
+        // Invalidate relevant caches
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id;
+
+        if (userId) {
+            CacheInvalidation.invalidateRecruiterCache(userId);
+        }
+        CacheInvalidation.invalidateJobCache();
+
+        return result;
     },
 
     /**
@@ -92,7 +140,19 @@ export const JobService = {
      * @returns {Promise<Object>} Updated job
      */
     updateJob: async (jobId, jobData) => {
-        return await api.put(`/jobs/${jobId}`, jobData);
+        const result = await api.put(`/jobs/${jobId}`, jobData);
+
+        // Invalidate relevant caches
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id;
+
+        if (userId) {
+            CacheInvalidation.invalidateRecruiterCache(userId);
+        }
+        CacheInvalidation.invalidateJobCache();
+        CacheInvalidation.invalidateJob(jobId);
+
+        return result;
     },
 
     /**
@@ -101,7 +161,19 @@ export const JobService = {
      * @returns {Promise<Object>} Delete result
      */
     deleteJob: async (jobId) => {
-        return await api.delete(`/jobs/${jobId}`);
+        const result = await api.delete(`/jobs/${jobId}`);
+
+        // Invalidate relevant caches
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id;
+
+        if (userId) {
+            CacheInvalidation.invalidateRecruiterCache(userId);
+        }
+        CacheInvalidation.invalidateJobCache();
+        CacheInvalidation.invalidateJob(jobId);
+
+        return result;
     },
 
     /**
@@ -121,7 +193,17 @@ export const JobService = {
      * @returns {Promise<Object>} Application result
      */
     applyForJob: async (jobId, applicationData = {}) => {
-        return await api.post(`/jobs/${jobId}/apply`, applicationData);
+        const result = await api.post(`/jobs/${jobId}/apply`, applicationData);
+
+        // Invalidate user-related caches since application status changed
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id;
+
+        if (userId) {
+            CacheInvalidation.invalidateUserCache(userId);
+        }
+
+        return result;
     },
 
     // Recruiter-specific methods
@@ -132,7 +214,20 @@ export const JobService = {
      * @returns {Promise<Object>} Recruiter's posted jobs
      */
     getRecruiterJobs: async (filters = {}) => {
-        return await api.get('/jobs/recruiter/posted', filters);
+        // Get current user ID from localStorage for cache key
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id || 'anonymous';
+
+        const cacheKey = CacheKeys.RECRUITER_JOBS(userId, filters.page || 1);
+        const cached = cacheService.get(cacheKey);
+
+        if (cached) {
+            return cached;
+        }
+
+        const result = await api.get('/jobs/recruiter/posted', filters);
+        cacheService.set(cacheKey, result, 3 * 60 * 1000); // Cache for 3 minutes
+        return result;
     },
 
     /**
@@ -140,7 +235,20 @@ export const JobService = {
      * @returns {Promise<Object>} Dashboard stats
      */
     getRecruiterStats: async () => {
-        return await api.get('/jobs/recruiter/stats');
+        // Get current user ID from localStorage for cache key
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const userId = currentUser._id || 'anonymous';
+
+        const cacheKey = CacheKeys.RECRUITER_STATS(userId);
+        const cached = cacheService.get(cacheKey);
+
+        if (cached) {
+            return cached;
+        }
+
+        const result = await api.get('/jobs/recruiter/stats');
+        cacheService.set(cacheKey, result, 2 * 60 * 1000); // Cache for 2 minutes
+        return result;
     },
 
     /**

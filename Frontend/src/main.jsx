@@ -13,15 +13,7 @@ if (import.meta.env.DEV) {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <ProfileProvider>
-          <ChatProvider>
-            <App />
-          </ChatProvider>
-        </ProfileProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
 );

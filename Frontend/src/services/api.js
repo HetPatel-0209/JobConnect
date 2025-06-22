@@ -4,6 +4,13 @@ import { handleApiError } from '../utils/apiErrorHandler';
 // Use environment variable or default to production for deployment
 const API_BASE_URL = import.meta.env.VITE_BACKEND_API_BASE_URL || 'https://jobconnect-xwh3.onrender.com/api';
 
+// Debug logging to see which URL is being used
+console.log('🔧 Environment Variables Debug:');
+console.log('VITE_BACKEND_API_BASE_URL:', import.meta.env.VITE_BACKEND_API_BASE_URL);
+console.log('Final API_BASE_URL:', API_BASE_URL);
+console.log('Environment Mode:', import.meta.env.MODE);
+console.log('Is Development:', import.meta.env.DEV);
+
 /**
  * Standard API response format
  * @typedef {Object} ApiResponse
@@ -39,24 +46,24 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         const originalRequest = error.config;
-        
+
         // Handle authentication errors
         if (error.response?.status === 401 && !originalRequest._retry) {
             // Clear auth data
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            
+
             // Redirect to login page
             window.location.href = '/auth';
             return Promise.reject(error);
         }
-        
+
         // Network errors
         if (!error.response) {
             console.error('Network Error:', error.message);
             return Promise.reject(new Error('Network error. Please check your connection.'));
         }
-        
+
         return Promise.reject(error);
     }
 );
@@ -79,7 +86,7 @@ const apiService = {
             throw formattedError;
         }
     },
-    
+
     /**
      * Make a POST request
      * @param {string} url - The URL to make the request to
@@ -97,7 +104,7 @@ const apiService = {
             throw formattedError;
         }
     },
-    
+
     /**
      * Make a PUT request
      * @param {string} url - The URL to make the request to
@@ -114,7 +121,7 @@ const apiService = {
             throw formattedError;
         }
     },
-    
+
     /**
      * Make a DELETE request
      * @param {string} url - The URL to make the request to
@@ -130,7 +137,7 @@ const apiService = {
             throw formattedError;
         }
     },
-    
+
     // Raw axios instance for specialized needs
     axios: api
 };

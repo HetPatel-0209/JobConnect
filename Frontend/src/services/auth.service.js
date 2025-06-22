@@ -1,4 +1,5 @@
 import api from './api';
+import cacheService, { CacheKeys, CacheInvalidation } from './cache.service';
 
 export const AuthService = {
     /**
@@ -63,14 +64,23 @@ export const AuthService = {
     isAuthenticated: () => {
         return !!localStorage.getItem('token');
     },
-    
+
     /**
      * Get user profile
      * @returns {Promise<Object>} User profile
      */
     getProfile: async () => {
         try {
-            return await api.get('/auth/profile');
+            // Get current user ID from localStorage for cache key
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            const userId = currentUser._id || 'anonymous';
+
+            const cacheKey = CacheKeys.USER_PROFILE(userId);
+
+            // Use request deduplication to prevent multiple simultaneous calls
+            return await cacheService.getOrFetch(cacheKey, async () => {
+                return await api.get('/auth/profile');
+            });
         } catch (error) {
             throw error;
         }
@@ -103,6 +113,9 @@ export const AuthService = {
             if (response.user) {
                 localStorage.setItem('user', JSON.stringify(response.user));
                 localStorage.setItem('currentUser', JSON.stringify(response.user));
+
+                // Invalidate user cache since profile was updated
+                CacheInvalidation.invalidateUserCache(response.user._id);
             }
             return response;
         } catch (error) {
@@ -125,6 +138,9 @@ export const AuthService = {
             });
             if (response.user) {
                 localStorage.setItem('user', JSON.stringify(response.user));
+
+                // Invalidate user cache since profile picture was updated
+                CacheInvalidation.invalidateUserCache(response.user._id);
             }
             return response;
         } catch (error) {
@@ -175,6 +191,9 @@ export const AuthService = {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('currentUser');
+
+        // Clear all cache on logout
+        cacheService.clear();
     },
 
     /**

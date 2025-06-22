@@ -37,7 +37,12 @@ class SocketService {
             localStorage.setItem('socketToken', token);
         }
 
-        const serverUrl = (import.meta.env.VITE_BACKEND_API_URL || 'https://jobconnect-xwh3.onrender.com')
+        const serverUrl = (import.meta.env.VITE_BACKEND_API_BASE_URL || 'https://jobconnect-xwh3.onrender.com')
+
+        // Debug logging for socket connection
+        console.log('🔌 Socket Service Debug:');
+        console.log('VITE_BACKEND_API_BASE_URL:', import.meta.env.VITE_BACKEND_API_BASE_URL);
+        console.log('Socket Server URL:', serverUrl);
 
         this.socket = io(serverUrl, {
             transports: ['polling', 'websocket'],

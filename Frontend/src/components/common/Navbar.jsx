@@ -8,7 +8,7 @@ import { AuthService } from '../../services/auth.service';
 
 export default function Navbar() {
   const { user: authUser } = useAuth();
-  const { profileImage, setProfileImage, clearProfile } = useContext(ProfileContext);
+  const { profileData, profileImage, setProfileImage, clearProfile, fetchProfile } = useContext(ProfileContext);
 
   // Safely get unread count with fallback
   let unreadCount = 0;
@@ -27,35 +27,26 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get user from multiple sources with proper error handling
+  // Get user from ProfileContext or fallback sources
   useEffect(() => {
     const loadUser = async () => {
       setIsLoading(true);
       try {
         let user = null;
 
-        // First try to get user from backend if token exists
-        const token = localStorage.getItem('token');
-        if (token) {
+        // First try to get user from ProfileContext
+        if (profileData) {
+          user = profileData;
+        } else if (authUser) {
+          // Try to fetch profile if we have authUser but no profileData
           try {
-            const profileResponse = await AuthService.getProfile();
-            user = profileResponse.user;
-
-            // Update localStorage with fresh user data
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            localStorage.setItem('user', JSON.stringify(user));
-
-            // Update profile image from backend
-            if (user.profilePic) {
-              setProfileImage(user.profilePic);
-            }
+            user = await fetchProfile();
           } catch (error) {
-            // Silent error handling - remove invalid token
-            localStorage.removeItem('token');
+            console.error('Failed to fetch profile:', error);
           }
         }
 
-        // Fallback to localStorage if backend fails
+        // Fallback to localStorage if no user from contexts
         if (!user) {
           const storedCurrentUser = localStorage.getItem('currentUser');
           const storedUser = localStorage.getItem('user');
@@ -89,7 +80,7 @@ export default function Navbar() {
     };
 
     loadUser();
-  }, [authUser, setProfileImage]);
+  }, [authUser, profileData, fetchProfile, setProfileImage]);
 
   // Load profile images from localStorage with error handling
   useEffect(() => {
@@ -213,7 +204,7 @@ export default function Navbar() {
         </div>
       </header>
     );
-  }  
+  }
   // Home Navbar (for web visitors)
   if (navbarType === 'home') {
     return (
@@ -229,7 +220,7 @@ export default function Navbar() {
         </div>
       </header>
     );
-  }  
+  }
   // Auth Navbar (for login/signup pages)
   if (navbarType === 'auth') {
     return (
@@ -265,7 +256,7 @@ export default function Navbar() {
           </Link>
           <Link to="/recruiter/profile" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Profile</Link>
           <Link to="/company-details" className="text-sm md:text-lg text-black font-medium ml-4 md:ml-10 no-underline relative transition-all duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-black after:transition-[width] after:duration-300 hover:after:w-full">Your Organization</Link>
-          
+
 
           <div className="relative ml-4 md:ml-10" ref={dropdownRef}>
             <div className="flex items-center gap-1.5 bg-gray-400/50 px-2.5 py-1.5 rounded-xl border border-black cursor-pointer transition-colors duration-200 hover:bg-gray-400/60" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
@@ -293,7 +284,7 @@ export default function Navbar() {
         </nav>
       </header>
     );
-  }  
+  }
   // User Navbar (for job seekers)
   if (navbarType === 'user') {
     return (
@@ -328,7 +319,7 @@ export default function Navbar() {
             {isDropdownOpen && (
               <div className="absolute top-full right-0 mt-2 bg-white border border-black rounded-lg min-w-[140px] md:min-w-[160px] z-[1000] overflow-hidden shadow-md">
                 <Link to="/user/profile-view" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Profile Detail</Link>
-                <Link to="/user/upload-resume" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Update Resume</Link>                
+                <Link to="/user/upload-resume" className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-black no-underline cursor-pointer transition-colors duration-200 text-left border-b border-gray-200 bg-none w-full hover:bg-gray-100">Update Resume</Link>
                 <button onClick={handleLogout} className="block px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm text-red-500 font-medium cursor-pointer transition-colors duration-200 text-left bg-none w-full border-none hover:bg-red-50">Logout</button>
               </div>
             )}

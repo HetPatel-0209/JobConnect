@@ -20,26 +20,34 @@ export const ProfileProvider = ({ children }) => {
       setProfileData(null);
     }
   }, [user]);
-  
-  const fetchProfile = useCallback(async () => {
+
+  const fetchProfile = useCallback(async (forceRefresh = false) => {
     if (!user) return;
+
+    // If we already have profile data and not forcing refresh, don't fetch again
+    if (profileData && !forceRefresh) {
+      return profileData;
+    }
 
     setLoading(true);
     try {
       const response = await AuthService.getProfile();
-      setProfileData(response.user || response);
-      if (response.user?.profilePic) {
-        setProfileImage(response.user.profilePic);
-      } else if (response.profilePic) {
-        setProfileImage(response.profilePic);
+      const userData = response.user || response;
+      setProfileData(userData);
+
+      if (userData?.profilePic) {
+        setProfileImage(userData.profilePic);
       }
+
+      return userData;
     } catch (err) {
       console.error(err);
       setError('Failed to load profile data');
+      throw err;
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, profileData]);
 
   const updateProfile = useCallback(async (updatedData) => {
     setLoading(true);

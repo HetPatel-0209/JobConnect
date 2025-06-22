@@ -19,15 +19,35 @@ cloudinary.v2.config({
 
 const app = express();
 
-// CORS Configuration
+// Simple Request Logging Middleware
+app.use((req, res, next) => {
+    const timestamp = new Date().toISOString();
+    const origin = req.get('Origin') || 'no-origin';
+
+    console.log(`${timestamp} - ${req.method} ${req.url} - Origin: ${origin}`);
+    next();
+});
+
+// Unified CORS Configuration - Works for both development and production
 const corsOptions = {
-    origin: process.env.NODE_ENV === 'production'
-        ? [process.env.FRONTEND_URL, 'https://jobconnect-project.vercel.app', 'https://jobconnect-xi-snowy.vercel.app', 'http://localhost:5173']
-        : ['https://jobconnect-xwh3.onrender.com', 'https://jobconnect-project.vercel.app/', 'http://localhost:5173'],
+    origin: [
+        // Production URLs
+        'https://jobconnect-project.vercel.app',
+        'https://jobconnect-xwh3.onrender.com',
+        // Development URLs
+        'http://localhost:5173',
+        'http://localhost:3000',
+        // Dynamic frontend URL from environment
+        process.env.FRONTEND_URL
+    ].filter(Boolean), // Remove any undefined values
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 };
+
+// Environment and CORS setup
+console.log('Environment:', process.env.NODE_ENV || 'development');
+console.log('CORS Origins:', corsOptions.origin.join(', '));
 app.use(cors(corsOptions));
 
 // Body parser middleware
@@ -36,6 +56,24 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // Connect to Database
 connectDB();
+
+// Universal Health Check Endpoint - Works in both development and production
+app.get('/api/health', (req, res) => {
+    const healthInfo = {
+        status: 'OK',
+        message: 'JobConnect Backend is running',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        port: process.env.PORT || 3000,
+        corsOrigins: corsOptions.origin,
+        requestOrigin: req.get('Origin') || 'no-origin',
+        version: '1.0.0'
+    };
+
+    // Health check accessed
+
+    res.json(healthInfo);
+});
 
 // Import and use centralized routes
 const routes = require('./routes/Route');
@@ -476,4 +514,8 @@ io.on('connection', (socket) => {
 
 // Start server
 const PORT = process.env.PORT || 3000;
-server.listen(PORT);
+server.listen(PORT, () => {
+    console.log(`JobConnect Backend Server started on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Server URL: http://localhost:${PORT}`);
+});

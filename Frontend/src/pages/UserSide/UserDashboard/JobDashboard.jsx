@@ -347,7 +347,7 @@ const JobCard = ({ job, onApply }) => {
 export default function JobDashboard() {
   const [showUploadScreen, setShowUploadScreen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { applications } = useContext(ProfileContext);
+  const { applications, profileData, fetchProfile } = useContext(ProfileContext);
   const safeApplications = Array.isArray(applications) ? applications : [];
 
   const [user, setUser] = useState({ name: 'User' });
@@ -388,9 +388,15 @@ export default function JobDashboard() {
       try {
         setLoading(true);
 
-        // Get user profile from backend
-        const profileResponse = await AuthService.getProfile();
-        const userData = profileResponse.user;
+        // Get user profile from ProfileContext or fetch if needed
+        let userData = profileData;
+        if (!userData) {
+          try {
+            userData = await fetchProfile();
+          } catch (error) {
+            console.error('Failed to fetch profile:', error);
+          }
+        }
 
         if (userData) {
           setUser({ name: userData.name, email: userData.email });
