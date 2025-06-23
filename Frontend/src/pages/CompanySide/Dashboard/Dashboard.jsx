@@ -18,9 +18,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { JobService } from '../../../services/job.service';
+import { safeExtractId } from '../../../utils/debugUtils';
 import { ApplicationService } from '../../../services/application.service';
 import { useSmartFetch } from '../../../hooks/useSmartFetch';
 import { CacheKeys, CacheInvalidation } from '../../../services/cache.service';
+import { formatJobDate } from '../../../utils/dateUtils';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -37,22 +39,25 @@ const Dashboard = () => {
       recruiterStats: CacheKeys.RECRUITER_STATS(userId)
     };
   }, [user?.id, user?._id]);
-
   // Smart fetch for recruiter jobs
   const {
     data: jobsData,
     loading: jobsLoading,
     error: jobsError,
-    refetch: refetchJobs
+    refetch: refetchJobs,
+    forceReload: forceReloadJobs
   } = useSmartFetch(
     cacheKeys?.recruiterJobs,
     () => JobService.getRecruiterJobs(),
     {
       enabled: !!user && !!cacheKeys,
-      ttl: 3 * 60 * 1000, // 3 minutes
+      ttl: 2 * 60 * 1000, // 2 minutes for faster updates
       realtime: true,
       onSuccess: (data) => {
-        console.log('Recruiter jobs loaded:', data);
+        console.log('✅ Dashboard: Recruiter jobs loaded successfully:', data);
+      },
+      onError: (error) => {
+        console.error('❌ Dashboard: Failed to load recruiter jobs:', error);
       }
     }
   );
@@ -62,38 +67,54 @@ const Dashboard = () => {
     data: stats,
     loading: statsLoading,
     error: statsError,
-    refetch: refetchStats
+    refetch: refetchStats,
+    forceReload: forceReloadStats
   } = useSmartFetch(
     cacheKeys?.recruiterStats,
     () => JobService.getRecruiterStats(),
     {
       enabled: !!user && !!cacheKeys,
-      ttl: 2 * 60 * 1000, // 2 minutes
+      ttl: 1 * 60 * 1000, // 1 minute for faster updates
       realtime: true,
       onSuccess: (data) => {
-        console.log('Recruiter stats loaded:', data);
+        console.log('✅ Dashboard: Recruiter stats loaded successfully:', data);
+      },
+      onError: (error) => {
+        console.error('❌ Dashboard: Failed to load recruiter stats:', error);
       }
     }
   );
-
   // Extract jobs and handle loading/error states
   const jobs = jobsData?.jobs || [];
   const isLoading = jobsLoading || statsLoading;
   const error = jobsError || statsError;
+
+  // Debug: Log job data to see date formats
+  useEffect(() => {
+    if (jobs.length > 0) {
+      console.log('🔍 Dashboard: Sample job data for date debugging:', {
+        firstJob: jobs[0],
+        createdAt: jobs[0]?.createdAt,
+        createdAtType: typeof jobs[0]?.createdAt
+      });
+    }
+  }, [jobs]);
 
   // Provide default stats structure
   const safeStats = stats || {
     jobs: { total: 0, active: 0, draft: 0, closed: 0 },
     applications: { total: 0, pending: 0, reviewed: 0, shortlisted: 0, interview: 0, hired: 0, rejected: 0, newToday: 0 }
   };
-
   const handleRemoveJob = async (jobId) => {
     try {
-      await JobService.deleteJob(jobId);      // Smart cache invalidation - the service will handle cache updates automatically
-      CacheInvalidation.invalidateByEvent('job_deleted', {
-        jobId,
-        recruiterId: user.id || user.id
-      });
+      await JobService.deleteJob(jobId);
+      
+      // Force reload data immediately after successful deletion
+      console.log('🔄 Dashboard: Job deleted, force reloading data...');
+      await Promise.all([
+        forceReloadJobs(false), // Don't show loading for better UX
+        forceReloadStats(false)
+      ]);
 
       setShowDeleteConfirm(null);
       setSuccessMessage('Job deleted successfully');
@@ -104,21 +125,23 @@ const Dashboard = () => {
       setTimeout(() => setSuccessMessage(null), 5000);
     }
   };
-
   const handleStatusChange = async (jobId, newStatus) => {
     setUpdatingJobStatus(jobId);
     try {
-      await JobService.updateJob(jobId, { status: newStatus });      // Smart cache invalidation - the service will handle cache updates automatically
-      CacheInvalidation.invalidateByEvent('job_updated', {
-        jobId,
-        recruiterId: user.id || user.id,
-        jobData: { status: newStatus }
-      });
+      console.log(`🔄 Dashboard: Updating job ${jobId} status to ${newStatus}`);
+      await JobService.updateJob(jobId, { status: newStatus });
+
+      // Force reload data immediately after successful update
+      console.log('🔄 Dashboard: Job status updated, force reloading data...');
+      await Promise.all([
+        forceReloadJobs(false), // Don't show loading for better UX
+        forceReloadStats(false)
+      ]);
 
       setSuccessMessage(`Job status updated to ${newStatus}`);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
-      console.error(err);
+      console.error('❌ Dashboard: Error updating job status:', err);
       setSuccessMessage('Failed to update job status');
       setTimeout(() => setSuccessMessage(null), 5000);
     } finally {
@@ -128,9 +151,7 @@ const Dashboard = () => {
 
   const activeJobs = safeStats.jobs.active;
   const totalApplications = safeStats.applications.total;
-  const newTodayCount = safeStats.applications.newToday;
-
-  const getJobTypeColor = (type) => {
+  const newTodayCount = safeStats.applications.newToday;  const getJobTypeColor = (type) => {
     switch (type?.toLowerCase()) {
       case 'full-time': return 'bg-green-100 text-green-800';
       case 'part-time': return 'bg-blue-100 text-blue-800';
@@ -139,17 +160,53 @@ const Dashboard = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Safe date formatting with fallback
+  const safeFormatDate = (dateInput) => {
+    try {
+      return formatJobDate(dateInput);
+    } catch (error) {
+      console.error('Error formatting date in Dashboard:', { dateInput, error });
+      // Fallback: try basic Date constructor
+      try {
+        if (dateInput && typeof dateInput === 'object' && dateInput.toString) {
+          return new Date(dateInput.toString()).toLocaleDateString();
+        }
+        return new Date(dateInput).toLocaleDateString();
+      } catch {
+        return 'Date unavailable';
+      }
+    }
+  };
+
   return (
-    <div className="px-8 py-8 font-['Segoe_UI',_sans-serif] bg-gray-50 mt-16 min-h-screen">
-      {/* Header Section */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          Welcome back, <span className="text-blue-600">{user?.name || 'User'}</span>! 👋
-        </h2>
-        <p className="text-gray-600 text-lg mb-5">
-          Here's what's happening with your job listings today.
-        </p>
-      </div>
+    <div className="px-8 py-8 font-['Segoe_UI',_sans-serif] bg-gray-50 mt-16 min-h-screen">          {/* Header Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                  Welcome back, <span className="text-blue-600">{user?.name || 'User'}</span>! 👋
+                </h2>
+                <p className="text-gray-600 text-lg mb-5">
+                  Here's what's happening with your job listings today.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  console.log('🔄 Dashboard: Manual refresh triggered');
+                  Promise.all([
+                    forceReloadJobs(true),
+                    forceReloadStats(true)
+                  ]);
+                }}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+              >
+                <Activity className="w-4 h-4" />
+                Refresh
+              </button>
+            </div>
+          </div>
 
       {error && (
         /* Error State */
@@ -273,10 +330,9 @@ const Dashboard = () => {
                             <div className="flex items-center gap-1">
                               <DollarSign className="w-4 h-4" />
                               {job.salary ? `$${job.salary.min?.toLocaleString()} - $${job.salary.max?.toLocaleString()}` : 'Not specified'}
-                            </div>
-                            <div className="flex items-center gap-1">
+                            </div>                            <div className="flex items-center gap-1">
                               <Calendar className="w-4 h-4" />
-                              Posted: {new Date(job.createdAt).toLocaleDateString()}
+                              Posted: {safeFormatDate(job.createdAt)}
                             </div>
                             <div className="flex items-center gap-1">
                               <MapPin className="w-4 h-4" />
@@ -304,19 +360,17 @@ const Dashboard = () => {
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Actions */}
+                    </div>                    {/* Actions */}
                     <div className="flex flex-wrap items-center gap-2">
                       <button
-                        onClick={() => navigate(`/job/${job._id}/applicants`)}
+                        onClick={() => navigate(`/job/${safeExtractId(job._id)}/applicants`)}
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                       >
                         <Users className="w-4 h-4" />
                         View Applicants ({job.applicationCount || 0})
                       </button>
                       <button
-                        onClick={() => navigate(`/job/${job._id}`)}
+                        onClick={() => navigate(`/job/${safeExtractId(job._id)}`)}
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                       >
                         <Eye className="w-4 h-4" />

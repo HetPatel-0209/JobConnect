@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AuthService } from '../../../services/auth.service';
 import { ResumeService } from '../../../services/resume.service';
+import { formatJobDate } from '../../../utils/dateUtils';
 import {
   ArrowLeft,
   User,
@@ -64,13 +65,9 @@ export default function ApplicantProfile() {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  // Use the centralized date formatting utility
+  const formatDate = (dateInput) => {
+    return formatJobDate(dateInput);
   };
 
   const getInitials = (name) => {

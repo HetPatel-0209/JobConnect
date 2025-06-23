@@ -103,6 +103,12 @@ class RealtimeCacheService {
                     const jobKey = CacheKeys.JOB_DETAILS(eventData.jobId);
                     cache.updateRealtime(jobKey, eventData.jobData);
                 }
+                // Also invalidate recruiter cache when job is updated
+                if (eventData.recruiterId) {
+                    CacheInvalidation.invalidateRecruiterCache(eventData.recruiterId);
+                }
+                // Invalidate general job cache as well
+                CacheInvalidation.invalidateJobCache();
                 break;
             case 'job_applied':
                 // Update application counts and user stats
@@ -196,17 +202,25 @@ class RealtimeCacheService {
      */
     handleJobUpdated(data) {
         console.log('Real-time: Job updated', data);
-        
+
         // Update specific job cache
         if (data.jobId) {
             CacheInvalidation.invalidateJob(data.jobId);
-            
+
             // If we have the updated job data, update cache directly
             if (data.jobData) {
                 const jobKey = CacheKeys.JOB_DETAILS(data.jobId);
                 cacheService.updateRealtime(jobKey, data.jobData);
             }
         }
+
+        // Also invalidate recruiter cache when job is updated
+        if (data.recruiterId) {
+            CacheInvalidation.invalidateRecruiterCache(data.recruiterId);
+        }
+
+        // Invalidate general job cache as well
+        CacheInvalidation.invalidateJobCache();
 
         cacheService.processRealtimeUpdate('job_updated', data);
     }

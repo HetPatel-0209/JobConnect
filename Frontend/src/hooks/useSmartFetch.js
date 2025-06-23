@@ -159,11 +159,18 @@ export const useSmartFetch = (cacheKey, fetchFunction, options = {}) => {
     // Subscribe to cache updates if realtime is enabled
     useEffect(() => {
         if (realtime && actualCacheKey) {
+            console.log(`🔔 useSmartFetch: Subscribing to cache updates for key: ${actualCacheKey}`);
+            
             const unsubscribe = cacheService.subscribe(actualCacheKey, ({ data: newData, action }) => {
+                console.log(`🔔 useSmartFetch: Received cache update for ${actualCacheKey}:`, { action, hasData: !!newData });
+                
                 if (mountedRef.current) {
-                    if (action === 'deleted') {
-                        setData(null);
-                    } else {
+                    if (action === 'deleted' || action === 'pattern_cleared') {
+                        console.log(`🔄 useSmartFetch: Cache deleted/cleared for ${actualCacheKey}, triggering refetch`);
+                        // Cache was cleared, refetch data
+                        fetchData(true, false); // Force refetch without showing loading
+                    } else if (action === 'updated' || action === 'realtime_update') {
+                        console.log(`🔄 useSmartFetch: Cache updated for ${actualCacheKey}, updating local state`);
                         setData(newData);
                         checkStale();
                     }
@@ -173,12 +180,13 @@ export const useSmartFetch = (cacheKey, fetchFunction, options = {}) => {
             unsubscribeRef.current = unsubscribe;
             
             return () => {
+                console.log(`🔕 useSmartFetch: Unsubscribing from cache updates for key: ${actualCacheKey}`);
                 if (unsubscribeRef.current) {
                     unsubscribeRef.current();
                 }
             };
         }
-    }, [realtime, actualCacheKey, checkStale]);
+    }, [realtime, actualCacheKey, checkStale, fetchData]);
 
     // Initial fetch and dependency-based refetch
     useEffect(() => {

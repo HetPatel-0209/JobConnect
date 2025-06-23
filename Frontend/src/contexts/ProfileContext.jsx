@@ -3,7 +3,6 @@ import { useAuth } from './AuthContext';
 import { AuthService } from '../services/auth.service';
 import { ApplicationService } from '../services/application.service';
 import cacheService, { CacheKeys, CacheInvalidation } from '../services/cache.service';
-import { UserIdUtils } from '../utils/userIdUtils';
 
 export const ProfileContext = createContext(null);
 
@@ -17,13 +16,13 @@ export const ProfileProvider = ({ children }) => {
   const [lastFetchTime, setLastFetchTime] = useState(0);
   // Memoize cache keys to prevent unnecessary recalculations
   const cacheKeys = useMemo(() => {
-    const userId = UserIdUtils.getUserId(user);
+    const userId = user?.id || user?._id;
     if (!userId) return null;
     return {
       profile: CacheKeys.USER_PROFILE(userId),
       applications: CacheKeys.USER_APPLICATIONS(userId)
     };
-  }, [user]);
+  }, [user?.id, user?._id]);
 
   // Subscribe to cache updates for real-time profile updates
   useEffect(() => {

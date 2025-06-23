@@ -1,6 +1,8 @@
 import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { OrganizationService } from '../services/organization.service';
 import { useAuth } from './AuthContext';
+import { UserIdUtils } from '../utils/userIdUtils';
+import { safeGetOrganizationId } from '../utils/debugUtils';
 
 const OrganizationContext = createContext(null);
 
@@ -22,15 +24,26 @@ export const OrganizationProvider = ({ children }) => {
 
     const loadUserOrganization = useCallback(async () => {
         setLoading(true);
+        setError(null);
         try {
             // Check if user has recruiter profile with organization
-            const organizationId = user?.recruiterProfile?.organizationId?.id || user?.recruiterProfile?.organizationId || user?.organizationId;
-            if (organizationId) {
+            const organizationId = safeGetOrganizationId(user, 'OrganizationContext.loadUserOrganization');
+            const debugInfo = UserIdUtils.debugOrganizationId(user);
+            console.log('OrganizationContext - Organization ID debug info:', debugInfo); // Debug log
+
+            if (organizationId && organizationId !== '[object Object]') {
                 const response = await OrganizationService.getOrganization(organizationId);
                 setCurrentOrganization(response.data);
+            } else if (organizationId === '[object Object]') {
+                setError('Invalid organization ID format. Please log out and log back in.');
+            } else {
+                // No organization ID found - this might be a recruiter without an organization set up
+                console.warn('No organization ID found for recruiter. User may need to set up organization.');
+                setCurrentOrganization(null);
+                // Don't set this as an error since it might be a valid state for new recruiters
             }
         } catch (err) {
-            console.error(err);
+            console.error('Error loading organization:', err);
             setError('Failed to load organization data');
         } finally {
             setLoading(false);

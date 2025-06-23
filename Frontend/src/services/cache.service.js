@@ -111,23 +111,38 @@ class CacheService {
         this.realtimeUpdates.clear();
         this.pendingRequests.clear(); // Also clear pending requests
         console.log('Cache cleared completely');
-    }
-
-    /**
-     * Clear cache entries by pattern
+    }    /**
+     * Clear cache entries by pattern and notify subscribers
      * @param {string} pattern - Pattern to match keys
      */
     clearByPattern(pattern) {
         const regex = new RegExp(pattern);
         let clearedCount = 0;
+        const clearedKeys = [];
+        
         for (const key of this.cache.keys()) {
             if (regex.test(key)) {
-                this.delete(key);
+                // Notify subscribers before deletion
+                this.notifySubscribers(key, null, 'deleted');
+                
+                // Delete cache entry
+                this.cache.delete(key);
+                this.cacheExpiry.delete(key);
+                this.lastUpdated.delete(key);
+                this.dependencies.delete(key);
+                this.hitCount.delete(key);
+                this.missCount.delete(key);
+                
+                clearedKeys.push(key);
                 clearedCount++;
             }
         }
+        
         if (clearedCount > 0) {
-            console.log(`Cleared ${clearedCount} cache entries matching pattern: ${pattern}`);
+            console.log(`Cleared ${clearedCount} cache entries matching pattern: ${pattern}`, clearedKeys);
+            
+            // Additional notification for pattern-based clearing
+            this.notifyPatternSubscribers(pattern, clearedKeys);
         }
     }
 
@@ -176,7 +191,7 @@ class CacheService {
         }
 
         console.log('🚀 Starting new request for key:', key);
-
+        
         // Create new request
         const requestPromise = requestFn().then(result => {
             console.log('✅ Request completed for key:', key, result);
@@ -230,9 +245,7 @@ class CacheService {
                 }
             });
         };
-    }
-
-    /**
+    }    /**
      * Notify subscribers of cache updates
      * @param {string} key - Cache key that was updated
      * @param {any} data - New data
@@ -240,6 +253,7 @@ class CacheService {
      */
     notifySubscribers(key, data, action = 'updated') {
         if (this.subscribers.has(key)) {
+            console.log(`🔔 Cache: Notifying ${this.subscribers.get(key).size} subscribers for key: ${key}, action: ${action}`);
             this.subscribers.get(key).forEach(callback => {
                 try {
                     callback({ key, data, action, timestamp: Date.now() });
@@ -248,6 +262,27 @@ class CacheService {
                 }
             });
         }
+    }
+
+    /**
+     * Notify subscribers interested in pattern-based cache clearing
+     * @param {string} pattern - The pattern that was cleared
+     * @param {Array<string>} clearedKeys - Keys that were cleared
+     */
+    notifyPatternSubscribers(pattern, clearedKeys) {
+        // Notify any subscribers that might be interested in pattern changes
+        clearedKeys.forEach(key => {
+            if (this.subscribers.has(key)) {
+                console.log(`🔔 Cache: Notifying pattern-based subscribers for key: ${key}`);
+                this.subscribers.get(key).forEach(callback => {
+                    try {
+                        callback({ key, data: null, action: 'pattern_cleared', pattern, timestamp: Date.now() });
+                    } catch (error) {
+                        console.error('Error in cache pattern subscriber callback:', error);
+                    }
+                });
+            }
+        });
     }
 
     /**
@@ -391,10 +426,7 @@ export const CacheKeys = {
     JOB_SAVED_STATUS: (jobId, userId) => `job_saved_status_${jobId}_${userId}`,
 
     // Organization data
-    ORGANIZATIONS: (page = 1, filters = {}) => {
-        const searchParam = filters.search ? `_search_${filters.search}` : '';
-        return `organizations_${page}${searchParam}`;
-    },
+    ORGANIZATIONS: (page = 1) => `organizations_${page}`,
     ORGANIZATION_DETAILS: (orgId) => `organization_${orgId}`,
     ORGANIZATION_JOBS: (orgId, page = 1) => `organization_jobs_${orgId}_${page}`,
 
@@ -427,7 +459,9 @@ export const CacheInvalidation = {    // Invalidate user-related cache when prof
 
     // Invalidate recruiter cache when jobs change
     invalidateRecruiterCache: (userId) => {
+        console.log(`🗑️ CacheInvalidation: Clearing recruiter cache for user ${userId} with pattern: recruiter_.*_${userId}`);
         cacheService.clearByPattern(`recruiter_.*_${userId}`);
+        console.log(`🗑️ CacheInvalidation: Recruiter cache invalidation completed`);
     },
 
     // Invalidate job cache when jobs are updated
@@ -481,17 +515,55 @@ export const CacheInvalidation = {    // Invalidate user-related cache when prof
 
     // Smart invalidation based on event type
     invalidateByEvent: (eventType, data) => {
+        console.log(`🗑️ CacheInvalidation: Processing event '${eventType}' with data:`, data);
+
         switch (eventType) {
             case 'job_applied':
+                console.log('🗑️ CacheInvalidation: Invalidating application cache');
                 CacheInvalidation.invalidateApplicationCache(data.userId, data.jobId);
                 break;
             case 'job_posted':
+                console.log('🗑️ CacheInvalidation: Invalidating job and recruiter cache for job_posted');
                 CacheInvalidation.invalidateJobCache();
                 CacheInvalidation.invalidateRecruiterCache(data.recruiterId);
                 break;
             case 'job_updated':
+                console.log('🗑️ CacheInvalidation: Invalidating caches for job_updated');
                 CacheInvalidation.invalidateJob(data.jobId);
-                break; case 'profile_updated':
+                // Also invalidate recruiter cache when job is updated (status changes, etc.)
+                if (data.recruiterId) {
+                    console.log(`🗑️ CacheInvalidation: Invalidating recruiter cache for recruiter ${data.recruiterId}`);
+                    CacheInvalidation.invalidateRecruiterCache(data.recruiterId);
+                } else {
+                    console.warn('🗑️ CacheInvalidation: No recruiterId provided for job_updated event');
+                }
+                // Invalidate general job cache as well since job lists may show updated status
+                console.log('🗑️ CacheInvalidation: Invalidating general job cache');
+                CacheInvalidation.invalidateJobCache();
+                break;
+            case 'job_deleted':
+                console.log('🗑️ CacheInvalidation: Invalidating caches for job_deleted');
+                CacheInvalidation.invalidateJob(data.jobId);
+                // Also invalidate recruiter cache when job is deleted
+                if (data.recruiterId) {
+                    console.log(`🗑️ CacheInvalidation: Invalidating recruiter cache for recruiter ${data.recruiterId}`);
+                    CacheInvalidation.invalidateRecruiterCache(data.recruiterId);
+                } else {
+                    console.warn('🗑️ CacheInvalidation: No recruiterId provided for job_deleted event');
+                }
+                // Invalidate general job cache as well since job lists need to be updated
+                console.log('🗑️ CacheInvalidation: Invalidating general job cache');
+                CacheInvalidation.invalidateJobCache();
+                break;
+            case 'resume_uploaded':
+                console.log('🗑️ CacheInvalidation: Invalidating caches for resume_uploaded');
+                if (data.userId) {
+                    console.log(`🗑️ CacheInvalidation: Invalidating user cache for user ${data.userId}`);
+                    CacheInvalidation.invalidateUserCache(data.userId);
+                } else {
+                    console.warn('🗑️ CacheInvalidation: No userId provided for resume_uploaded event');
+                }
+                break;            case 'profile_updated':
                 CacheInvalidation.invalidateUserProfile(data.userId);
                 break;
             case 'message_sent':

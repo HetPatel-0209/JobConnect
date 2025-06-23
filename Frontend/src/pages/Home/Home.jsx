@@ -22,6 +22,8 @@ const Home = () => {
     navigate(`/auth?mode=register&type=${type}`);
   };
 
+
+
   const features = [
     {
       icon: <Zap className="w-12 h-12 text-blue-600" />,

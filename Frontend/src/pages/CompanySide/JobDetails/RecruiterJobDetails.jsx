@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { JobService } from '../../../services/job.service';
-import { 
+import { safeExtractId } from '../../../utils/debugUtils';
+import { formatJobDate } from '../../../utils/dateUtils';
+import {
   ArrowLeft, 
   Building2, 
   MapPin, 
@@ -66,6 +68,11 @@ export default function RecruiterJobDetails() {
       case 'paused': return 'bg-gray-100 text-gray-800 border-gray-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  // Use the centralized date formatting utility
+  const formatDate = (dateInput) => {
+    return formatJobDate(dateInput);
   };
 
   if (loading) {
@@ -167,7 +174,7 @@ export default function RecruiterJobDetails() {
                   </div>
                   <div className="flex items-center text-gray-600">
                     <Calendar className="w-5 h-5 mr-3 text-orange-600" />
-                    <span>Posted: {new Date(job.createdAt).toLocaleDateString()}</span>
+                    <span>Posted: {formatDate(job.createdAt)}</span>
                   </div>
                   <div className="flex items-center text-gray-600">
                     <Users className="w-5 h-5 mr-3 text-indigo-600" />
@@ -176,24 +183,23 @@ export default function RecruiterJobDetails() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-3 lg:min-w-0">
+              {/* Action Buttons */}              <div className="flex flex-col gap-3 lg:min-w-0">
                 <button
-                  onClick={() => navigate(`/job/${job._id}/applicants`)}
+                  onClick={() => navigate(`/job/${safeExtractId(job._id)}/applicants`)}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Users className="w-4 h-4" />
                   View Applicants ({job.applicationCount || 0})
                 </button>
                 <button
-                  onClick={() => navigate(`/job/${job._id}/analytics`)}
+                  onClick={() => navigate(`/job/${safeExtractId(job._id)}/analytics`)}
                   className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <BarChart3 className="w-4 h-4" />
                   Analytics
                 </button>
                 <button
-                  onClick={() => navigate(`/postjob?edit=${job._id}`)}
+                  onClick={() => navigate(`/postjob?edit=${safeExtractId(job._id)}`)}
                   className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <Edit className="w-4 h-4" />
@@ -289,12 +295,12 @@ export default function RecruiterJobDetails() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Posted</span>
-                  <span className="text-sm font-medium text-gray-900">{new Date(job.createdAt).toLocaleDateString()}</span>
+                  <span className="text-sm font-medium text-gray-900">{formatDate(job.createdAt)}</span>
                 </div>
                 {job.applicationDeadline && (
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Deadline</span>
-                    <span className="text-sm font-medium text-gray-900">{new Date(job.applicationDeadline).toLocaleDateString()}</span>
+                    <span className="text-sm font-medium text-gray-900">{formatDate(job.applicationDeadline)}</span>
                   </div>
                 )}
               </div>

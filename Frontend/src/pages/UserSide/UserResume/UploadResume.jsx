@@ -8,6 +8,7 @@ import {
   Download
 } from 'lucide-react';
 import { ResumeService } from '../../../services/resume.service';
+import { CacheInvalidation } from '../../../services/cache.service';
 import { useNavigate } from 'react-router-dom';
 
 const UploadResume = ({ onClose, onSuccess }) => {
@@ -96,6 +97,21 @@ const UploadResume = ({ onClose, onSuccess }) => {
         fileSize: response.resume.fileSize
       };
       localStorage.setItem('userResume', JSON.stringify(resumeData));
+
+      // Invalidate cache to ensure fresh data is loaded
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = user.id || user._id;
+      if (userId) {
+        console.log('🗑️ UploadResume: Invalidating cache after resume upload for user:', userId);
+        // Invalidate user profile cache
+        CacheInvalidation.invalidateUserCache(userId);
+        // Invalidate resume cache specifically
+        CacheInvalidation.invalidateByEvent('resume_uploaded', { userId });
+
+        // Set flag to force profile refresh when user navigates to profile page
+        sessionStorage.setItem('forceProfileRefresh', 'true');
+        console.log('🔄 UploadResume: Set forceProfileRefresh flag for next profile page visit');
+      }
 
       // Show appropriate message based on whether previous resume was replaced
       if (response.previousResumeDeleted) {

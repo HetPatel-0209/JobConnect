@@ -1,6 +1,5 @@
 import api from './api';
 import cacheService, { CacheKeys, CacheInvalidation } from './cache.service';
-import { UserIdUtils } from '../utils/userIdUtils';
 
 export const AuthService = {
     /**
@@ -11,10 +10,9 @@ export const AuthService = {
     register: async (userData) => {
         try {
             const response = await api.post('/auth/register', userData);
-            if (response.token && response.user) {
-                const normalizedUser = UserIdUtils.normalizeUser(response.user);
+            if (response.token) {
                 localStorage.setItem('token', response.token);
-                localStorage.setItem('user', JSON.stringify(normalizedUser));
+                localStorage.setItem('user', JSON.stringify(response.user));
             }
             return response;
         } catch (error) {
@@ -32,11 +30,9 @@ export const AuthService = {
             console.log('✅ Login response received:', response);
 
             if (response.token && response.user) {
-                // Normalize user data before storing
-                const normalizedUser = UserIdUtils.normalizeUser(response.user);
                 // Store token and user data synchronously
                 localStorage.setItem('token', response.token);
-                localStorage.setItem('user', JSON.stringify(normalizedUser));
+                localStorage.setItem('user', JSON.stringify(response.user));
 
                 // Verify storage was successful
                 const storedToken = localStorage.getItem('token');
@@ -71,7 +67,23 @@ export const AuthService = {
      * @returns {Object|null} User object or null
      */
     getCurrentUser: () => {
-        return UserIdUtils.getCurrentUser();
+        const userString = localStorage.getItem('user');
+        console.log('🔍 getCurrentUser - Raw localStorage user:', userString);
+        
+        if (userString) {
+            try {
+                const user = JSON.parse(userString);
+                console.log('✅ getCurrentUser - Parsed user:', user);
+                return user;
+            } catch (error) {
+                console.error('❌ getCurrentUser - Parse error:', error);
+                localStorage.removeItem('user');
+                return null;
+            }
+        }
+        
+        console.log('⚠️ getCurrentUser - No user in localStorage');
+        return null;
     },
 
     /**
@@ -121,7 +133,7 @@ export const AuthService = {
             tokenLength: token?.length || 0,
             tokenPreview: token ? `${token.substring(0, 20)}...` : null,
             hasUser: !!user,
-            userId: UserIdUtils.getUserId(user),
+            userId: user?.id || user?._id || null,
             userRole: user?.role || null,
             userName: user?.name || null,
             rawUserString: userString,
@@ -137,13 +149,16 @@ export const AuthService = {
      * @returns {Promise<Object>} User profile
      */    getProfile: async () => {
         try {
+            // Get current user ID from localStorage for cache key
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
             const token = localStorage.getItem('token');
+
             if (!token) {
                 throw new Error('No authentication token found');
             }
 
-            // Use UserIdUtils for consistent ID handling
-            const userId = UserIdUtils.getCurrentUserId();
+            // Handle both _id (MongoDB) and id fields
+            const userId = user.id || user.id;
             if (!userId) {
                 console.warn('User ID not found, attempting to fetch profile without cache key');
                 // Try to fetch profile directly without cache key
@@ -218,7 +233,7 @@ export const AuthService = {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
-            }); if (response.user) {
+            });            if (response.user) {
                 localStorage.setItem('user', JSON.stringify(response.user));
 
                 // Use targeted profile cache invalidation for profile picture updates

@@ -4,6 +4,7 @@ import { JobService } from '../../../services/job.service';
 import { useSmartPaginatedFetch } from '../../../hooks/useSmartFetch';
 import { CacheKeys } from '../../../services/cache.service';
 import { useAuth } from '../../../contexts/AuthContext';
+import { formatJobDate } from '../../../utils/dateUtils';
 import {
   Bookmark,
   BookmarkX,
@@ -79,15 +80,22 @@ const SavedJobs = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 1) return 'Saved today';
-    if (diffDays <= 7) return `Saved ${diffDays} days ago`;
-    return `Saved on ${date.toLocaleDateString()}`;
+  // Use the centralized date formatting utility with custom logic for saved jobs
+  const formatDate = (dateInput) => {
+    try {
+      const date = new Date(dateInput);
+      if (isNaN(date.getTime())) return 'Recently saved';
+
+      const now = new Date();
+      const diffTime = Math.abs(now - date);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) return 'Saved today';
+      if (diffDays <= 7) return `Saved ${diffDays} days ago`;
+      return `Saved on ${formatJobDate(dateInput)}`;
+    } catch (error) {
+      return 'Recently saved';
+    }
   };
 
   if (loading) {

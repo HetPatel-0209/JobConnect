@@ -4,6 +4,8 @@ import { JobService } from '../../../services/job.service';
 import { ApplicationService } from '../../../services/application.service';
 import { useSmartMultiFetch } from '../../../hooks/useSmartFetch';
 import { CacheKeys, CacheInvalidation } from '../../../services/cache.service';
+import { safeExtractId } from '../../../utils/debugUtils';
+import { formatJobDate } from '../../../utils/dateUtils';
 import {
   ArrowLeft,
   Users,
@@ -113,13 +115,9 @@ export default function ApplicantsList() {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'NA';
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  // Use the centralized date formatting utility
+  const formatDate = (dateInput) => {
+    return formatJobDate(dateInput);
   };
 
   const handleViewResume = (resume) => {
@@ -467,7 +465,7 @@ export default function ApplicantsList() {
                     const nextStatusOptions = getNextStatusOptions(application.status);
 
                     return (
-                      <div key={application.id || index} className="p-6 hover:bg-gray-50 transition-colors">
+                      <div key={safeExtractId(application.id) || `application-${index}`} className="p-6 hover:bg-gray-50 transition-colors">
                         <div className="flex items-start gap-4">
                           {/* Avatar */}
                           <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -497,7 +495,7 @@ export default function ApplicantsList() {
 
                               <div className="flex gap-2">
                                 <button
-                                  onClick={() => navigate(`/applicant/${applicantData.id}`)}
+                                  onClick={() => navigate(`/applicant/${safeExtractId(applicantData.id) || applicantData.id}`)}
                                   className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                                 >
                                   <Eye className="w-4 h-4" />
@@ -508,8 +506,8 @@ export default function ApplicantsList() {
                                 {nextStatusOptions.length > 0 && (
                                   <select
                                     value=""
-                                    onChange={(e) => e.target.value && handleStatusUpdate(application.id, e.target.value)}
-                                    disabled={updatingStatus === application.id}
+                                    onChange={(e) => e.target.value && handleStatusUpdate(safeExtractId(application.id) || application.id, e.target.value)}
+                                    disabled={updatingStatus === (safeExtractId(application.id) || application.id)}
                                     className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                                   >
                                     <option value="">Update Status</option>
@@ -521,7 +519,7 @@ export default function ApplicantsList() {
                                   </select>
                                 )}
 
-                                {updatingStatus === application.id && (
+                                {updatingStatus === (safeExtractId(application.id) || application.id) && (
                                   <div className="flex items-center">
                                     <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
                                   </div>

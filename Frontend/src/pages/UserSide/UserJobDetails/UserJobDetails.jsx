@@ -4,6 +4,7 @@ import { JobService } from '../../../services/job.service';
 import { useSmartFetch } from '../../../hooks/useSmartFetch';
 import { CacheKeys } from '../../../services/cache.service';
 import { useAuth } from '../../../contexts/AuthContext';
+import { formatJobDate } from '../../../utils/dateUtils';
 import {
   ArrowLeft,
   Building2,
@@ -174,10 +175,10 @@ export default function UserJobDetails() {
 
   const formatSalary = (salary) => {
     if (!salary) return 'Not specified';
-    
+
     // If it's already a string, return it
     if (typeof salary === 'string') return salary;
-    
+
     // If it's an object with min/max
     if (typeof salary === 'object' && (salary.min || salary.max)) {
       const formatAmount = (amount) => {
@@ -197,8 +198,13 @@ export default function UserJobDetails() {
         return `Up to ${formatAmount(salary.max)}`;
       }
     }
-    
+
     return 'Not specified';
+  };
+
+  // Use the centralized date formatting utility
+  const formatDate = (dateInput) => {
+    return formatJobDate(dateInput);
   };
 
   return (
@@ -261,7 +267,7 @@ export default function UserJobDetails() {
                   </div>
                   <div className="flex items-center text-gray-600">
                     <Calendar className="w-5 h-5 mr-3 text-orange-600" />
-                    <span>{new Date(job.createdAt).toLocaleDateString()}</span>
+                    <span>{formatDate(job.createdAt)}</span>
                   </div>
                 </div>
               </div>
@@ -537,7 +543,7 @@ export default function UserJobDetails() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Posted</span>
-                  <span className="text-sm font-medium text-gray-900">{new Date(job.createdAt).toLocaleDateString()}</span>
+                  <span className="text-sm font-medium text-gray-900">{formatDate(job.createdAt)}</span>
                 </div>
               </div>
             </div>

@@ -4,6 +4,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { OrganizationService } from '../../../services/organization.service';
 import { useSmartFetch } from '../../../hooks/useSmartFetch';
 import { CacheKeys, CacheInvalidation } from '../../../services/cache.service';
+import { UserIdUtils } from '../../../utils/userIdUtils';
 import {
   Building2,
   Edit3,
@@ -62,7 +63,7 @@ export default function OrganizationProfile() {
   });
 
   // Get organization ID from user
-  const organizationId = user?.recruiterProfile?.organizationId?.id || user?.recruiterProfile?.organizationId || user?.organizationId;
+  const organizationId = UserIdUtils.getOrganizationId(user);
 
   // Smart fetch for organization data
   const {

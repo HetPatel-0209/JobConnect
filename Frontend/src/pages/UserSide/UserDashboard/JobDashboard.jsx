@@ -8,6 +8,8 @@ import { usePreventAltArrowNavigation } from '../../../hooks/usePreventAltArrowN
 import { useSmartFetch, useSmartPaginatedFetch } from '../../../hooks/useSmartFetch';
 import { CacheKeys } from '../../../services/cache.service';
 import { useAuth } from '../../../contexts/AuthContext';
+import { safeExtractId } from '../../../utils/debugUtils';
+import { formatJobDate } from '../../../utils/dateUtils';
 import {
   Upload,
   Search,
@@ -105,10 +107,9 @@ const JobCard = ({ job, onApply }) => {
                   : 'Salary not disclosed'
                 }
               </span>
-            </div>
-            <div className="flex items-center gap-2 text-gray-600">
+            </div>            <div className="flex items-center gap-2 text-gray-600">
               <Clock className="w-4 h-4" />
-              <span>Posted: {new Date(job.createdAt).toLocaleDateString()}</span>
+              <span>Posted: {formatJobDate(job.createdAt)}</span>
             </div>
             <div className="flex items-center gap-2 text-gray-600">
               <Briefcase className="w-4 h-4" />
@@ -247,9 +248,8 @@ const JobCard = ({ job, onApply }) => {
         </div>
 
         <div className="flex flex-col gap-3 lg:min-w-0 lg:w-auto w-full">
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2">
-            <button
-              onClick={() => navigate(`/jobs/${job._id || job._id}`)}
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2">            <button
+              onClick={() => navigate(`/jobs/${safeExtractId(job._id)}`)}
               className="flex items-center justify-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200 font-medium text-sm"
             >
               <Eye className="w-4 h-4" />
@@ -705,9 +705,8 @@ export default function JobDashboard() {
                                   'bg-gray-100 text-gray-800'
                         }`}>
                         {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
-                      </span>
-                      <span className="text-gray-500">
-                        Applied: {new Date(application.appliedAt).toLocaleDateString()}
+                      </span>                      <span className="text-gray-500">
+                        Applied: {formatJobDate(application.appliedAt)}
                       </span>
                       {application.atsScore > 0 && (
                         <span className="text-gray-500">
@@ -716,9 +715,8 @@ export default function JobDashboard() {
                       )}
                     </div>
                   </div>
-                  <div className="mt-4 md:mt-0 md:ml-6">
-                    <button
-                      onClick={() => navigate(`/jobs/${application.job._id || application.job._id}`)}
+                  <div className="mt-4 md:mt-0 md:ml-6">                    <button
+                      onClick={() => navigate(`/jobs/${safeExtractId(application.job._id)}`)}
                       className="flex items-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200 font-medium"
                     >
                       <Eye className="w-4 h-4" />

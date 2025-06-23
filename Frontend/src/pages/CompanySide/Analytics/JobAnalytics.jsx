@@ -110,7 +110,13 @@ export default function JobAnalytics() {
                 analytics?.job?.status === 'closed' ? 'bg-red-100 text-red-800' :
                 'bg-gray-100 text-gray-800'
               }`}>
-                {analytics?.job?.status?.charAt(0).toUpperCase() + analytics?.job?.status?.slice(1)}
+                {(() => {
+                  const status = analytics?.job?.status;
+                  if (status && typeof status === 'string') {
+                    return status.charAt(0).toUpperCase() + status.slice(1);
+                  }
+                  return 'Unknown';
+                })()}
               </span>
             </div>
           </div>
@@ -135,8 +141,13 @@ export default function JobAnalytics() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Average ATS Score</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {analytics?.analytics?.atsStats?.avgScore ? 
-                    Math.round(analytics.analytics.atsStats.avgScore) : 0}%
+                  {(() => {
+                    const avgScore = analytics?.analytics?.atsStats?.avgScore;
+                    if (avgScore && !isNaN(avgScore)) {
+                      return Math.round(avgScore);
+                    }
+                    return 0;
+                  })()}%
                 </p>
               </div>
               <div className="p-3 bg-green-100 rounded-xl">
@@ -164,8 +175,14 @@ export default function JobAnalytics() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Days Active</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {analytics?.job?.createdAt ? 
-                    Math.ceil((new Date() - new Date(analytics.job.createdAt)) / (1000 * 60 * 60 * 24)) : 0}
+                  {(() => {
+                    if (!analytics?.job?.createdAt) return 0;
+                    const createdDate = new Date(analytics.job.createdAt);
+                    const currentDate = new Date();
+                    if (isNaN(createdDate.getTime())) return 0;
+                    const daysDiff = Math.ceil((currentDate - createdDate) / (1000 * 60 * 60 * 24));
+                    return isNaN(daysDiff) ? 0 : Math.max(0, daysDiff);
+                  })()}
                 </p>
               </div>
               <div className="p-3 bg-orange-100 rounded-xl">
@@ -194,10 +211,14 @@ export default function JobAnalytics() {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-blue-600 h-2 rounded-full"
-                          style={{ 
-                            width: `${Math.min((count / analytics.analytics.totalApplications) * 100, 100)}%` 
+                          style={{
+                            width: `${(() => {
+                              const total = analytics.analytics.totalApplications || 0;
+                              if (total <= 0) return 0;
+                              return Math.min((count / total) * 100, 100);
+                            })()}%`
                           }}
                         ></div>
                       </div>
@@ -222,24 +243,36 @@ export default function JobAnalytics() {
             
             {analytics?.analytics?.applicationsOverTime?.length > 0 ? (
               <div className="space-y-3">
-                {analytics.analytics.applicationsOverTime.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      {item.id.day}/{item.id.month}/{item.id.year}
-                    </span>
+                {analytics.analytics.applicationsOverTime.map((item, index) => {
+                  // Handle both possible data structures: item.id or item._id
+                  const timeData = item._id || item.id || {};
+                  const day = timeData.day || 'N/A';
+                  const month = timeData.month || 'N/A';
+                  const year = timeData.year || 'N/A';
+
+                  return (
+                    <div key={index} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        {day}/{month}/{year}
+                      </span>
                     <div className="flex items-center gap-3">
                       <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-green-600 h-2 rounded-full"
-                          style={{ 
-                            width: `${Math.min((item.count / Math.max(...analytics.analytics.applicationsOverTime.map(a => a.count))) * 100, 100)}%` 
+                          style={{
+                            width: `${(() => {
+                              const maxCount = Math.max(...analytics.analytics.applicationsOverTime.map(a => a.count || 0));
+                              if (maxCount <= 0) return 0;
+                              return Math.min((item.count / maxCount) * 100, 100);
+                            })()}%`
                           }}
                         ></div>
                       </div>
                       <span className="text-sm font-medium text-gray-900 w-8">{item.count}</span>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">

@@ -24,6 +24,7 @@ import { ProfileContext } from '../../../contexts/ProfileContext';
 import { AuthService } from '../../../services/auth.service';
 import { ResumeService } from '../../../services/resume.service';
 import { useNavigate } from 'react-router-dom';
+import { formatJobDate } from '../../../utils/dateUtils';
 
 export default function UserProfile() {
   const navigate = useNavigate();
@@ -61,6 +62,19 @@ export default function UserProfile() {
 
   const [userEmail, setCurrentUserEmail] = useState('');
   const [hasInitialized, setHasInitialized] = useState(false);
+
+  // Helper function to safely convert date
+  const safeFormatDate = (dateValue) => {
+    if (!dateValue) return '';
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return '';
+      return date.toISOString().split('T')[0];
+    } catch (error) {
+      console.warn('Invalid date value:', dateValue, error);
+      return '';
+    }
+  };
 
   // Function to refresh profile data
   const refreshProfile = async (force = false) => {
@@ -101,8 +115,8 @@ export default function UserProfile() {
         if (user.jobseekerProfile?.experience?.length > 0) {
           setExperience(user.jobseekerProfile.experience.map(exp => ({
             ...exp,
-            startDate: exp.startDate ? new Date(exp.startDate).toISOString().split('T')[0] : '',
-            endDate: exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : ''
+            startDate: safeFormatDate(exp.startDate),
+            endDate: safeFormatDate(exp.endDate)
           })));
         }
         if (user.jobseekerProfile?.education?.length > 0) {
@@ -117,29 +131,29 @@ export default function UserProfile() {
 
         // Set active resume if available
         if (user.activeResume) {
-          console.log('Setting active resume from user data:', user.activeResume);
+          console.log('✅ UserProfile: Setting active resume from user data:', user.activeResume);
           setActiveResume(user.activeResume);
         } else {
           // Try to fetch active resume separately
           try {
-            console.log('Fetching active resume separately...');
+            console.log('🔍 UserProfile: Fetching active resume separately...');
             const resumeResponse = await ResumeService.getUserActiveResume();
-            console.log('Resume response:', resumeResponse);
+            console.log('📄 UserProfile: Resume response:', resumeResponse);
 
             // Handle the new response format
             if (resumeResponse.hasActiveResume && resumeResponse.activeResume) {
-              console.log('Setting active resume from response.activeResume:', resumeResponse.activeResume);
+              console.log('✅ UserProfile: Setting active resume from response.activeResume:', resumeResponse.activeResume);
               setActiveResume(resumeResponse.activeResume);
             } else if (resumeResponse._id) {
               // Handle backward compatibility if the response is the resume object directly
-              console.log('Setting active resume from direct response:', resumeResponse);
+              console.log('✅ UserProfile: Setting active resume from direct response:', resumeResponse);
               setActiveResume(resumeResponse);
             } else {
-              console.log('No active resume found in response');
+              console.log('❌ UserProfile: No active resume found in response');
               setActiveResume(null);
             }
           } catch (resumeError) {
-            console.log('Error fetching active resume:', resumeError);
+            console.error('❌ UserProfile: Error fetching active resume:', resumeError);
             setActiveResume(null);
           }
         }
@@ -158,7 +172,14 @@ export default function UserProfile() {
 
     const fetchUserProfile = async () => {
       try {
-        await refreshProfile();
+        // Check if we should force refresh (e.g., coming from resume upload)
+        const shouldForceRefresh = sessionStorage.getItem('forceProfileRefresh') === 'true';
+        if (shouldForceRefresh) {
+          console.log('🔄 UserProfile: Force refreshing profile due to session flag');
+          sessionStorage.removeItem('forceProfileRefresh');
+        }
+
+        await refreshProfile(shouldForceRefresh);
       } catch (error) {
         console.error('Error in fetchUserProfile:', error);
         // Fallback to localStorage if backend is not available
@@ -350,11 +371,26 @@ export default function UserProfile() {
         location: formData.location,
         // Add job seeker specific data
         skills: skills.filter(skill => skill.name.trim() !== ''),
-        experience: experience.filter(exp => exp.title.trim() !== '' || exp.company.trim() !== '').map(exp => ({
-          ...exp,
-          startDate: exp.startDate ? new Date(exp.startDate) : null,
-          endDate: exp.endDate ? new Date(exp.endDate) : null
-        })),
+        experience: experience.filter(exp => exp.title.trim() !== '' || exp.company.trim() !== '').map(exp => {
+          // Helper function to safely convert date for submission
+          const safeConvertDate = (dateValue) => {
+            if (!dateValue) return null;
+            try {
+              const date = new Date(dateValue);
+              if (isNaN(date.getTime())) return null;
+              return date;
+            } catch (error) {
+              console.warn('Invalid date value for submission:', dateValue, error);
+              return null;
+            }
+          };
+
+          return {
+            ...exp,
+            startDate: safeConvertDate(exp.startDate),
+            endDate: safeConvertDate(exp.endDate)
+          };
+        }),
         education: education.filter(edu => edu.degree.trim() !== '' || edu.institution.trim() !== ''),
         jobPreferences: {
           titles: formData.title ? [formData.title] : []
@@ -414,8 +450,8 @@ export default function UserProfile() {
           if (freshUser.jobseekerProfile?.experience?.length > 0) {
             setExperience(freshUser.jobseekerProfile.experience.map(exp => ({
               ...exp,
-              startDate: exp.startDate ? new Date(exp.startDate).toISOString().split('T')[0] : '',
-              endDate: exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : ''
+              startDate: safeFormatDate(exp.startDate),
+              endDate: safeFormatDate(exp.endDate)
             })));
           }
           if (freshUser.jobseekerProfile?.education?.length > 0) {
@@ -594,32 +630,6 @@ export default function UserProfile() {
   };
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
-      {/* Refresh button for testing */}
-      <div style={{ margin: '20px', textAlign: 'center' }}>
-        <button
-          onClick={() => refreshProfile(true)}
-          disabled={loading}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#2563eb',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {loading ? 'Refreshing...' : 'Force Refresh Profile'}
-        </button>
-      </div>
-
-      {/* Debug info for activeResume */}
-      <div style={{ margin: '20px', padding: '10px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }}>
-        <h4>Debug: Active Resume State</h4>
-        <pre style={{ fontSize: '12px', overflow: 'auto' }}>
-          {JSON.stringify({ activeResume, hasActiveResume: !!activeResume }, null, 2)}
-        </pre>
-      </div>
-
       {loading ? (
         <div className="max-w-4xl mx-auto">
           <div className="text-center py-12">
@@ -786,6 +796,9 @@ export default function UserProfile() {
               Resume
             </h2>
 
+            {/* Debug info */}
+            {console.log('🔍 UserProfile: Rendering resume section. activeResume:', activeResume)}
+
             {activeResume ? (
               <div className="space-y-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -797,9 +810,8 @@ export default function UserProfile() {
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-medium text-green-800 truncate">
                           {activeResume.filename}
-                        </h3>
-                        <p className="text-xs text-green-600 mt-1">
-                          Uploaded: {new Date(activeResume.uploadedAt).toLocaleDateString()}
+                        </h3>                        <p className="text-xs text-green-600 mt-1">
+                          Uploaded: {formatJobDate(activeResume.uploadedAt)}
                         </p>
                         <p className="text-xs text-green-600">
                           Size: {(activeResume.fileSize / (1024 * 1024)).toFixed(2)} MB
@@ -830,7 +842,14 @@ export default function UserProfile() {
                   <Upload className="w-8 h-8 text-gray-400" />
                 </div>
                 <p className="text-gray-600 mb-4">No resume uploaded yet</p>
-                <p className="text-sm text-gray-500">Upload your resume to get better job matches</p>
+                <p className="text-sm text-gray-500 mb-4">Upload your resume to get better job matches</p>
+                <button
+                  onClick={() => refreshProfile(true)}
+                  className="inline-flex items-center px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors duration-200"
+                  disabled={loading}
+                >
+                  {loading ? 'Refreshing...' : 'Refresh Resume Data'}
+                </button>
               </div>
             )}
           </div>

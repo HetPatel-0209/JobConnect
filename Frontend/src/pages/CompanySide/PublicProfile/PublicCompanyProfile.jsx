@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { OrganizationService } from '../../../services/organization.service';
 import { JobService } from '../../../services/job.service';
+import { formatJobDate } from '../../../utils/dateUtils';
 import {
   Building2,
   MapPin,
@@ -84,6 +85,11 @@ export default function PublicCompanyProfile() {
     }
     
     return 'Not disclosed';
+  };
+
+  // Use the centralized date formatting utility
+  const formatDate = (dateInput) => {
+    return formatJobDate(dateInput);
   };
 
   const getJobTypeColor = (type) => {
@@ -362,7 +368,7 @@ export default function PublicCompanyProfile() {
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Calendar className="w-4 h-4" />
-                                    Posted {new Date(job.createdAt).toLocaleDateString()}
+                                    Posted {formatDate(job.createdAt)}
                                   </div>
                                 </div>
                               </div>

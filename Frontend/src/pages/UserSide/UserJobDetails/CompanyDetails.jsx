@@ -360,7 +360,12 @@ export default function CompanyDetails() {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Founded</span>
                   <span className="font-semibold text-gray-900">
-                    {companyData.createdAt ? new Date(companyData.createdAt).getFullYear() : 'N/A'}
+                    {(() => {
+                      if (!companyData.createdAt) return 'N/A';
+                      const date = new Date(companyData.createdAt);
+                      if (isNaN(date.getTime())) return 'N/A';
+                      return date.getFullYear();
+                    })()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">

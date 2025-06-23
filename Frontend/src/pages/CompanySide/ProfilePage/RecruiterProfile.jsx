@@ -4,6 +4,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { AuthService } from '../../../services/auth.service';
 import { useSmartFetch } from '../../../hooks/useSmartFetch';
 import { CacheKeys } from '../../../services/cache.service';
+import { formatJobDate } from '../../../utils/dateUtils';
 import {
   User,
   Phone,
@@ -50,6 +51,11 @@ export default function RecruiterProfile() {
     (profileResponse.user || profileResponse.data) :
     (profileResponse?.user || profileResponse);
   const error = fetchError || (!profileResponse?.success && profileResponse?.message ? profileResponse.message : null);
+
+  // Use the centralized date formatting utility
+  const formatDate = (dateInput) => {
+    return formatJobDate(dateInput);
+  };
 
   if (loading) {
     return (
@@ -309,22 +315,18 @@ export default function RecruiterProfile() {
                   <span className="text-gray-600">Role</span>
                   <span className="font-semibold text-gray-900 capitalize">{profile.role}</span>
                 </div>
-                {profile.lastSeen && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Last Active</span>
-                    <span className="font-semibold text-gray-900">
-                      {new Date(profile.lastSeen).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-                {profile.createdAt && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Member Since</span>
-                    <span className="font-semibold text-gray-900">
-                      {new Date(profile.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Last Active</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatDate(profile.lastActivity)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Member Since</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatDate(profile.isActive ? profile.createdAt : profile.updatedAt)}
+                  </span>
+                </div>
               </div>
             </div>
 

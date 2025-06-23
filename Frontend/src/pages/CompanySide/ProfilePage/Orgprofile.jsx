@@ -20,7 +20,13 @@ import {
   Upload,
   Building,
   ChevronDown,
-  Loader2
+  Loader2,
+  Plus,
+  Trash2,
+  Calendar,
+  Award,
+  GraduationCap,
+  Tag
 } from 'lucide-react';
 
 export default function OrgProfile() {
@@ -100,14 +106,23 @@ export default function OrgProfile() {
   const loadProfileData = async () => {
     try {
       setLoading(true);
+      console.log('Loading profile data...');
       const response = await AuthService.getProfile();
-      const user = response.user;
+      console.log('Profile response:', response);
+
+      // Handle different response structures
+      const user = response?.success ?
+        (response.user || response.data) :
+        (response?.user || response);
+
+      console.log('Extracted user data:', user);
 
       if (user) {
         // Set basic user data
         const recruiterProfile = user.recruiterProfile || {};
+        console.log('Recruiter profile data:', recruiterProfile);
 
-        setFormData({
+        const newFormData = {
           // User fields
           name: user.name || '',
           phone: user.phone || '',
@@ -124,7 +139,10 @@ export default function OrgProfile() {
           workExperience: recruiterProfile.workExperience || [],
           education: recruiterProfile.education || [],
           certifications: recruiterProfile.certifications || []
-        });
+        };
+
+        console.log('Setting form data:', newFormData);
+        setFormData(newFormData);
 
         // Set profile image
         if (user.profilePic) {
@@ -134,19 +152,25 @@ export default function OrgProfile() {
         // Set current organization from recruiter profile
         if (recruiterProfile.organizationId) {
           try {
-            const orgResponse = await OrganizationService.getOrganization(recruiterProfile.organizationId.id || recruiterProfile.organizationId);
-            const orgData = orgResponse.data;
+            const orgId = recruiterProfile.organizationId.id || recruiterProfile.organizationId._id || recruiterProfile.organizationId;
+            console.log('Loading organization with ID:', orgId);
+            const orgResponse = await OrganizationService.getOrganization(orgId);
+            const orgData = orgResponse.success ? orgResponse.data : orgResponse;
+            console.log('Organization data:', orgData);
             setCurrentOrganization(orgData);
             setSelectedOrganization(orgData);
-            setOrgSearchQuery(orgData.name);
+            setOrgSearchQuery(orgData.name || '');
           } catch (error) {
-            console.error(error);
+            console.error('Error loading organization:', error);
           }
         }
+      } else {
+        console.error('No user data found in response');
+        setErrors({ general: 'No profile data found' });
       }
     } catch (error) {
-      console.error(error);
-      setErrors({ general: 'Failed to load profile data' });
+      console.error('Error loading profile data:', error);
+      setErrors({ general: 'Failed to load profile data. Please try again.' });
     } finally {
       setLoading(false);
     }
@@ -175,6 +199,130 @@ export default function OrgProfile() {
     if (errors[id]) {
       setErrors(prev => ({ ...prev, [id]: '' }));
     }
+  };
+
+  // Helper functions for managing arrays
+  const addWorkExperience = () => {
+    setFormData(prev => ({
+      ...prev,
+      workExperience: [...prev.workExperience, {
+        company: '',
+        position: '',
+        startDate: '',
+        endDate: '',
+        isCurrent: false,
+        description: '',
+        location: ''
+      }]
+    }));
+  };
+
+  const removeWorkExperience = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      workExperience: prev.workExperience.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateWorkExperience = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      workExperience: prev.workExperience.map((exp, i) =>
+        i === index ? { ...exp, [field]: value } : exp
+      )
+    }));
+  };
+
+  const addEducation = () => {
+    setFormData(prev => ({
+      ...prev,
+      education: [...prev.education, {
+        institution: '',
+        degree: '',
+        fieldOfStudy: '',
+        startYear: '',
+        endYear: '',
+        grade: ''
+      }]
+    }));
+  };
+
+  const removeEducation = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      education: prev.education.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateEducation = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      education: prev.education.map((edu, i) =>
+        i === index ? { ...edu, [field]: value } : edu
+      )
+    }));
+  };
+
+  const addCertification = () => {
+    setFormData(prev => ({
+      ...prev,
+      certifications: [...prev.certifications, {
+        name: '',
+        issuingOrganization: '',
+        issueDate: '',
+        expirationDate: '',
+        credentialId: '',
+        credentialUrl: ''
+      }]
+    }));
+  };
+
+  const removeCertification = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      certifications: prev.certifications.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateCertification = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      certifications: prev.certifications.map((cert, i) =>
+        i === index ? { ...cert, [field]: value } : cert
+      )
+    }));
+  };
+
+  const addSkill = (skill) => {
+    if (skill.trim() && !formData.skills.includes(skill.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        skills: [...prev.skills, skill.trim()]
+      }));
+    }
+  };
+
+  const removeSkill = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      skills: prev.skills.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addSpecialization = (specialization) => {
+    if (specialization.trim() && !formData.specializations.includes(specialization.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        specializations: [...prev.specializations, specialization.trim()]
+      }));
+    }
+  };
+
+  const removeSpecialization = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      specializations: prev.specializations.filter((_, i) => i !== index)
+    }));
   };
 
   const handleOrgSearch = (e) => {
@@ -260,6 +408,74 @@ export default function OrgProfile() {
         setCurrentOrganization(selectedOrganization);
       }
 
+      // Clean and validate data before sending
+      const cleanWorkExperience = (formData.workExperience || []).filter(exp => {
+        // Only include work experience with required fields (company, position, startDate)
+        return exp &&
+               exp.company && exp.company.trim() &&
+               exp.position && exp.position.trim() &&
+               exp.startDate && exp.startDate !== null && exp.startDate !== '';
+      }).map(exp => {
+        // Ensure startDate is a valid Date object
+        let startDate;
+        try {
+          startDate = exp.startDate instanceof Date ? exp.startDate : new Date(exp.startDate);
+          if (isNaN(startDate.getTime())) {
+            throw new Error('Invalid start date');
+          }
+        } catch (error) {
+          console.warn('Invalid startDate for work experience:', exp.startDate);
+          return null; // This will be filtered out
+        }
+
+        // Handle endDate (optional)
+        let endDate = undefined;
+        if (exp.endDate && exp.endDate !== '' && exp.endDate !== null && !exp.isCurrent) {
+          try {
+            endDate = exp.endDate instanceof Date ? exp.endDate : new Date(exp.endDate);
+            if (isNaN(endDate.getTime())) {
+              endDate = undefined;
+            }
+          } catch (error) {
+            endDate = undefined;
+          }
+        }
+
+        return {
+          company: exp.company.trim(),
+          position: exp.position.trim(),
+          startDate: startDate,
+          endDate: endDate,
+          isCurrent: Boolean(exp.isCurrent),
+          description: exp.description ? exp.description.trim() : '',
+          location: exp.location ? exp.location.trim() : ''
+        };
+      }).filter(exp => exp !== null); // Remove any null entries from invalid dates
+
+      const cleanEducation = (formData.education || []).filter(edu => {
+        // Only include education with required fields
+        return edu && edu.institution && edu.degree;
+      }).map(edu => ({
+        institution: edu.institution,
+        degree: edu.degree,
+        fieldOfStudy: edu.fieldOfStudy || '',
+        startYear: edu.startYear ? parseInt(edu.startYear) : undefined,
+        endYear: edu.endYear ? parseInt(edu.endYear) : undefined,
+        grade: edu.grade || ''
+      }));
+
+      const cleanCertifications = (formData.certifications || []).filter(cert => {
+        // Only include certifications with required fields
+        return cert && cert.name;
+      }).map(cert => ({
+        name: cert.name,
+        issuingOrganization: cert.issuingOrganization || '',
+        issueDate: cert.issueDate && cert.issueDate !== '' ? (cert.issueDate instanceof Date ? cert.issueDate : new Date(cert.issueDate)) : undefined,
+        expirationDate: cert.expirationDate && cert.expirationDate !== '' ? (cert.expirationDate instanceof Date ? cert.expirationDate : new Date(cert.expirationDate)) : undefined,
+        credentialId: cert.credentialId || '',
+        credentialUrl: cert.credentialUrl || ''
+      }));
+
       // Update profile data
       const profileData = {
         // User fields
@@ -272,12 +488,14 @@ export default function OrgProfile() {
         department: formData.department,
         yearsOfExperience: formData.yearsOfExperience ? parseInt(formData.yearsOfExperience) : undefined,
         linkedinProfile: formData.linkedinProfile,
-        specializations: formData.specializations,
-        skills: formData.skills,
-        workExperience: formData.workExperience,
-        education: formData.education,
-        certifications: formData.certifications
+        specializations: Array.isArray(formData.specializations) ? formData.specializations.filter(s => s && s.trim()) : [],
+        skills: Array.isArray(formData.skills) ? formData.skills.filter(s => s && s.trim()) : [],
+        workExperience: cleanWorkExperience,
+        education: cleanEducation,
+        certifications: cleanCertifications
       };
+
+      console.log('Cleaned profile data:', profileData);
 
       const response = await AuthService.updateProfile(profileData);
 
@@ -662,6 +880,467 @@ export default function OrgProfile() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 focus:border-blue-500 focus:bg-white focus:outline-none transition-all duration-200 placeholder-gray-500"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Skills & Specializations */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
+              <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <Tag className="w-5 h-5 text-blue-600" />
+                Skills & Specializations
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Skills */}
+                <div>
+                  <label className={labelClasses}>Skills</label>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {formData.skills.map((skill, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                        >
+                          {skill}
+                          <button
+                            type="button"
+                            onClick={() => removeSkill(index)}
+                            className="ml-1 text-blue-600 hover:text-blue-800"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Add a skill..."
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addSkill(e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          const input = e.target.parentElement.querySelector('input');
+                          addSkill(input.value);
+                          input.value = '';
+                        }}
+                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Specializations */}
+                <div>
+                  <label className={labelClasses}>Specializations</label>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {formData.specializations.map((spec, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
+                        >
+                          {spec}
+                          <button
+                            type="button"
+                            onClick={() => removeSpecialization(index)}
+                            className="ml-1 text-green-600 hover:text-green-800"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Add a specialization..."
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addSpecialization(e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          const input = e.target.parentElement.querySelector('input');
+                          addSpecialization(input.value);
+                          input.value = '';
+                        }}
+                        className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Work Experience */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-blue-600" />
+                  Work Experience
+                </h3>
+                <button
+                  type="button"
+                  onClick={addWorkExperience}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Experience
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {formData.workExperience.map((exp, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4 relative">
+                    <button
+                      type="button"
+                      onClick={() => removeWorkExperience(index)}
+                      className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelClasses}>
+                          Company <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={exp.company}
+                          onChange={(e) => updateWorkExperience(index, 'company', e.target.value)}
+                          placeholder="Company name"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>
+                          Position <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={exp.position}
+                          onChange={(e) => updateWorkExperience(index, 'position', e.target.value)}
+                          placeholder="Job title"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>
+                          Start Date <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          value={exp.startDate}
+                          onChange={(e) => updateWorkExperience(index, 'startDate', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>End Date</label>
+                        <input
+                          type="date"
+                          value={exp.endDate}
+                          onChange={(e) => updateWorkExperience(index, 'endDate', e.target.value)}
+                          disabled={exp.isCurrent}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
+                        />
+                        <div className="mt-2">
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={exp.isCurrent}
+                              onChange={(e) => {
+                                updateWorkExperience(index, 'isCurrent', e.target.checked);
+                                if (e.target.checked) {
+                                  updateWorkExperience(index, 'endDate', '');
+                                }
+                              }}
+                              className="rounded"
+                            />
+                            <span className="text-sm text-gray-600">Currently working here</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>Location</label>
+                        <input
+                          type="text"
+                          value={exp.location}
+                          onChange={(e) => updateWorkExperience(index, 'location', e.target.value)}
+                          placeholder="City, State"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className={labelClasses}>Description</label>
+                        <textarea
+                          value={exp.description}
+                          onChange={(e) => updateWorkExperience(index, 'description', e.target.value)}
+                          placeholder="Describe your role and achievements..."
+                          rows="3"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {formData.workExperience.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Briefcase className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>No work experience added yet</p>
+                    <p className="text-sm">Click "Add Experience" to get started</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Education */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-blue-600" />
+                  Education
+                </h3>
+                <button
+                  type="button"
+                  onClick={addEducation}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Education
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {formData.education.map((edu, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4 relative">
+                    <button
+                      type="button"
+                      onClick={() => removeEducation(index)}
+                      className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelClasses}>
+                          Institution <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={edu.institution}
+                          onChange={(e) => updateEducation(index, 'institution', e.target.value)}
+                          placeholder="University/College name"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>
+                          Degree <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={edu.degree}
+                          onChange={(e) => updateEducation(index, 'degree', e.target.value)}
+                          placeholder="Bachelor's, Master's, etc."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>Field of Study</label>
+                        <input
+                          type="text"
+                          value={edu.fieldOfStudy}
+                          onChange={(e) => updateEducation(index, 'fieldOfStudy', e.target.value)}
+                          placeholder="Computer Science, Business, etc."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>Grade/GPA</label>
+                        <input
+                          type="text"
+                          value={edu.grade}
+                          onChange={(e) => updateEducation(index, 'grade', e.target.value)}
+                          placeholder="8.5 CGPA, 85%, etc."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>Start Year</label>
+                        <input
+                          type="number"
+                          value={edu.startYear}
+                          onChange={(e) => updateEducation(index, 'startYear', e.target.value)}
+                          placeholder="2018"
+                          min="1950"
+                          max="2030"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>End Year</label>
+                        <input
+                          type="number"
+                          value={edu.endYear}
+                          onChange={(e) => updateEducation(index, 'endYear', e.target.value)}
+                          placeholder="2022"
+                          min="1950"
+                          max="2030"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {formData.education.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <GraduationCap className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>No education added yet</p>
+                    <p className="text-sm">Click "Add Education" to get started</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Certifications */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-blue-600" />
+                  Certifications
+                </h3>
+                <button
+                  type="button"
+                  onClick={addCertification}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Certification
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {formData.certifications.map((cert, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4 relative">
+                    <button
+                      type="button"
+                      onClick={() => removeCertification(index)}
+                      className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelClasses}>
+                          Certification Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={cert.name}
+                          onChange={(e) => updateCertification(index, 'name', e.target.value)}
+                          placeholder="AWS Certified Solutions Architect"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>Issuing Organization</label>
+                        <input
+                          type="text"
+                          value={cert.issuingOrganization}
+                          onChange={(e) => updateCertification(index, 'issuingOrganization', e.target.value)}
+                          placeholder="Amazon Web Services"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>Issue Date</label>
+                        <input
+                          type="date"
+                          value={cert.issueDate}
+                          onChange={(e) => updateCertification(index, 'issueDate', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>Expiration Date</label>
+                        <input
+                          type="date"
+                          value={cert.expirationDate}
+                          onChange={(e) => updateCertification(index, 'expirationDate', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>Credential ID</label>
+                        <input
+                          type="text"
+                          value={cert.credentialId}
+                          onChange={(e) => updateCertification(index, 'credentialId', e.target.value)}
+                          placeholder="ABC123456"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className={labelClasses}>Credential URL</label>
+                        <input
+                          type="url"
+                          value={cert.credentialUrl}
+                          onChange={(e) => updateCertification(index, 'credentialUrl', e.target.value)}
+                          placeholder="https://..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {formData.certifications.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Award className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>No certifications added yet</p>
+                    <p className="text-sm">Click "Add Certification" to get started</p>
+                  </div>
+                )}
               </div>
             </div>
 

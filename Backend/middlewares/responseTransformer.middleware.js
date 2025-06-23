@@ -1,16 +1,21 @@
 const normalizeIds = (obj) => {
     if (!obj) return obj;
-    
+
     if (Array.isArray(obj)) {
         return obj.map(normalizeIds);
     }
-    
+
     if (typeof obj === 'object' && obj !== null) {
+        // Handle Date objects - preserve them as-is
+        if (obj instanceof Date) {
+            return obj;
+        }
+
         // Handle Mongoose documents
         if (obj.toObject && typeof obj.toObject === 'function') {
             obj = obj.toObject();
         }
-        
+
         const normalized = {};
         for (const [key, value] of Object.entries(obj)) {
             if (key === '_id') {
@@ -19,14 +24,19 @@ const normalizeIds = (obj) => {
                 // Keep original _id for backward compatibility if needed
                 normalized._id = value;
             } else if (typeof value === 'object' && value !== null) {
-                normalized[key] = normalizeIds(value);
+                // Check if it's a Date object before recursing
+                if (value instanceof Date) {
+                    normalized[key] = value;
+                } else {
+                    normalized[key] = normalizeIds(value);
+                }
             } else {
                 normalized[key] = value;
             }
         }
         return normalized;
     }
-    
+
     return obj;
 };
 

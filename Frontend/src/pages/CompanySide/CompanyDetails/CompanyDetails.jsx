@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { OrganizationService } from '../../../services/organization.service';
+import { UserIdUtils } from '../../../utils/userIdUtils';
+import { safeGetOrganizationId } from '../../../utils/debugUtils';
 
 const CompanyDetails = () => {
   const navigate = useNavigate();
@@ -67,12 +69,20 @@ const CompanyDetails = () => {
 
   useEffect(() => {
     loadOrganization();
-  }, [user]);
-
-  const loadOrganization = async () => {
-    const organizationId = user?.recruiterProfile?.organizationId?.id || user?.recruiterProfile?.organizationId || user?.organizationId;
+  }, [user]);  const loadOrganization = async () => {
+    const organizationId = safeGetOrganizationId(user, 'CompanyDetails.loadOrganization');
+    const debugInfo = UserIdUtils.debugOrganizationId(user);
+    console.log('Organization ID debug info:', debugInfo); // Debug log
+    
     if (!organizationId) {
-      setErrors({ general: 'No organization found for this user' });
+      setErrors({ general: 'No organization found for this user. Please ensure you are logged in as a recruiter with an associated organization.' });
+      setLoading(false);
+      return;
+    }
+
+    // Additional validation for organization ID
+    if (organizationId === '[object Object]') {
+      setErrors({ general: 'Invalid organization ID format. Please log out and log back in.' });
       setLoading(false);
       return;
     }

@@ -4,6 +4,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { JobService } from '../../../services/job.service';
 import { useSmartFetch } from '../../../hooks/useSmartFetch';
 import { CacheKeys } from '../../../services/cache.service';
+import { safeExtractId } from '../../../utils/debugUtils';
 import {
   BarChart3,
   TrendingUp,
@@ -188,7 +189,7 @@ export default function AnalyticsDashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Jobs</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {analytics?.jobsOverTime?.filter(job => job.status === 'active')?.length || 0}
+                  {analytics?.summary?.activeJobs || 0}
                 </p>
               </div>
               <div className="p-3 bg-orange-100 rounded-xl">
@@ -208,24 +209,35 @@ export default function AnalyticsDashboard() {
 
             {analytics?.jobsOverTime?.length > 0 ? (
               <div className="space-y-3">
-                {analytics.jobsOverTime.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      {item.id.month}/{item.id.year}
-                    </span>
+                {analytics.jobsOverTime.map((item, index) => {
+                  // Handle both possible data structures: item.id or item._id
+                  const timeData = item._id || item.id || {};
+                  const month = timeData.month || 'N/A';
+                  const year = timeData.year || 'N/A';
+
+                  return (
+                    <div key={index} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        {month}/{year}
+                      </span>
                     <div className="flex items-center gap-3">
                       <div className="w-32 bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-blue-600 h-2 rounded-full"
                           style={{
-                            width: `${Math.min((item.count / Math.max(...analytics.jobsOverTime.map(j => j.count))) * 100, 100)}%`
+                            width: `${(() => {
+                              const maxCount = Math.max(...analytics.jobsOverTime.map(j => j.count || 0));
+                              if (maxCount <= 0) return 0;
+                              return Math.min((item.count / maxCount) * 100, 100);
+                            })()}%`
                           }}
                         ></div>
                       </div>
                       <span className="text-sm font-medium text-gray-900 w-8">{item.count}</span>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
@@ -243,24 +255,35 @@ export default function AnalyticsDashboard() {
 
             {analytics?.applicationsOverTime?.length > 0 ? (
               <div className="space-y-3">
-                {analytics.applicationsOverTime.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      {item.id.month}/{item.id.year}
-                    </span>
+                {analytics.applicationsOverTime.map((item, index) => {
+                  // Handle both possible data structures: item.id or item._id
+                  const timeData = item._id || item.id || {};
+                  const month = timeData.month || 'N/A';
+                  const year = timeData.year || 'N/A';
+
+                  return (
+                    <div key={index} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        {month}/{year}
+                      </span>
                     <div className="flex items-center gap-3">
                       <div className="w-32 bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-green-600 h-2 rounded-full"
                           style={{
-                            width: `${Math.min((item.count / Math.max(...analytics.applicationsOverTime.map(a => a.count))) * 100, 100)}%`
+                            width: `${(() => {
+                              const maxCount = Math.max(...analytics.applicationsOverTime.map(a => a.count || 0));
+                              if (maxCount <= 0) return 0;
+                              return Math.min((item.count / maxCount) * 100, 100);
+                            })()}%`
                           }}
                         ></div>
                       </div>
                       <span className="text-sm font-medium text-gray-900 w-8">{item.count}</span>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
@@ -280,7 +303,7 @@ export default function AnalyticsDashboard() {
           {analytics?.topJobs?.length > 0 ? (
             <div className="space-y-4">
               {analytics.topJobs.map((job, index) => (
-                <div key={job.jobId} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div key={safeExtractId(job.jobId) || `job-${index}`} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-4">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                       <span className="text-sm font-bold text-blue-600">#{index + 1}</span>
@@ -291,7 +314,7 @@ export default function AnalyticsDashboard() {
                     </div>
                   </div>
                   <button
-                    onClick={() => window.open(`/job/${job.jobId}/analytics`, '_blank')}
+                    onClick={() => navigate(`/job/${safeExtractId(job.jobId) || job.jobId}/analytics`)}
                     className="flex items-center gap-2 px-3 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                   >
                     <Eye className="w-4 h-4" />

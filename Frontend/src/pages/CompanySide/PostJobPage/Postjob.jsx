@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { JobService } from '../../../services/job.service';
 import { OrganizationService } from '../../../services/organization.service';
+import { UserIdUtils } from '../../../utils/userIdUtils';
 import {
   Briefcase,
   Building2,
@@ -80,7 +81,7 @@ const Postjob = () => {
   }, [isEditMode, editJobId]);
 
   const loadOrganization = async () => {
-    const organizationId = user?.recruiterProfile?.organizationId?.id || user?.recruiterProfile?.organizationId || user?.organizationId;
+    const organizationId = UserIdUtils.getOrganizationId(user);
     if (!organizationId) {
       setErrors({ organization: 'No organization found. Please register your organization first.' });
       setLoading(false);

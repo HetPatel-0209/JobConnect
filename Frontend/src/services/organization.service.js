@@ -20,14 +20,16 @@ export const OrganizationService = {
      */
     createOrganization: async (organizationData) => {
         return await api.post('/organizations', organizationData);
-    },
-
-    /**
+    },    /**
      * Get organization by ID
      * @param {string} orgId - Organization ID
      * @returns {Promise<Object>} Organization details
      */
     getOrganization: async (orgId) => {
+        // Validate orgId before making the request
+        if (!orgId || typeof orgId !== 'string' || orgId.trim() === '' || orgId === '[object Object]') {
+            throw new Error('Invalid organization ID provided');
+        }
         return await api.get(`/organizations/${orgId}`);
     },
 
