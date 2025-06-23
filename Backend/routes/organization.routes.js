@@ -16,9 +16,10 @@ const { uploadOrganizationFiles, handleUploadError } = require('../middlewares/u
 router.get('/gst/:gstNumber', fetchOrganizationByGST);
 router.get('/', getAllOrganizations);
 router.get('/:orgId', getOrganization);
+router.post('/', organizationValidation, createOrganization); // Allow unauthenticated organization creation
 
 // Protected routes - Recruiter only
-router.post('/', authenticate, authorizeRoles('recruiter'), organizationValidation, createOrganization);
+router.post('/', authenticate, authorizeRoles('recruiter'), organizationValidation);
 router.put('/:orgId', authenticate, authorizeRoles('recruiter'), updateOrganization);
 router.post('/:orgId/images', authenticate, authorizeRoles('recruiter'), uploadOrganizationFiles, handleUploadError, uploadOrganizationImages);
 
