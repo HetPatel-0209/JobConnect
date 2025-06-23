@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../../../components/common/Footer';
 import { OrganizationService } from '../../../services/organization.service';
@@ -55,6 +55,11 @@ export default function RegisterOrganization() {
     instagram: '',
     website: ''
   });
+
+  // Clean up any pending organization data since backend now supports unauthenticated creation
+  useEffect(() => {
+    localStorage.removeItem('pendingOrganizationData');
+  }, []);
 
   const isValidGstin = (val) =>
     /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(val);
@@ -127,27 +132,40 @@ export default function RegisterOrganization() {
     let valid = true;
     let errors = { linkedin: '', twitter: '', instagram: '', website: '' };
 
-    if (form.linkedin && !form.linkedin.startsWith('https://www.linkedin.com/')) {
-      errors.linkedin = 'LinkedIn URL must start with https://www.linkedin.com/';
-      valid = false;
+    // LinkedIn validation - more flexible
+    if (form.linkedin && form.linkedin.trim()) {
+      const linkedinPattern = /^https?:\/\/(www\.)?linkedin\.com\/(in|company)\/.+/i;
+      if (!linkedinPattern.test(form.linkedin)) {
+        errors.linkedin = 'Please enter a valid LinkedIn URL (e.g., https://linkedin.com/company/your-company)';
+        valid = false;
+      }
     }
 
-    if (form.twitter && !form.twitter.startsWith('https://twitter.com/')) {
-      errors.twitter = 'Twitter URL must start with https://twitter.com/';
-      valid = false;
+    // X (Twitter) validation - more flexible, support both twitter.com and x.com
+    if (form.twitter && form.twitter.trim()) {
+      const twitterPattern = /^https?:\/\/(www\.)?(twitter\.com|x\.com)\/.+/i;
+      if (!twitterPattern.test(form.twitter)) {
+        errors.twitter = 'Please enter a valid X (Twitter) URL (e.g., https://x.com/your-company)';
+        valid = false;
+      }
     }
 
-    if (form.instagram && !form.instagram.startsWith('https://www.instagram.com/')) {
-      errors.instagram = 'Instagram URL must start with https://www.instagram.com/';
-      valid = false;
+    // Instagram validation - more flexible
+    if (form.instagram && form.instagram.trim()) {
+      const instagramPattern = /^https?:\/\/(www\.)?instagram\.com\/.+/i;
+      if (!instagramPattern.test(form.instagram)) {
+        errors.instagram = 'Please enter a valid Instagram URL (e.g., https://instagram.com/your-company)';
+        valid = false;
+      }
     }
 
-    if (
-      form.website &&
-      !(form.website.startsWith('https://') || form.website.startsWith('http://'))
-    ) {
-      errors.website = 'Website URL must start with http:// or https://';
-      valid = false;
+    // Website validation - more flexible
+    if (form.website && form.website.trim()) {
+      const websitePattern = /^https?:\/\/.+\..+/i;
+      if (!websitePattern.test(form.website)) {
+        errors.website = 'Please enter a valid website URL (e.g., https://www.yourcompany.com)';
+        valid = false;
+      }
     }
 
     setUrlErrors(errors);
@@ -156,23 +174,36 @@ export default function RegisterOrganization() {
 
   // Separate function for validation without side effects
   const checkURLsValid = () => {
-    if (form.linkedin && !form.linkedin.startsWith('https://www.linkedin.com/')) {
-      return false;
+    // LinkedIn validation
+    if (form.linkedin && form.linkedin.trim()) {
+      const linkedinPattern = /^https?:\/\/(www\.)?linkedin\.com\/(in|company)\/.+/i;
+      if (!linkedinPattern.test(form.linkedin)) {
+        return false;
+      }
     }
 
-    if (form.twitter && !form.twitter.startsWith('https://twitter.com/')) {
-      return false;
+    // X (Twitter) validation
+    if (form.twitter && form.twitter.trim()) {
+      const twitterPattern = /^https?:\/\/(www\.)?(twitter\.com|x\.com)\/.+/i;
+      if (!twitterPattern.test(form.twitter)) {
+        return false;
+      }
     }
 
-    if (form.instagram && !form.instagram.startsWith('https://www.instagram.com/')) {
-      return false;
+    // Instagram validation
+    if (form.instagram && form.instagram.trim()) {
+      const instagramPattern = /^https?:\/\/(www\.)?instagram\.com\/.+/i;
+      if (!instagramPattern.test(form.instagram)) {
+        return false;
+      }
     }
 
-    if (
-      form.website &&
-      !(form.website.startsWith('https://') || form.website.startsWith('http://'))
-    ) {
-      return false;
+    // Website validation
+    if (form.website && form.website.trim()) {
+      const websitePattern = /^https?:\/\/.+\..+/i;
+      if (!websitePattern.test(form.website)) {
+        return false;
+      }
     }
 
     return true;
@@ -218,17 +249,35 @@ export default function RegisterOrganization() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    console.log('🚀 Form submission started');
+    console.log('👤 User info:', user || 'Not logged in');
+    console.log('🔑 Token in localStorage:', localStorage.getItem('token') ? 'Present' : 'Missing');
+    console.log('📋 Form validation status:', {
+      isFormValid,
+      company: !!company,
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      about: form.about.trim(),
+      companySize: form.companySize.trim(),
+      urlsValid: checkURLsValid()
+    });
+
     if (!isFormValid) {
+      console.error('❌ Form validation failed');
       setError('Please fill out all required fields with valid values before submitting.');
       return;
     }
 
     // Validate URLs and set errors for display
     if (!validateURLs()) {
+      console.error('❌ URL validation failed');
       setError('Please fix the URL validation errors before submitting.');
       return;
     }
 
+    // Organization registration is now open to all users (authenticated or not)
+
+    console.log('✅ All validations passed, proceeding with submission');
     setSubmitLoading(true);
     setError('');
 
@@ -258,8 +307,12 @@ export default function RegisterOrganization() {
         autoFetch: true // This tells backend we already have GST data
       };
 
+      console.log('📤 Submitting organization data:', organizationData);
+
       // Create organization
       const response = await OrganizationService.createOrganization(organizationData);
+
+      console.log('📥 Organization creation response:', response);
 
       if (response.success) {
         // If we have logo or banner files, upload them
@@ -276,17 +329,21 @@ export default function RegisterOrganization() {
           }
         }
 
-        // Update user's organization reference
-        // The backend should handle creating the recruiter profile, but we can update locally for now
-        const userData = {
-          ...user,
-          organizationId: response.data.id,
-          recruiterProfile: {
-            ...user.recruiterProfile,
-            organizationId: response.data
-          }
-        };
-        localStorage.setItem('user', JSON.stringify(userData));
+        // Update user's organization reference if user is logged in
+        if (user) {
+          const userData = {
+            ...user,
+            organizationId: response.data.id,
+            recruiterProfile: {
+              ...user.recruiterProfile,
+              organizationId: response.data
+            }
+          };
+          localStorage.setItem('user', JSON.stringify(userData));
+          console.log('✅ Updated user data with organization ID');
+        } else {
+          console.log('ℹ️ No user logged in - organization created successfully, user will need to register/login');
+        }
 
         navigate('/registration-success', {
           state: {
@@ -295,11 +352,27 @@ export default function RegisterOrganization() {
           }
         });
       } else {
+        console.error('❌ Organization creation failed:', response);
         setError(response.message || 'Failed to register organization');
       }
     } catch (error) {
-      console.error(error);
-      setError(error.message || 'Registration failed. Please try again.');
+      console.error('❌ Organization registration error:', error);
+
+      // Handle different types of errors
+      if (error.response) {
+        // Server responded with error status
+        const errorMessage = error.response.data?.message || error.response.data?.error || 'Server error occurred';
+        console.error('Server error details:', error.response.data);
+        setError(`Registration failed: ${errorMessage}`);
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error('Network error:', error.request);
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        // Something else happened
+        console.error('Unexpected error:', error.message);
+        setError(error.message || 'Registration failed. Please try again.');
+      }
     } finally {
       setSubmitLoading(false);
     }
@@ -736,7 +809,7 @@ export default function RegisterOrganization() {
                           name="linkedin"
                           value={form.linkedin}
                           onChange={handleChange}
-                          placeholder="https://www.linkedin.com/company/your-company"
+                          placeholder="https://linkedin.com/company/your-company"
                           className={urlErrors.linkedin ? errorInputClasses : inputClasses}
                         />
                         {urlErrors.linkedin && (
@@ -751,7 +824,7 @@ export default function RegisterOrganization() {
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                           <div className="flex items-center gap-2">
                             <ExternalLink className="w-4 h-4 text-blue-600" />
-                            Twitter URL
+                            X (Twitter) URL
                           </div>
                         </label>
                         <input
@@ -759,7 +832,7 @@ export default function RegisterOrganization() {
                           name="twitter"
                           value={form.twitter}
                           onChange={handleChange}
-                          placeholder="https://twitter.com/your-company"
+                          placeholder="https://x.com/your-company"
                           className={urlErrors.twitter ? errorInputClasses : inputClasses}
                         />
                         {urlErrors.twitter && (
@@ -782,7 +855,7 @@ export default function RegisterOrganization() {
                           name="instagram"
                           value={form.instagram}
                           onChange={handleChange}
-                          placeholder="https://www.instagram.com/your-company"
+                          placeholder="https://instagram.com/your-company"
                           className={urlErrors.instagram ? errorInputClasses : inputClasses}
                         />
                         {urlErrors.instagram && (
@@ -818,6 +891,22 @@ export default function RegisterOrganization() {
                         <option value="1000+">1000+ employees</option>
                       </select>
                     </div>
+
+                    {/* Form Validation Debug Info */}
+                    {process.env.NODE_ENV === 'development' && (
+                      <div className="mb-4 p-4 bg-gray-100 rounded-lg text-sm">
+                        <h4 className="font-semibold mb-2">Form Validation Status:</h4>
+                        <ul className="space-y-1">
+                          <li>Company Data: {company ? '✅' : '❌'}</li>
+                          <li>Email: {form.email.trim() ? '✅' : '❌'} ({form.email})</li>
+                          <li>Phone: {form.phone.trim() ? '✅' : '❌'} ({form.phone})</li>
+                          <li>About: {form.about.trim() ? '✅' : '❌'} ({form.about.length} chars)</li>
+                          <li>Company Size: {form.companySize.trim() ? '✅' : '❌'} ({form.companySize})</li>
+                          <li>URLs Valid: {checkURLsValid() ? '✅' : '❌'}</li>
+                          <li>Overall Valid: {isFormValid ? '✅' : '❌'}</li>
+                        </ul>
+                      </div>
+                    )}
 
                     {/* Submit Button */}
                     <div className="flex justify-center pt-6 border-t border-gray-200">

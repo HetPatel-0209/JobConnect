@@ -19,7 +19,15 @@ export const OrganizationService = {
      * @returns {Promise<Object>} Created organization
      */
     createOrganization: async (organizationData) => {
-        return await api.post('/organizations', organizationData);
+        console.log('🌐 OrganizationService: Creating organization with data:', organizationData);
+        try {
+            const response = await api.post('/organizations', organizationData);
+            console.log('🌐 OrganizationService: Organization creation response:', response);
+            return response;
+        } catch (error) {
+            console.error('🌐 OrganizationService: Organization creation failed:', error);
+            throw error;
+        }
     },    /**
      * Get organization by ID
      * @param {string} orgId - Organization ID
