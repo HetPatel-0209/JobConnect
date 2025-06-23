@@ -522,6 +522,12 @@ export const CacheInvalidation = {    // Invalidate user-related cache when prof
                 console.log('🗑️ CacheInvalidation: Invalidating application cache');
                 CacheInvalidation.invalidateApplicationCache(data.userId, data.jobId);
                 break;
+            case 'application_status_changed':
+                console.log('🗑️ CacheInvalidation: Invalidating caches for application_status_changed');
+                if (data.userId) {
+                    CacheInvalidation.invalidateApplicationCache(data.userId, data.jobId);
+                }
+                break;
             case 'job_posted':
                 console.log('🗑️ CacheInvalidation: Invalidating job and recruiter cache for job_posted');
                 CacheInvalidation.invalidateJobCache();

@@ -1088,6 +1088,28 @@ exports.updateApplicationStatus = async (req, res) => {
         application.status = status;
         await application.save();
 
+        // Emit real-time event for application status change
+        const io = req.app.get('io');
+        if (io && oldStatus !== status) {
+            // Notify the applicant about status change
+            io.to(`user_${application.applicant._id}`).emit('application_status_changed', {
+                applicationId: application._id.toString(),
+                userId: application.applicant._id.toString(),
+                jobId: application.job._id.toString(),
+                oldStatus,
+                newStatus: status,
+                jobTitle: application.job.title,
+                companyName: application.job.organization?.name || 'Company',
+                timestamp: new Date()
+            });
+
+            // Also emit stats_updated event to trigger cache refresh for user stats
+            io.to(`user_${application.applicant._id}`).emit('stats_updated', {
+                userId: application.applicant._id.toString(),
+                timestamp: new Date()
+            });
+        }
+
         // Send email notifications for status changes (only if recruiter is updating)
         if (isRecruiter && oldStatus !== status) {
             const applicantEmail = application.applicant.email;

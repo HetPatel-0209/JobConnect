@@ -505,7 +505,7 @@ export default function JobDashboard() {
       onClick: () => navigate('/user/saved-jobs')
     }, {
       title: 'Interviews',
-      value: dashboardStats?.interview || 0,
+      value: dashboardStats?.interviews || 0,
       subtitle: 'Scheduled',
       icon: <Calendar className="w-6 h-6 text-green-600" />,
       bgColor: 'bg-green-50',

@@ -244,16 +244,22 @@ class RealtimeCacheService {
      */
     handleApplicationStatusChanged(data) {
         console.log('Real-time: Application status changed', data);
-        
+
         if (data.applicationId && data.userId) {
             // Update application cache
             const appKey = CacheKeys.APPLICATION_DETAILS(data.applicationId);
             if (data.applicationData) {
                 cacheService.updateRealtime(appKey, data.applicationData);
             }
-            
+
             // Invalidate user applications list
             cacheService.clearByPattern(`user_applications_${data.userId}_.*`);
+            cacheService.clearByPattern(`user_applied_jobs_${data.userId}_.*`);
+
+            // Invalidate user stats cache to refresh interview count
+            const userStatsKey = CacheKeys.USER_STATS(data.userId);
+            cacheService.delete(userStatsKey);
+            console.log(`🗑️ Invalidated user stats cache for user ${data.userId} due to application status change`);
         }
 
         cacheService.processRealtimeUpdate('application_status_changed', data);
