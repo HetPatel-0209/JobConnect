@@ -2,6 +2,36 @@ const Organization = require('../models/Organizations');
 const { fetchGSTData, validateGSTFormat } = require('../utils/gstService');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinaryService');
 
+// Helper function to validate MongoDB ObjectId
+const isValidObjectId = (id) => {
+    return id && typeof id === 'string' && id.trim() !== '' && id !== '[object Object]' && id.match(/^[0-9a-fA-F]{24}$/);
+};
+
+// Helper function to validate and return error response for invalid orgId
+const validateOrgId = (orgId) => {
+    if (!orgId || orgId.trim() === '' || orgId === '[object Object]') {
+        return {
+            valid: false,
+            error: {
+                success: false,
+                message: 'Invalid organization ID parameter'
+            }
+        };
+    }
+
+    if (!isValidObjectId(orgId)) {
+        return {
+            valid: false,
+            error: {
+                success: false,
+                message: 'Invalid organization ID format. Expected a valid MongoDB ObjectId.'
+            }
+        };
+    }
+
+    return { valid: true };
+};
+
 // organization data by gst number
 exports.fetchOrganizationByGST = async (req, res) => {
     try {
@@ -138,6 +168,12 @@ exports.getOrganization = async (req, res) => {
     try {
         const { orgId } = req.params;
 
+        // Validate orgId parameter
+        const validation = validateOrgId(orgId);
+        if (!validation.valid) {
+            return res.status(400).json(validation.error);
+        }
+
         const organization = await Organization.findById(orgId);
 
         if (!organization) {
@@ -176,6 +212,12 @@ exports.updateOrganization = async (req, res) => {
     try {
         const { orgId } = req.params;
         const updates = req.body;
+
+        // Validate orgId parameter
+        const validation = validateOrgId(orgId);
+        if (!validation.valid) {
+            return res.status(400).json(validation.error);
+        }
 
         delete updates.gstin;
         delete updates.logo;
@@ -261,6 +303,12 @@ exports.getAllOrganizations = async (req, res) => {
 exports.uploadOrganizationImages = async (req, res) => {
     try {
         const { orgId } = req.params;
+
+        // Validate orgId parameter
+        const validation = validateOrgId(orgId);
+        if (!validation.valid) {
+            return res.status(400).json(validation.error);
+        }
 
         // Check if organization exists
         const organization = await Organization.findById(orgId);
