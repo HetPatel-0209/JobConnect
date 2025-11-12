@@ -134,7 +134,7 @@ const calculateAIATSScore = async (resumeData, jobData) => {
                     `
                 }
             ],
-            model: "llama3-70b-8192",
+            model: "llama-3.3-70b-versatile",
             max_tokens: 500,
             temperature: 0.1
         });
